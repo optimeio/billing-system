@@ -1,0 +1,157 @@
+const Scanner = require("../models/Scanner");
+const Invoice = require("../models/Invoice");
+const QRCode = require("qrcode");
+
+// @desc    Generate QR for an invoice
+// @route   POST /api/scanners/generate/:invoiceId
+// @access  Admin/Staff
+exports.generateScanner = async (req, res) => {
+    try {
+        const { invoiceId } = req.params;
+
+        // Find invoice
+        const invoice = await Invoice.findById(invoiceId).populate("createdBy", "name");
+        if (!invoice) {
+            return res.status(404).json({ message: "Invoice not found" });
+        }
+
+        // Check if scanner already exists for this invoice
+        let scanner = await Scanner.findOne({ invoiceId });
+        if (scanner) {
+            return res.status(200).json({
+                message: "Scanner already exists",
+                scanner
+            });
+        }
+
+        // Generate QR code data
+        const qrData = JSON.stringify({
+            invoiceId: invoice._id,
+            invoiceNumber: invoice.invoiceNumber,
+            customerName: invoice.customerName,
+            grandTotal: invoice.grandTotal,
+            createdBy: invoice.createdBy ? invoice.createdBy.name : "Unknown"
+        });
+
+        // Create base64 QR Code image
+        const qrCodeImage = await QRCode.toDataURL(qrData);
+
+        // Save new scanner record
+        scanner = await Scanner.create({
+            invoiceId: invoice._id,
+            staffId: req.user._id, // The staff/admin requesting generation
+            qrCode: qrCodeImage,
+            status: "pending"
+        });
+
+        res.status(201).json({
+            message: "Scanner created successfully",
+            scanner
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Get all scanners
+// @route   GET /api/scanners
+// @access  Admin/Staff
+exports.getScanners = async (req, res) => {
+    try {
+        let query = {};
+        
+        // Staff can only view their own generated scanners
+        if (req.user.role !== "admin") {
+            query.staffId = req.user._id;
+        }
+
+        const scanners = await Scanner.find(query)
+            .populate("invoiceId", "invoiceNumber customerName grandTotal")
+            .populate("staffId", "name email")
+            .populate("scannedBy", "name")
+            .sort({ createdAt: -1 });
+
+        res.json(scanners);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Get single scanner details
+// @route   GET /api/scanners/:id
+// @access  Admin/Staff
+exports.getScannerById = async (req, res) => {
+    try {
+        const scanner = await Scanner.findById(req.params.id)
+            .populate("invoiceId")
+            .populate("staffId", "name email")
+            .populate("scannedBy", "name");
+
+        if (!scanner) {
+            return res.status(404).json({ message: "Scanner not found" });
+        }
+
+        // Check permission
+        if (req.user.role !== "admin" && scanner.staffId._id.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: "Not authorized to view this scanner" });
+        }
+
+        res.json(scanner);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Mark scanner as scanned
+// @route   PATCH /api/scanners/:id/scan
+// @access  Admin Only
+exports.markScanned = async (req, res) => {
+    try {
+        const scanner = await Scanner.findById(req.params.id);
+        if (!scanner) {
+            return res.status(404).json({ message: "Scanner not found" });
+        }
+
+        if (scanner.status === "scanned") {
+            return res.status(400).json({ message: "Scanner is already marked as scanned" });
+        }
+
+        scanner.status = "scanned";
+        scanner.scannedBy = req.user._id;
+        scanner.scannedAt = Date.now();
+
+        await scanner.save();
+
+        res.json({
+            message: "Scanner marked as scanned",
+            scanner
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Get scanner by invoice id
+// @route   GET /api/scanners/invoice/:invoiceId
+// @access  Admin/Staff
+exports.getByInvoice = async (req, res) => {
+    try {
+        const scanner = await Scanner.findOne({ invoiceId: req.params.invoiceId })
+            .populate("invoiceId")
+            .populate("staffId", "name")
+            .populate("scannedBy", "name");
+
+        if (!scanner) {
+            return res.status(404).json({ message: "Scanner not found for this invoice" });
+        }
+
+        // Check permission
+        if (req.user.role !== "admin" && scanner.staffId._id.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: "Not authorized to view this scanner" });
+        }
+
+        res.json(scanner);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
