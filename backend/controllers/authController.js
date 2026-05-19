@@ -37,28 +37,46 @@ exports.login = async (req, res) => {
 
         const token = generateToken(user._id, user.role);
 
-        // If it's the first login, send an OTP automatically (Skip for inventory role)
-        if (user.isFirstLogin && user.role !== "inventory") {
-            const otp = Math.floor(100000 + Math.random() * 900000).toString();
-            user.otp = otp;
-            user.otpExpiry = Date.now() + 10 * 60 * 1000; // 10 mins
-            await user.save({ validateBeforeSave: false });
-
-            const message = `Your account security code is: ${otp}. Use this to set your permanent password.`;
-            console.log(`Sending OTP to: ${user.email}...`);
-            await sendEmail(user.email, "Security Verification - First Login", message);
-            console.log("OTP Email sent successfully.");
-        }
+        const userResponse = user.toObject();
+        delete userResponse.password;
+        
+        userResponse.isFirstLogin = (user.role === "inventory") ? false : user.isFirstLogin;
+        userResponse.otpSent = false;
 
         res.json({
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            isFirstLogin: (user.role === "inventory") ? false : user.isFirstLogin,
-            otpSent: user.isFirstLogin && user.role !== "inventory", // Tell frontend OTP was sent
+            ...userResponse,
             token
         });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Send OTP for first login password change
+// @route   POST /api/auth/send-first-login-otp
+exports.sendFirstLoginOtp = async (req, res) => {
+    const userId = req.user._id;
+
+    try {
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        if (!user.isFirstLogin || user.role === "inventory") {
+            return res.status(400).json({ message: "OTP not required for this account" });
+        }
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        user.otp = otp;
+        user.otpExpiry = Date.now() + 10 * 60 * 1000; // 10 mins
+        await user.save({ validateBeforeSave: false });
+
+        const message = `Your account security code is: ${otp}. Use this to set your permanent password.`;
+        console.log(`[TEST] First Login OTP for ${user.email}: ${otp}`);
+        console.log(`Sending OTP to: ${user.email}...`);
+        await sendEmail(user.email, "Security Verification - First Login", message);
+        console.log("OTP Email sent successfully.");
+
+        res.json({ message: "OTP sent successfully" });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -69,6 +87,10 @@ exports.login = async (req, res) => {
 exports.firstLoginChange = async (req, res) => {
     const { otp, newPassword } = req.body || {};
     const userId = req.user._id;
+
+    if (!newPassword) {
+        return res.status(400).json({ message: "Please provide a new password" });
+    }
 
     try {
         const user = await User.findById(userId);
@@ -87,7 +109,13 @@ exports.firstLoginChange = async (req, res) => {
         user.otpExpiry = null;
         await user.save();
 
-        res.json({ message: "Password updated successfully. You can now use the system." });
+        const userResponse = user.toObject();
+        delete userResponse.password;
+
+        res.json({ 
+            message: "Password updated successfully. You can now use the system.",
+            user: userResponse
+        });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -126,14 +154,20 @@ exports.forgotPassword = async (req, res) => {
 // @desc    Verify OTP
 // @route   POST /api/auth/verify-otp
 exports.verifyOtp = async (req, res) => {
-    const { email, otp } = req.body || {};
+    const { email, loginId, otp } = req.body || {};
 
     try {
-        const user = await User.findOne({ 
-            email, 
-            otp, 
-            otpExpiry: { $gt: Date.now() } 
-        });
+        const query = { otp, otpExpiry: { $gt: Date.now() } };
+        
+        if (loginId) {
+            query.$or = [{ email: loginId }, { staffId: loginId }];
+        } else if (email) {
+            query.email = email;
+        } else {
+            return res.status(400).json({ message: "Email or Login ID required" });
+        }
+
+        const user = await User.findOne(query);
 
         if (!user) {
             return res.status(400).json({ message: "Invalid or expired OTP" });

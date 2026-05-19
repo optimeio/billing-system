@@ -90,6 +90,27 @@ This document provides an overview of the backend setup and features implemented
 | `/` | `GET` | None | List expenses (Admin: all, Staff: own). |
 | `/:id/pay` | `PATCH`| None | Mark the expense/vendor QR as Paid (**Admin Only**). |
 
+#### 8. Admin Scanner View (`/api/admin/scanners`)
+*Requires `Authorization: Bearer <JWT_TOKEN>` with `admin` role.*
+
+| Route | Method | Body (JSON) | Description |
+| :--- | :--- | :--- | :--- |
+| `/` | `GET` | None | Get all scanners. Supports filters `?status=pending` and search `?search=INV1001`. |
+| `/:id` | `GET` | None | Get full scanner details with deeply populated data. |
+| `/:id/verify` | `PATCH`| `{"remarks": "..."}` | Verify a scanned record manually. |
+
+#### 9. Payment & Stock Automation (`/api/payments`)
+*Requires `Authorization: Bearer <JWT_TOKEN>`*
+
+| Route | Method | Body (JSON) | Description |
+| :--- | :--- | :--- | :--- |
+| `/create/:invoiceId` | `POST` | `{"method": "cash"}` | Create a payment request for an invoice. |
+| `/razorpay-order/:invoiceId` | `POST` | None | Create a Razorpay order. |
+| `/:id/approve` | `PATCH`| None | Approve payment & Auto-reduce Stock (**Admin Only**). |
+| `/:id/reject` | `PATCH`| None | Reject payment (**Admin Only**). |
+| `/` | `GET` | None | Get all payments (**Admin Only**). |
+| `/:id` | `GET` | None | View specific payment details (**Admin Only**). |
+
 ---
 
 ## 🚀 How to Test

@@ -22,7 +22,7 @@ router.get("/", getScanners);
 router.get("/:id", getScannerById);
 router.get("/invoice/:invoiceId", getByInvoice);
 
-// Admin only mark as scanned
-router.patch("/:id/scan", authorizeRoles, markScanned);
+// Anyone (Staff or Admin) can mark as scanned
+router.patch("/:id/scan", markScanned);
 
 module.exports = router;

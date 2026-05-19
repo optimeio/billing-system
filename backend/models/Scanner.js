@@ -17,7 +17,7 @@ const scannerSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ["pending", "scanned"],
+        enum: ["pending", "scanned", "verified"],
         default: "pending"
     },
     scannedBy: {
@@ -28,6 +28,18 @@ const scannerSchema = new mongoose.Schema({
     scannedAt: {
         type: Date,
         default: null
+    },
+    verifiedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null
+    },
+    verifiedAt: {
+        type: Date,
+        default: null
+    },
+    remarks: {
+        type: String
     }
 }, { timestamps: true });
 

@@ -5,7 +5,9 @@ const {
     getInvoices,
     getInvoiceById,
     cancelInvoice,
-    downloadInvoice
+    markInvoiceAsPaid,
+    downloadInvoice,
+    deleteInvoice
 } = require("../controllers/invoiceController");
 const { protect } = require("../middleware/authMiddleware");
 
@@ -19,5 +21,7 @@ router.route("/")
 router.get("/:id", getInvoiceById);
 router.get("/:id/download", downloadInvoice);
 router.patch("/:id/cancel", cancelInvoice);
+router.patch("/:id/paid", markInvoiceAsPaid);
+router.delete("/:id", deleteInvoice);
 
 module.exports = router;

@@ -2,13 +2,21 @@ const Invoice = require("../models/Invoice");
 const Product = require("../models/Product");
 const Category = require("../models/Category");
 const { generateInvoicePDF } = require("../utils/pdfGenerator");
+const { findOrCreateCategory, findOrCreateProduct } = require("../utils/autoProductService");
+const Notification = require("../models/Notification");
+const { getIO } = require("../utils/socketService");
+const { sendEmail } = require("../utils/emailService");
+
 
 // @desc    Create new invoice
 // @route   POST /api/invoices
 // @access  Admin/Staff
 exports.createInvoice = async (req, res) => {
     try {
-        const { customerName, customerPhone, items, tax = 0, discount = 0 } = req.body;
+        let { customerName, customerPhone, items, tax = 0, discount = 0 } = req.body;
+
+        customerName = customerName || "Walk-in Customer";
+        customerPhone = customerPhone || "0000000000";
 
         if (!items || items.length === 0) {
             return res.status(400).json({ message: "Invoice must have at least one item." });
@@ -24,38 +32,39 @@ exports.createInvoice = async (req, res) => {
 
         let processedItems = [];
         let subtotal = 0;
+        let autoCreatedProducts = [];
+        let autoCreatedCategories = [];
 
         // 2. Process each item
         for (let item of items) {
             let product;
 
-            // Find product by ID or Name
+            // Find product by ID
             if (item.productId) {
                 product = await Product.findById(item.productId);
             } else if (item.productName) {
-                product = await Product.findOne({ name: { $regex: new RegExp(`^${item.productName}$`, "i") } });
-            }
-
-            // If product doesn't exist, create it auto
-            if (!product) {
                 let categoryId = null;
                 
                 // Handle Category auto-creation if provided
                 if (item.category) {
-                    let category = await Category.findOne({ name: { $regex: new RegExp(`^${item.category}$`, "i") } });
-                    if (!category) {
-                        category = await Category.create({ name: item.category });
+                    const categoryResult = await findOrCreateCategory(item.category);
+                    if (categoryResult.category) {
+                        categoryId = categoryResult.category._id;
+                        if (categoryResult.isNew) {
+                            autoCreatedCategories.push(categoryResult.category);
+                        }
                     }
-                    categoryId = category._id;
                 }
 
-                product = await Product.create({
-                    name: item.productName || "Unnamed Product",
-                    price: item.price || 0,
-                    stock: 0, // Default stock as requested
-                    category: categoryId,
-                    unit: item.unit || "pcs"
-                });
+                const productResult = await findOrCreateProduct(item.productName, categoryId, item.price, req.user._id);
+                product = productResult.product;
+                if (productResult.isNew) {
+                    autoCreatedProducts.push(product);
+                }
+            }
+
+            if (!product) {
+                return res.status(400).json({ message: `Product could not be found or created for item: ${item.productName || item.productId}` });
             }
 
             // Calculate totals for line item
@@ -90,8 +99,50 @@ exports.createInvoice = async (req, res) => {
             createdBy: req.user._id
         });
 
+        // 5. Emit socket event and create notification
+        try {
+            const io = getIO();
+            const notification = await Notification.create({
+                userId: null, // Global notification for Admin
+                title: "New Invoice Created",
+                message: `Invoice ${invoice.invoiceNumber} created by ${req.user.name || "Staff"}`,
+                type: "invoiceCreated"
+            });
+            io.emit("invoiceCreated", { invoice, notification });
+        } catch (err) {
+            console.error("Socket error on invoice create:", err);
+        }
+
+        // 6. Send Email Notification to Admin
+        try {
+            const adminEmailMessage = `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
+                    <h2 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px;">New Invoice Generated</h2>
+                    <p>A new invoice has been created in the system.</p>
+                    <div style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                        <p style="margin: 5px 0;"><b>Invoice Number:</b> ${invoice.invoiceNumber}</p>
+                        <p style="margin: 5px 0;"><b>Customer:</b> ${customerName}</p>
+                        <p style="margin: 5px 0;"><b>Total Amount:</b> ₹${grandTotal.toFixed(2)}</p>
+                        <p style="margin: 5px 0;"><b>Created By:</b> ${req.user.name} (${req.user.role})</p>
+                    </div>
+                    <p><b>Items Summary:</b></p>
+                    <ul style="color: #555;">
+                        ${processedItems.map(item => `<li>${item.name} x ${item.qty} - ₹${item.total.toFixed(2)}</li>`).join('')}
+                    </ul>
+                    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                    <p style="font-size: 0.85em; color: #7f8c8d;">This is an automated alert from the SM GROUPS Billing System.</p>
+                </div>
+            `;
+            await sendEmail(process.env.EMAIL_USER, `New Invoice Created: ${invoice.invoiceNumber}`, "", adminEmailMessage);
+        } catch (emailErr) {
+            console.error("Failed to send admin notification email for invoice:", emailErr.message);
+        }
+
+
         res.status(201).json({
             message: "Invoice created successfully",
+            autoCreatedProducts,
+            autoCreatedCategories,
             invoice
         });
 
@@ -168,6 +219,30 @@ exports.cancelInvoice = async (req, res) => {
     }
 };
 
+// @desc    Mark invoice as paid (Admin Only)
+// @route   PATCH /api/invoices/:id/paid
+exports.markInvoiceAsPaid = async (req, res) => {
+    try {
+        const invoice = await Invoice.findById(req.params.id);
+        if (!invoice) {
+            return res.status(404).json({ message: "Invoice not found" });
+        }
+
+        // Only Admin can manually override payment status
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ message: "Only administrators can manually mark invoices as paid" });
+        }
+
+        invoice.paymentStatus = "paid";
+        await invoice.save();
+
+        res.json({ message: "Invoice marked as PAID successfully", invoice });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+
 // @desc    Download Invoice PDF
 // @route   GET /api/invoices/:id/download
 exports.downloadInvoice = async (req, res) => {
@@ -185,6 +260,26 @@ exports.downloadInvoice = async (req, res) => {
         );
 
         generateInvoicePDF(invoice, res);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+// @desc    Delete invoice (Admin Only)
+// @route   DELETE /api/invoices/:id
+exports.deleteInvoice = async (req, res) => {
+    try {
+        const invoice = await Invoice.findById(req.params.id);
+        if (!invoice) {
+            return res.status(404).json({ message: "Invoice not found" });
+        }
+
+        // Restriction: Only Admin can delete invoices for financial record integrity
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ message: "Only administrators can permanently delete invoices" });
+        }
+
+        await Invoice.findByIdAndDelete(req.params.id);
+        res.json({ message: "Invoice deleted permanently" });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

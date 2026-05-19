@@ -30,12 +30,22 @@ const protect = async (req, res, next) => {
     }
 };
 
-const adminOnly = (req, res, next) => {
-    if (req.user && req.user.role === "admin") {
+const authorizeRoles = (...roles) => {
+    return (req, res, next) => {
+        if (!roles.includes(req.user.role)) {
+            return res.status(403).json({
+                message: `Role (${req.user.role}) is not allowed to access this resource`
+            });
+        }
         next();
-    } else {
-        res.status(403).json({ message: "Access denied. Admin only." });
-    }
+    };
 };
 
-module.exports = { protect, adminOnly };
+const adminOnly = authorizeRoles("admin");
+
+module.exports = { 
+    protect, 
+    adminOnly,
+    verifyToken: protect,
+    authorizeRoles
+};

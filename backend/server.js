@@ -10,8 +10,21 @@ const invoiceRoutes = require("./routes/invoiceRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const scannerRoutes = require("./routes/scannerRoutes");
 const expenseRoutes = require("./routes/expenseRoutes");
+const adminScannerRoutes = require("./routes/adminScannerRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
+const profileRoutes = require("./routes/profileRoutes");
+const leaveRoutes = require("./routes/leaveRoutes");
+const announcementRoutes = require("./routes/announcementRoutes");
+const http = require("http");
+const path = require("path");
+const { init } = require("./utils/socketService");
 
 const app = express();
+const server = http.createServer(app);
+
+// Initialize Socket.io
+init(server);
 
 // Middleware
 app.use(cors());
@@ -42,7 +55,15 @@ app.use("/api/invoices", invoiceRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/scanners", scannerRoutes);
 app.use("/api/expenses", expenseRoutes);
+app.use("/api/admin/scanners", adminScannerRoutes);
+app.use("/api/payments", paymentRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/profile", profileRoutes);
+app.use("/api/leaves", leaveRoutes);
+app.use("/api/announcements", announcementRoutes);
 
+// Static file serving for uploads
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Database Connection
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -65,6 +86,6 @@ app.use((req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
 });

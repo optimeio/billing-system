@@ -43,6 +43,14 @@ const userSchema = new mongoose.Schema({
     otpExpiry: {
         type: Date,
         default: null
+    },
+    address: {
+        type: String,
+        default: ""
+    },
+    profilePic: {
+        type: String,
+        default: ""
     }
 }, { timestamps: true });
 

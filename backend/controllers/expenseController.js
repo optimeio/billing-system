@@ -1,29 +1,62 @@
 const Expense = require("../models/Expense");
+const Notification = require("../models/Notification");
+const { getIO } = require("../utils/socketService");
+const fs = require("fs");
+const path = require("path");
+const { sendEmail } = require("../utils/emailService");
 
-// @desc    Upload an expense/purchase request with QR
+
+// @desc    Add new expense request
 // @route   POST /api/expenses
 // @access  Staff/Admin
 exports.createExpense = async (req, res) => {
     try {
-        const { title, amount, category, vendorName, qrImage, description } = req.body;
-
-        if (!qrImage) {
-            return res.status(400).json({ message: "Vendor payment QR Image is required" });
+        const { title, description, amount, vendorName, category, paymentMethod } = req.body;
+        
+        let billFile = null;
+        if (req.file) {
+            // Save relative path for easy frontend access
+            billFile = `/uploads/${req.file.filename}`;
         }
 
         const expense = await Expense.create({
             title,
-            amount,
-            category,
-            vendorName,
-            qrImage, // Expecting a base64 string from frontend
             description,
-            recordedBy: req.user._id,
+            amount,
+            vendorName,
+            category,
+            paymentMethod,
+            billFile,
+            createdBy: req.user._id,
             status: "pending"
         });
 
+        // Notify Admin via Email
+        try {
+            const adminEmailMessage = `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; border: 1px solid #ddd; padding: 20px; border-radius: 10px;">
+                    <h2 style="color: #e67e22; border-bottom: 2px solid #e67e22; padding-bottom: 10px;">New Expense Request</h2>
+                    <p>A staff member has submitted a new expense for review.</p>
+                    <div style="background: #fdf7f2; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                        <p style="margin: 5px 0;"><b>Title:</b> ${title}</p>
+                        <p style="margin: 5px 0;"><b>Vendor:</b> ${vendorName}</p>
+                        <p style="margin: 5px 0;"><b>Amount:</b> ₹${parseFloat(amount).toFixed(2)}</p>
+                        <p style="margin: 5px 0;"><b>Submitted By:</b> ${req.user.name}</p>
+                        <p style="margin: 5px 0;"><b>File Attached:</b> ${billFile ? "Yes" : "No"}</p>
+                    </div>
+                    <p>Please log in to the admin portal to review and approve this expense.</p>
+                    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                    <p style="font-size: 0.8em; color: #7f8c8d;">SM GROUPS Financial Notifications</p>
+                </div>
+            `;
+            await sendEmail(process.env.EMAIL_USER, `New Expense Submitted: ${title}`, "", adminEmailMessage);
+        } catch (emailErr) {
+            console.error("Failed to send admin notification email for expense:", emailErr.message);
+        }
+
         res.status(201).json({
-            message: "Purchase request submitted successfully. Waiting for Admin payment.",
+
+            message: "Expense created successfully",
             expense
         });
     } catch (error) {
@@ -38,14 +71,15 @@ exports.getExpenses = async (req, res) => {
     try {
         let query = {};
         
-        // Staff can only see their own requests
+        // Staff sees only own expenses
         if (req.user.role !== "admin") {
-            query.recordedBy = req.user._id;
+            query.createdBy = req.user._id;
         }
 
         const expenses = await Expense.find(query)
-            .populate("recordedBy", "name email")
-            .populate("paidBy", "name")
+            .populate("createdBy", "name email staffId")
+            .populate("approvedBy", "name")
+            .populate("rejectedBy", "name")
             .sort({ createdAt: -1 });
 
         res.json(expenses);
@@ -54,32 +88,145 @@ exports.getExpenses = async (req, res) => {
     }
 };
 
-// @desc    Mark expense as paid (Admin scans the QR and pays offline)
-// @route   PATCH /api/expenses/:id/pay
-// @access  Admin Only
-exports.markPaid = async (req, res) => {
+// @desc    Get single expense
+// @route   GET /api/expenses/:id
+// @access  Staff/Admin
+exports.getExpenseById = async (req, res) => {
     try {
-        const expense = await Expense.findById(req.params.id);
-        
+        const expense = await Expense.findById(req.params.id)
+            .populate("createdBy", "name email staffId")
+            .populate("approvedBy", "name")
+            .populate("rejectedBy", "name");
+
         if (!expense) {
-            return res.status(404).json({ message: "Expense request not found" });
+            return res.status(404).json({ message: "Expense not found" });
         }
 
-        if (expense.status === "paid") {
-            return res.status(400).json({ message: "This expense has already been paid" });
+        if (req.user.role !== "admin" && expense.createdBy._id.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: "Not authorized" });
         }
 
-        expense.status = "paid";
-        expense.paidBy = req.user._id;
-        expense.paidAt = Date.now();
-
-        await expense.save();
-
-        res.json({
-            message: "Expense marked as paid successfully",
-            expense
-        });
+        res.json(expense);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
+
+// @desc    Approve expense
+// @route   PATCH /api/expenses/:id/approve
+// @access  Admin Only
+exports.approveExpense = async (req, res) => {
+    try {
+        const expense = await Expense.findById(req.params.id);
+        
+        if (!expense) return res.status(404).json({ message: "Expense not found" });
+        if (expense.status !== "pending") return res.status(400).json({ message: `Expense is already ${expense.status}` });
+
+        expense.status = "approved";
+        expense.approvedBy = req.user._id;
+        expense.approvedAt = Date.now();
+
+        await expense.save();
+
+        // Emit notification
+        try {
+            const io = getIO();
+            const notification = await Notification.create({
+                userId: expense.createdBy,
+                title: "Expense Approved",
+                message: `Your expense "${expense.title}" has been approved`,
+                type: "expensePaid"
+            });
+            io.emit("expensePaid", { expense, notification });
+        } catch (err) {
+            console.error("Socket error on expense approve:", err);
+        }
+
+        res.json({ message: "Expense approved successfully", expense });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Reject expense
+// @route   PATCH /api/expenses/:id/reject
+// @access  Admin Only
+exports.rejectExpense = async (req, res) => {
+    try {
+        const expense = await Expense.findById(req.params.id);
+        
+        if (!expense) return res.status(404).json({ message: "Expense not found" });
+        if (expense.status !== "pending") return res.status(400).json({ message: `Expense is already ${expense.status}` });
+
+        expense.status = "rejected";
+        expense.rejectedBy = req.user._id;
+        expense.rejectedAt = Date.now();
+
+        await expense.save();
+
+        res.json({ message: "Expense rejected successfully", expense });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Delete own pending expense
+// @route   DELETE /api/expenses/:id
+// @access  Staff/Admin
+exports.deleteExpense = async (req, res) => {
+    try {
+        console.log(`[DEBUG] Attempting to delete expense: ${req.params.id} by user: ${req.user.email} (${req.user.role})`);
+        
+        const expense = await Expense.findById(req.params.id);
+        if (!expense) {
+            console.log("[DEBUG] Expense not found");
+            return res.status(404).json({ message: "Expense not found" });
+        }
+
+        // Roles that are NOT 'staff' or 'inventory' are treated as privileged (Admin, Manager, Developer, Data Analyst, etc.)
+        const isPrivileged = !["staff", "inventory"].includes(req.user.role);
+
+
+        
+        if (!isPrivileged) {
+            if (expense.status !== "pending") {
+                console.log(`[DEBUG] Staff (${req.user.email}) cannot delete ${expense.status} expense`);
+                return res.status(400).json({ message: `Cannot delete a ${expense.status} expense. Only pending expenses can be deleted by staff.` });
+            }
+            if (expense.createdBy.toString() !== req.user._id.toString()) {
+                console.log(`[DEBUG] Staff (${req.user.email}) not authorized to delete expense created by ${expense.createdBy}`);
+                return res.status(403).json({ message: "Not authorized to delete this expense" });
+            }
+        }
+
+
+        // Remove uploaded file if exists
+        if (expense.billFile) {
+            try {
+                // Normalize path for Windows/Linux consistency
+                const relativePath = expense.billFile.startsWith("/") ? expense.billFile.substring(1) : expense.billFile;
+                const filePath = path.join(__dirname, "..", relativePath);
+                
+                console.log(`[DEBUG] Attempting to remove file: ${filePath}`);
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                    console.log("[DEBUG] File removed successfully");
+                } else {
+                    console.log("[DEBUG] File does not exist on disk, skipping deletion");
+                }
+            } catch (fileErr) {
+                console.error("[DEBUG] Error deleting file:", fileErr.message);
+                // We don't return 500 here because we still want to delete the DB record even if file is missing
+            }
+        }
+
+        await Expense.findByIdAndDelete(req.params.id);
+        console.log("[DEBUG] Expense record deleted from DB");
+
+        res.json({ message: "Expense deleted successfully" });
+    } catch (error) {
+        console.error("[DEBUG] CRITICAL DELETE ERROR:", error.message);
+        res.status(500).json({ message: error.message });
+    }
+};
+
