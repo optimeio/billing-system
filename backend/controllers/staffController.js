@@ -46,10 +46,9 @@ exports.createStaff = async (req, res) => {
                 </div>
             `;
             
-            // Send to Staff
-            await sendEmail(user.email, "Welcome to SM GROUPS - Your Account Credentials", "", staffMessage);
+            // Send to Staff in background
+            sendEmail(user.email, "Welcome to SM GROUPS - Your Account Credentials", "", staffMessage).catch(err => console.error("Email failed:", err));
 
-            // Send confirmation to Admin (Owner)
             const adminMessage = `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; border: 1px solid #ddd; padding: 20px;">
                     <h2 style="color: #2c3e50;">Staff Account Created</h2>
@@ -63,13 +62,14 @@ exports.createStaff = async (req, res) => {
                     <p>The staff member has been sent an email with their login credentials.</p>
                 </div>
             `;
-            // Note: sendEmail already BCCs process.env.EMAIL_USER, but we send a specific one to the creating admin too if it's different
+
+            // Send confirmation to Admin (Owner) in background
             if (req.user.email !== process.env.EMAIL_USER) {
-                await sendEmail(req.user.email, "Staff Creation Confirmation", "", adminMessage);
+                sendEmail(req.user.email, "Staff Creation Confirmation", "", adminMessage).catch(err => console.error("Admin email failed:", err));
             }
 
             res.status(201).json({
-                message: "Staff created successfully and welcome email sent",
+                message: "Staff created successfully. Emails are being sent in the background.",
                 user: {
                     id: user._id,
                     name: user.name,
