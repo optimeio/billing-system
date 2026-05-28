@@ -1,5 +1,7 @@
 const nodemailer = require("nodemailer");
+const logger = require("./logger");
 
+// Configure the transporter for Gmail
 const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 465,
@@ -17,9 +19,9 @@ const transporter = nodemailer.createTransport({
 transporter.verify((error, success) => {
     if (error) {
         // Don’t crash the server if email creds are missing.
-        console.error("❌ EMAIL SERVICE ERROR:", error && error.message ? error.message : error);
+        logger.error("❌ EMAIL SERVICE ERROR:", error && error.message ? error.message : error);
     } else {
-        console.log("✅ EMAIL SERVICE: Ready to send messages");
+        logger.info("✅ EMAIL SERVICE: Ready to send messages");
     }
 });
 
@@ -35,13 +37,13 @@ const sendEmail = async (to, subject, text, html) => {
             html
         };
         const info = await transporter.sendMail(mailOptions);
-        console.log(`📧 Email sent to ${to} (BCC: ${process.env.EMAIL_USER}): ${info.messageId}`);
+        logger.info(`📧 Email sent to ${to} (BCC: ${process.env.EMAIL_USER}): ${info.messageId}`);
         return info;
     } catch (error) {
-        console.error("❌ CRITICAL EMAIL ERROR:", error.message);
-        console.error("Details: Check if your EMAIL_USER and EMAIL_PASS (App Password) are correct.");
+        logger.error("❌ CRITICAL EMAIL ERROR:", error.message);
+        logger.error("Details: Check if your EMAIL_USER and EMAIL_PASS (App Password) are correct.");
         throw error;
     }
 };
 
-module.exports = { sendEmail };
+module.exports = { sendEmail, transporter };
