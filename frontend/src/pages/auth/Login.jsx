@@ -50,7 +50,13 @@ const Login = () => {
       }
 
       login(user, token);
-      navigate(user.role === 'admin' ? '/admin' : '/staff');
+      
+      // Normalize: admin → /admin, inventory → /inventory, everything else → /staff
+      const role = user.role?.toLowerCase().trim() || '';
+      if (role === 'admin') navigate('/admin');
+      else if (role === 'inventory') navigate('/inventory');
+      else navigate('/staff'); // staff, cashier, billing, etc. all go here
+
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed. Please try again.');
     } finally {

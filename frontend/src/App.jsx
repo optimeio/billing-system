@@ -1,5 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import useAuthStore from './store/authStore';
+import api from './services/api';
 
 // Layouts
 import AuthLayout from './layouts/AuthLayout';
@@ -33,24 +35,30 @@ import Announcements from './pages/staff/Announcements';
 import NotificationList from './pages/common/NotificationList';
 import Profile from './pages/common/Profile';
 
+// Normalize role: admin stays admin, inventory stays inventory, everything else is staff
+const getNormalizedRole = (role) => {
+  if (!role) return '';
+  const r = role.toLowerCase().trim();
+  if (r === 'admin') return 'admin';
+  if (r === 'inventory') return 'inventory';
+  return 'staff'; // all other roles (staff, cashier, billing, etc.) are treated as staff
+};
+
 // Protected Route Component
-const ProtectedRoute = ({ children, allowedRoles, rejectedRoles }) => {
+const ProtectedRoute = ({ children, allowedRoles }) => {
   const { isAuthenticated, user } = useAuthStore();
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !user || !user.role) {
     return <Navigate to="/login" replace />;
   }
 
-  const userRole = user?.role?.toLowerCase()?.trim();
-  const allowed = allowedRoles?.map(r => r.toLowerCase().trim());
-  const rejected = rejectedRoles?.map(r => r.toLowerCase().trim());
+  const normalizedRole = getNormalizedRole(user.role);
 
-  if (allowed && !allowed.includes(userRole)) {
-    return <Navigate to="/" replace />;
-  }
-
-  if (rejected && rejected.includes(userRole)) {
-    return <Navigate to="/" replace />;
+  if (allowedRoles && !allowedRoles.includes(normalizedRole)) {
+    // Redirect to the correct dashboard instead of / to avoid loops
+    if (normalizedRole === 'admin') return <Navigate to="/admin" replace />;
+    if (normalizedRole === 'inventory') return <Navigate to="/inventory" replace />;
+    return <Navigate to="/staff" replace />;
   }
 
   return children;
@@ -60,15 +68,32 @@ const ProtectedRoute = ({ children, allowedRoles, rejectedRoles }) => {
 const RootRedirect = () => {
   const { isAuthenticated, user } = useAuthStore();
   
-  if (!isAuthenticated) return <Landing />;
+  if (!isAuthenticated || !user || !user.role) return <Landing />;
   
-  const userRole = user?.role?.toLowerCase()?.trim();
+  const normalizedRole = getNormalizedRole(user.role);
 
-  if (userRole === 'admin') return <Navigate to="/admin" replace />;
+  if (normalizedRole === 'admin') return <Navigate to="/admin" replace />;
+  if (normalizedRole === 'inventory') return <Navigate to="/inventory" replace />;
   return <Navigate to="/staff" replace />;
 };
 
 function App() {
+  const { isAuthenticated } = useAuthStore();
+
+  // Clear old localStorage auth data (we moved to sessionStorage)
+  useEffect(() => {
+    localStorage.removeItem('sm-billing-auth');
+  }, []);
+
+  // Verify token with backend on app load
+  useEffect(() => {
+    if (isAuthenticated) {
+      api.get('/profile/me').catch(() => {
+        // api.js interceptor will automatically handle 401 and logout
+      });
+    }
+  }, [isAuthenticated]);
+
   return (
     <Router>
       <Routes>
@@ -100,17 +125,31 @@ function App() {
 
         {/* Staff Routes */}
         <Route path="/staff" element={
-          <ProtectedRoute rejectedRoles={['admin']}>
+          <ProtectedRoute allowedRoles={['staff']}>
             <DashboardLayout />
           </ProtectedRoute>
         }>
           <Route index element={<StaffDashboard />} />
-          <Route path="products" element={<ProductManagement />} />
-          <Route path="categories" element={<CategoryManagement />} />
           <Route path="create-invoice" element={<CreateInvoice />} />
           <Route path="invoices" element={<MyInvoices />} />
           <Route path="scanners" element={<GenerateQR />} />
           <Route path="expenses" element={<ExpenseManagement />} />
+          <Route path="notifications" element={<NotificationList />} />
+          <Route path="leaves" element={<LeaveRequest />} />
+          <Route path="announcements" element={<Announcements />} />
+          <Route path="profile" element={<Profile />} />
+        </Route>
+
+        {/* Inventory Routes */}
+        <Route path="/inventory" element={
+          <ProtectedRoute allowedRoles={['inventory']}>
+            <DashboardLayout />
+          </ProtectedRoute>
+        }>
+          <Route index element={<ProductManagement />} />
+          <Route path="products" element={<ProductManagement />} />
+          <Route path="categories" element={<CategoryManagement />} />
+          <Route path="scanners" element={<GenerateQR />} />
           <Route path="notifications" element={<NotificationList />} />
           <Route path="leaves" element={<LeaveRequest />} />
           <Route path="announcements" element={<Announcements />} />

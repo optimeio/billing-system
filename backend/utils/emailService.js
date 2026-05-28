@@ -3,24 +3,24 @@ const nodemailer = require("nodemailer");
 const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 465,
-    secure: true, // Use SSL/TLS
+    secure: true, // SSL/TLS
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
-    },
-    tls: {
-        rejectUnauthorized: false // Helps with some network environments
     }
 });
+
 
 // Verify connection on startup
 transporter.verify((error, success) => {
     if (error) {
-        console.error("❌ EMAIL SERVICE ERROR:", error.message);
+        // Don’t crash the server if email creds are missing.
+        console.error("❌ EMAIL SERVICE ERROR:", error && error.message ? error.message : error);
     } else {
         console.log("✅ EMAIL SERVICE: Ready to send messages");
     }
 });
+
 
 const sendEmail = async (to, subject, text, html) => {
     try {

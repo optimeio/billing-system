@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 const useAuthStore = create(
   persist(
@@ -13,6 +13,7 @@ const useAuthStore = create(
     }),
     {
       name: 'sm-billing-auth',
+      storage: createJSONStorage(() => sessionStorage),
     }
   )
 );

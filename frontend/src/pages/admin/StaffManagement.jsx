@@ -135,13 +135,15 @@ const StaffManagement = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
-                <input 
+                <select 
                   required 
-                  placeholder="e.g. Inventory Manager" 
                   value={formData.role} 
-                  onChange={(e) => setFormData({...formData, role: e.target.value.toLowerCase()})} 
-                  className="w-full border border-slate-300 p-2 rounded-lg outline-none focus:ring-2 focus:ring-primary/20" 
-                />
+                  onChange={(e) => setFormData({...formData, role: e.target.value})} 
+                  className="w-full border border-slate-300 p-2 rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="staff">Staff</option>
+                  <option value="inventory">Inventory Manager</option>
+                </select>
               </div>
             </div>
             {!isEditing && (

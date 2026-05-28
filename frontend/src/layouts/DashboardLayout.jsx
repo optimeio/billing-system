@@ -37,13 +37,13 @@ const DashboardLayout = () => {
       ];
     } else if (user?.role === 'inventory') {
       return [
-        { name: 'Dashboard', path: '/staff', icon: LayoutDashboard },
-        { name: 'Products', path: '/staff/products', icon: Package },
-        { name: 'Categories', path: '/staff/categories', icon: Tags },
-        { name: 'Leave Request', path: '/staff/leaves', icon: Calendar },
-        { name: 'Announcements', path: '/staff/announcements', icon: Megaphone },
-        { name: 'Notifications', path: '/staff/notifications', icon: Bell },
-        { name: 'My Profile', path: '/staff/profile', icon: Settings },
+        { name: 'Products', path: '/inventory/products', icon: Package },
+        { name: 'Categories', path: '/inventory/categories', icon: Tags },
+        { name: 'Scanners', path: '/inventory/scanners', icon: QrCode },
+        { name: 'Leave Request', path: '/inventory/leaves', icon: Calendar },
+        { name: 'Announcements', path: '/inventory/announcements', icon: Megaphone },
+        { name: 'Notifications', path: '/inventory/notifications', icon: Bell },
+        { name: 'My Profile', path: '/inventory/profile', icon: Settings },
       ];
     } else {
       return [
@@ -90,8 +90,8 @@ const DashboardLayout = () => {
         transform transition-transform duration-300 ease-in-out
         ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
-        <div className="text-2xl font-bold p-6 text-slate-900 border-b border-slate-100 tracking-tight">
-          The <span className="text-primary">SM</span> Groups
+        <div className="p-4 border-b border-slate-100 flex items-center justify-center">
+          <img src="/logo.png" alt="The SM Groups" className="max-h-12 w-auto object-contain" />
         </div>
         
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto" aria-label="Main Menu">
@@ -102,7 +102,7 @@ const DashboardLayout = () => {
                 key={link.path}
                 to={link.path}
                 aria-label={link.name}
-                end={link.path === '/admin' || link.path === '/staff'}
+                end={link.path === '/admin' || link.path === '/staff' || link.path === '/inventory'}
                 onClick={() => setMobileOpen(false)}
                 className={({ isActive }) => `
                   flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all
