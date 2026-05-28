@@ -2,7 +2,8 @@ import axios from 'axios';
 import useAuthStore from '../store/authStore';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001/api',
+  baseURL: 'https://billing-system-udie.onrender.com/api',
+  timeout: 15000, // 15 seconds timeout to prevent hanging
   headers: {
     'Content-Type': 'application/json',
   },

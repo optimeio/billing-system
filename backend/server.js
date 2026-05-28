@@ -68,7 +68,9 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // Database Connection
 const MONGODB_URI = process.env.MONGODB_URI;
 
-mongoose.connect(MONGODB_URI)
+mongoose.connect(MONGODB_URI, {
+    serverSelectionTimeoutMS: 5000 // Timeout after 5s instead of hanging
+})
     .then(() => console.log("✅ MongoDB Connected: Billingsoftware"))
     .catch((err) => console.error("❌ MongoDB Connection Error:", err));
 

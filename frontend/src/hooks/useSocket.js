@@ -3,7 +3,7 @@ import { io } from 'socket.io-client';
 import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
+const SOCKET_URL = 'https://billing-system-udie.onrender.com';
 
 const useSocket = () => {
   const { user, isAuthenticated } = useAuthStore();
