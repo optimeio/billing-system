@@ -26,6 +26,8 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
+        // Accepted roles: admin, staff, inventory
+        // Any other value will be treated as "staff" in the application layer
         default: "staff"
     },
     isBlocked: {
@@ -54,14 +56,21 @@ const userSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-// Hash password before saving
+// ─── Pre-save Hook: Hash password + lowercase email ──────────────────────────
+// Using async function without next() — compatible with Mongoose 7+
 userSchema.pre("save", async function() {
+    // Ensure email is stored in lowercase
+    if (this.isModified("email")) {
+        this.email = this.email.toLowerCase();
+    }
+    // Only hash password if it was modified
     if (!this.isModified("password")) return;
+
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
 });
 
-// Method to compare password
+// ─── Instance Method: Compare password ───────────────────────────────────────
 userSchema.methods.comparePassword = async function(enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.password);
 };

@@ -1,3 +1,9 @@
+/**
+ * seed.js – Creates or resets admin + inventory users.
+ * Run with: node seed.js
+ *
+ * IMPORTANT: Uses user.save() (not findOneAndUpdate) so bcrypt pre-save hook runs.
+ */
 require("dotenv").config();
 const mongoose = require("mongoose");
 const User = require("./models/User");
@@ -5,46 +11,70 @@ const User = require("./models/User");
 const seedUsers = async () => {
     try {
         await mongoose.connect(process.env.MONGODB_URI);
-        console.log("Connected to MongoDB for seeding...");
-
-        // Clear existing users? (Optional, maybe not for production)
-        // await User.deleteMany({});
+        console.log("✅ Connected to MongoDB for seeding...");
 
         const users = [
             {
-                name: "Admin User",
+                name: "SM Groups Admin",
                 email: "thesmgroups@gmail.com",
-                staffId: "ADMIN001",
+                phone: "1234567890",
+                staffId: "ADMIN_MAIN",
                 password: "TSMGPVT@2026",
                 role: "admin",
                 isFirstLogin: false
             },
             {
-                name: "Inventory Staff",
-                email: "theoptime.io@gmail.com", // Used unique email
-                staffId: "INV001",
+                name: "Inventory Manager",
+                email: "theoptime.io@gmail.com",
+                phone: "1234567890",
+                staffId: "INV_MAIN",
                 password: "TSMG1997",
-                role: "inventory",
+                role: "inventory_manager",
+                isFirstLogin: false
+            },
+            {
+                name: "Nithyashree T",
+                email: "shreenithya111@gmail.com",
+                phone: "9876543210",
+                staffId: "SM003",
+                password: "StaffPassword123",
+                role: "staff",
                 isFirstLogin: false
             }
         ];
 
         for (let u of users) {
-            const exists = await User.findOne({ staffId: u.staffId });
-            if (!exists) {
-                await User.create(u);
-                console.log(`Created user: ${u.name} (${u.role})`);
+            let user = await User.findOne({ $or: [{ email: u.email }, { staffId: u.staffId }] });
+            if (!user) {
+                // Create new user — pre-save hook hashes password
+                user = new User(u);
+                await user.save();
+                console.log(`✅ Created user: ${u.name} (${u.role}) — email: ${u.email}`);
             } else {
-                // Update existing user to match seed data
-                await User.findOneAndUpdate({ staffId: u.staffId }, u);
-                console.log(`Updated user: ${u.name} (${u.role})`);
+                // Update fields and re-save to trigger pre-save hook for password hashing
+                user.name = u.name;
+                user.email = u.email;
+                user.phone = u.phone || user.phone;
+                user.staffId = u.staffId;
+                user.password = u.password;  // will be re-hashed by pre-save hook
+                user.role = u.role;
+                user.isFirstLogin = u.isFirstLogin;
+                user.isBlocked = false;
+                await user.save();
+                console.log(`✅ Updated user: ${u.name} (${u.role}) — email: ${u.email}`);
             }
         }
 
-        console.log("Seeding completed!");
+        console.log("\n✅ Seeding completed successfully!");
+        console.log("\nLogin Credentials:");
+        console.log("──────────────────────────────────────────────────────────────────");
+        console.log("Admin:             thesmgroups@gmail.com  /  TSMGPVT@2026");
+        console.log("Inventory Manager: theoptime.io@gmail.com  /  TSMG1997 (role: inventory_manager)");
+        console.log("Staff:             shreenithya111@gmail.com  /  StaffPassword123");
+        console.log("──────────────────────────────────────────────────────────────────");
         process.exit();
     } catch (error) {
-        console.error("Seeding error:", error);
+        console.error("❌ Seeding error:", error.message);
         process.exit(1);
     }
 };

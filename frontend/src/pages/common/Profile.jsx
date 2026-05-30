@@ -57,7 +57,7 @@ const Profile = () => {
           <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
             {user?.profilePic ? (
               <img 
-                src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5001'}${user.profilePic}`} 
+                src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5002'}${user.profilePic}`} 
                 alt="Profile" 
                 className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg"
               />

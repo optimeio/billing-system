@@ -198,7 +198,7 @@ const ExpenseManagement = () => {
                       <span>{exp.category || 'General'}</span>
                       {exp.billFile && (
                         <a 
-                          href={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5001'}${exp.billFile}`}
+                          href={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5002'}${exp.billFile}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-500 hover:text-blue-700 text-xs mt-1 flex items-center"

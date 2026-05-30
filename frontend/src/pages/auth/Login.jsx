@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Mail, Lock, Loader2, KeyRound, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Loader2, KeyRound, RefreshCw, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import api from '../../services/api';
 
@@ -11,6 +11,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   // First login force change password state
   const [firstLoginData, setFirstLoginData] = useState(null);
@@ -39,26 +40,32 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSuccessMsg('');
     try {
       const response = await api.post('/auth/login', { loginId, password });
-      const { token, ...user } = response.data;
+      // Backend now returns { message, token, user }
+      const { token, user, message } = response.data;
 
       if (user.isFirstLogin) {
         setFirstLoginData({ user, token });
         setFirstLoginStep(0);
-        return; // Stop here, show change password form
+        return;
       }
 
+      setSuccessMsg(message || 'Login Successful');
       login(user, token);
-      
-      // Normalize: admin → /admin, inventory → /inventory, everything else → /staff
-      const role = user.role?.toLowerCase().trim() || '';
-      if (role === 'admin') navigate('/admin');
-      else if (role === 'inventory') navigate('/inventory');
-      else navigate('/staff'); // staff, cashier, billing, etc. all go here
+
+      // Short delay so the user sees the success message
+      setTimeout(() => {
+        const role = user.role?.toLowerCase().trim() || '';
+        if (role === 'admin') navigate('/admin');
+        else if (role === 'inventory') navigate('/inventory');
+        else navigate('/staff');
+      }, 800);
 
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Please try again.');
+      const msg = err.response?.data?.message || 'Login failed. Please try again.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -121,9 +128,12 @@ const Login = () => {
 
       const { user } = response.data;
 
-      // Update store and redirect
+      // Update store and redirect based on normalized role
       login(user, firstLoginData.token);
-      navigate(user.role === 'admin' ? '/admin' : '/staff');
+      const r = user.role?.toLowerCase().trim() || '';
+      if (r === 'admin') navigate('/admin');
+      else if (r === 'inventory') navigate('/inventory');
+      else navigate('/staff');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to update password');
     } finally {
@@ -145,7 +155,7 @@ const Login = () => {
       setForgotPasswordStep(1);
       setTimer(60);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to send OTP. User not found.');
+      setError(err.response?.data?.message || 'Failed to send OTP. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -176,13 +186,14 @@ const Login = () => {
     setError('');
     try {
       await api.post('/auth/reset-password', { loginId, otp, newPassword });
+      // Reset all forgot-password state and show success on the main login form
       setIsForgotPassword(false);
       setForgotPasswordStep(0);
       setOtp('');
       setNewPassword('');
       setConfirmPassword('');
       setPassword('');
-      alert("Password reset successfully! Please sign in with your new password.");
+      setSuccessMsg('Password reset successful! Please sign in with your new password.');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to reset password');
     } finally {
@@ -336,19 +347,19 @@ const Login = () => {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md mx-auto p-8 bg-neutral-900/60 backdrop-blur-xl border border-neutral-800/50 rounded-3xl shadow-2xl shadow-black/50"
+        className="w-full max-w-md mx-auto p-8 bg-white/80 backdrop-blur-xl border border-slate-200 rounded-3xl shadow-xl shadow-slate-200/50"
       >
         <div className="text-center mb-8">
           <img src="/logo.png" alt="SM Groups" className="h-20 mx-auto mb-6 object-contain drop-shadow-lg" />
-          <h1 className="text-2xl font-bold text-slate-900 mb-2 tracking-tight">Reset Password</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">Reset Password</h1>
+          <p className="text-slate-500">
             Recover access to your account
           </p>
         </div>
 
         {error && (
-          <div className="bg-red-950/50 border border-red-900 text-red-200 px-4 py-3 rounded-xl mb-6 text-sm backdrop-blur-sm">
-            {error}
+          <div className="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-xl mb-4 text-sm font-medium flex items-center gap-2">
+            <span>⚠️</span> {error}
           </div>
         )}
 
@@ -396,7 +407,7 @@ const Login = () => {
           <form onSubmit={handleVerifyForgotOtp} className="space-y-6">
             <div>
               <div className="flex justify-between items-center mb-2">
-                <label className="block text-sm font-medium text-neutral-300">Security Code (OTP)</label>
+                <label className="block text-sm font-medium text-slate-700">Security Code (OTP)</label>
                 <button
                   type="button"
                   onClick={(e) => handleForgotPasswordRequest(e, true)}
@@ -409,14 +420,14 @@ const Login = () => {
               </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <KeyRound className="h-5 w-5 text-neutral-500" />
+                  <KeyRound className="h-5 w-5 text-slate-400" />
                 </div>
                 <input
                   type="text"
                   required
                   value={otp}
                   onChange={(e) => setOtp(e.target.value)}
-                  className="block w-full pl-11 pr-4 py-3 bg-neutral-950/50 border border-neutral-800 rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary text-white tracking-widest font-mono transition-all outline-none placeholder:text-neutral-600"
+                  className="block w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary text-slate-900 tracking-widest font-mono transition-all outline-none placeholder:text-slate-400"
                   placeholder="Enter 6-digit code"
                 />
               </div>
@@ -517,10 +528,17 @@ const Login = () => {
       </div>
 
       {error && (
-        <div className="bg-red-950/50 border border-red-900 text-red-200 px-4 py-3 rounded-xl mb-6 text-sm backdrop-blur-sm">
-          {error}
+        <div className="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-xl mb-4 text-sm font-medium flex items-center gap-2">
+          <span>⚠️</span> {error}
         </div>
       )}
+
+      {successMsg && (
+        <div className="bg-green-50 border border-green-300 text-green-700 px-4 py-3 rounded-xl mb-4 text-sm font-medium flex items-center gap-2">
+          <CheckCircle className="h-4 w-4 shrink-0" /> {successMsg}
+        </div>
+      )}
+
 
       <form onSubmit={handleLogin} className="space-y-6" aria-label="Login Form">
         <div>

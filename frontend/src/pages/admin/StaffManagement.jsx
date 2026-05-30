@@ -13,7 +13,7 @@ const StaffManagement = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentId, setCurrentId] = useState(null);
-  const [formData, setFormData] = useState({ name: '', email: '', phone: '', staffId: '', password: '', role: 'staff' });
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '', staffId: '', password: '', role: '' });
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -34,6 +34,12 @@ const StaffManagement = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Frontend validation: role must be provided
+    if (!formData.role) {
+      toast.error('Role is required');
+      setSubmitting(false);
+      return;
+    }
     setSubmitting(true);
     try {
       if (isEditing) {
@@ -46,7 +52,8 @@ const StaffManagement = () => {
       setShowAddForm(false);
       setIsEditing(false);
       setCurrentId(null);
-      setFormData({ name: '', email: '', phone: '', staffId: '', password: '', role: 'staff' });
+      // Reset form fields, role cleared
+      setFormData({ name: '', email: '', phone: '', staffId: '', password: '', role: '' });
       fetchStaff();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Operation failed');
@@ -102,7 +109,7 @@ const StaffManagement = () => {
         <button 
           onClick={() => {
             setIsEditing(false);
-            setFormData({ name: '', email: '', phone: '', staffId: '', password: '', role: 'staff' });
+            setFormData({ name: '', email: '', phone: '', staffId: '', password: '', role: '' });
             setShowAddForm(true);
           }}
           className="bg-primary hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center shadow-sm transition-all"
@@ -135,15 +142,13 @@ const StaffManagement = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
-                <select 
-                  required 
-                  value={formData.role} 
-                  onChange={(e) => setFormData({...formData, role: e.target.value})} 
+                <input
+                  required
+                  placeholder="Enter Role (e.g., Admin, Trainer, Staff, Manager)"
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                   className="w-full border border-slate-300 p-2 rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value="staff">Staff</option>
-                  <option value="inventory">Inventory Manager</option>
-                </select>
+                />
               </div>
             </div>
             {!isEditing && (

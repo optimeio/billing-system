@@ -33,7 +33,7 @@ const StaffDashboard = () => {
     fetchStaffStats();
 
     // Listen for realtime updates
-    const socket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001');
+    const socket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5002');
 
     socket.on('invoiceCreated', () => {
       fetchStaffStats(); // Refresh stats when any invoice is created

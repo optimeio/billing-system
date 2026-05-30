@@ -7,6 +7,9 @@ const { getIO } = require("../utils/socketService");
 // @route   POST /api/staff/create
 exports.createStaff = async (req, res) => {
     const { name, email, phone, staffId, password, role } = req.body;
+    if (!role) {
+      return res.status(400).json({ message: "Role is required" });
+    }
 
     try {
         const userExists = await User.findOne({ 
@@ -24,7 +27,7 @@ exports.createStaff = async (req, res) => {
             staffId,
             password, // Will be hashed by pre-save hook
             role: role || "staff",
-            isFirstLogin: (role === "inventory") ? false : true
+            isFirstLogin: (role === "inventory" || role === "inventory_manager" || role === "inventory manager") ? false : true
         });
 
         if (user) {
@@ -46,8 +49,13 @@ exports.createStaff = async (req, res) => {
                 </div>
             `;
             
-            // Send to Staff in background
-            sendEmail(user.email, "Welcome to SM GROUPS - Your Account Credentials", "", staffMessage).catch(err => console.error("Email failed:", err));
+            // Send welcome email to staff and ensure it completes before responding
+            try {
+                await sendEmail(user.email, "Welcome to SM GROUPS - Your Account Credentials", "", staffMessage);
+            } catch (err) {
+                console.error("Email failed (welcome):", err);
+                // Continue without failing staff creation
+            }
 
             const adminMessage = `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; border: 1px solid #ddd; padding: 20px;">
@@ -179,7 +187,13 @@ exports.updateStaff = async (req, res) => {
         user.email = email || user.email;
         user.phone = phone || user.phone;
         user.staffId = staffId || user.staffId;
+        // Validate role against enum before saving
+        const allowedRoles = ["admin", "staff", "inventory", "inventory_manager", "inventory manager"]; 
+        if (role && !allowedRoles.includes(role)) {
+            return res.status(400).json({ message: "Invalid role specified" });
+        }
         user.role = role || user.role;
+
 
         const updatedUser = await user.save();
         res.json({
@@ -198,6 +212,29 @@ exports.updateStaff = async (req, res) => {
 
 // @desc    Delete Staff (Admin Only)
 // @route   DELETE /api/staff/:id
+// @desc    Edit user role (Admin Only)
+// @route   PATCH /api/staff/role/:id
+exports.editRole = async (req, res) => {
+  const { role } = req.body;
+  const allowedRoles = ["admin", "staff", "inventory", "inventory_manager", "inventory manager"];
+
+  if (!allowedRoles.includes(role)) {
+    return res.status(400).json({ message: "Invalid role specified" });
+  }
+
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    user.role = role;
+    await user.save();
+    res.json({ message: "Role updated successfully", user: { id: user._id, role: user.role } });
+  } catch (error) {
+    console.error("Role update error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+// @desc    Delete Staff (Admin Only)
+// @route   DELETE /api/staff/:id
 exports.deleteStaff = async (req, res) => {
     try {
         const user = await User.findById(req.params.id);
@@ -209,3 +246,4 @@ exports.deleteStaff = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+

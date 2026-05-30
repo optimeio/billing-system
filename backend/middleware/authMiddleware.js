@@ -1,40 +1,42 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
+// ─── Verify JWT Token ─────────────────────────────────────────────────────────
 const protect = async (req, res, next) => {
     let token;
-    
+
     if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
         try {
             token = req.headers.authorization.split(" ")[1];
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            
+
             req.user = await User.findById(decoded.id).select("-password");
-            
+
             if (!req.user) {
-                return res.status(401).json({ message: "User not found" });
+                return res.status(401).json({ message: "User not found. Please log in again." });
             }
 
             if (req.user.isBlocked) {
                 return res.status(403).json({ message: "Your account is blocked. Please contact admin." });
             }
 
-            next();
+            return next();
         } catch (error) {
-            res.status(401).json({ message: `Not authorized, token failed: ${error.message}` });
+            console.error("[Auth] Token verification failed:", error.message);
+            return res.status(401).json({ message: "Not authorized. Token is invalid or expired. Please log in again." });
         }
     }
 
-    if (!token) {
-        res.status(401).json({ message: "Not authorized, no token" });
-    }
+    // No token provided
+    return res.status(401).json({ message: "Not authorized. No token provided. Please log in." });
 };
 
+// ─── Role Authorization ───────────────────────────────────────────────────────
 const authorizeRoles = (...roles) => {
     return (req, res, next) => {
-        if (!roles.includes(req.user.role)) {
+        if (!req.user || !roles.includes(req.user.role)) {
             return res.status(403).json({
-                message: `Role (${req.user.role}) is not allowed to access this resource`
+                message: `Access denied. Role (${req.user?.role || "unknown"}) is not permitted to access this resource.`
             });
         }
         next();
@@ -43,8 +45,8 @@ const authorizeRoles = (...roles) => {
 
 const adminOnly = authorizeRoles("admin");
 
-module.exports = { 
-    protect, 
+module.exports = {
+    protect,
     adminOnly,
     verifyToken: protect,
     authorizeRoles

@@ -184,7 +184,7 @@ exports.deleteExpense = async (req, res) => {
         }
 
         // Roles that are NOT 'staff' or 'inventory' are treated as privileged (Admin, Manager, Developer, Data Analyst, etc.)
-        const isPrivileged = !["staff", "inventory"].includes(req.user.role);
+        const isPrivileged = !["staff", "inventory", "inventory_manager", "inventory manager"].includes(req.user.role);
 
 
         

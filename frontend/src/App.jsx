@@ -40,7 +40,7 @@ const getNormalizedRole = (role) => {
   if (!role) return '';
   const r = role.toLowerCase().trim();
   if (r === 'admin') return 'admin';
-  if (r === 'inventory') return 'inventory';
+  if (r === 'inventory' || r === 'inventory_manager' || r === 'inventory manager') return 'inventory';
   return 'staff'; // all other roles (staff, cashier, billing, etc.) are treated as staff
 };
 

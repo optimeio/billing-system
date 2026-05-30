@@ -20,8 +20,17 @@ const DashboardLayout = () => {
     navigate('/login');
   };
 
+  const getNormalizedRole = (role) => {
+    if (!role) return '';
+    const r = role.toLowerCase().trim();
+    if (r === 'admin') return 'admin';
+    if (r === 'inventory' || r === 'inventory_manager' || r === 'inventory manager') return 'inventory';
+    return 'staff';
+  };
+
   const getLinks = () => {
-    if (user?.role === 'admin') {
+    const role = getNormalizedRole(user?.role);
+    if (role === 'admin') {
       return [
         { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
         { name: 'Staff Management', path: '/admin/staff', icon: Users },
@@ -35,7 +44,7 @@ const DashboardLayout = () => {
         { name: 'Announcements', path: '/admin/announcements', icon: Megaphone },
         { name: 'Notifications', path: '/admin/notifications', icon: Bell },
       ];
-    } else if (user?.role === 'inventory') {
+    } else if (role === 'inventory') {
       return [
         { name: 'Products', path: '/inventory/products', icon: Package },
         { name: 'Categories', path: '/inventory/categories', icon: Tags },
@@ -143,7 +152,7 @@ const DashboardLayout = () => {
              </div>
              {user?.profilePic ? (
                 <img 
-                  src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5001'}${user.profilePic}`} 
+                  src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5002'}${user.profilePic}`} 
                   alt="Profile" 
                   className="w-10 h-10 rounded-full object-cover border border-primary/20 shadow-sm"
                 />

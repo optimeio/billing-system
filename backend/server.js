@@ -2,6 +2,15 @@ require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+
+// Validate critical env vars on startup
+const requiredEnv = ["MONGODB_URI", "JWT_SECRET", "EMAIL_USER", "EMAIL_PASS", "FRONTEND_URL"];
+requiredEnv.forEach(key => {
+  if (!process.env[key]) {
+    console.error(`❌ ENV MISSING: ${key} is not set in .env. Please add it.`);
+    process.exit(1);
+  }
+});
 const authRoutes = require("./routes/authRoutes");
 const staffRoutes = require("./routes/staffRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
@@ -26,8 +35,30 @@ const server = http.createServer(app);
 // Initialize Socket.io
 init(server);
 
-// Middleware
-app.use(cors());
+// Middleware - CORS
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:5173',
+  'https://billing-system-udie.onrender.com',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+app.use(cors({
+  origin: (origin, callback) => {
+    // allow requests with no origin (mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    
+    // Allow any localhost origin (e.g. localhost with any port like 5174) in development
+    const isLocal = origin.startsWith("http://localhost:") || origin === "http://localhost" || origin.startsWith("http://127.0.0.1:");
+    
+    if (isLocal || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 
 // Smart Content-Type Fixer
 app.use((req, res, next) => {
@@ -81,13 +112,46 @@ app.get("/", (req, res) => {
 
 // 404 Handler
 app.use((req, res) => {
-    res.status(404).json({ 
+    res.status(404).json({
         message: "Endpoint not found. Please check your URL and method (POST/GET).",
-        path: req.url 
+        path: req.url
     });
 });
 
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-});
+const maxPortAttempts = 10;
+let currentPort = parseInt(process.env.PORT || 5002, 10);
+let attempts = 0;
+
+function startServer(port) {
+    server.listen(port);
+}
+
+server.on("error", (error) => {
+    if (error.syscall !== "listen") {
+        throw error;
+    }
+    if (error.code === "EADDRINUSE") {
+        console.warn(`⚠️ Port ${currentPort} is already in use.`);
+        attempts++;
+        if (attempts < maxPortAttempts) {
+            currentPort++;
+            console.log(`🔄 Retrying on the next available port: ${currentPort}...`);
+            startServer(currentPort);
+        } else {
+            console.error(`❌ Failed to start server: All ports from ${process.env.PORT || 5002} to ${currentPort} are occupied.`);
+            process.exit(1);
+        }
+    } else {
+        throw error;
+    }
+});
+
+server.on("listening", () => {
+    console.log(`🚀 Server successfully running on port ${currentPort}`);
+    if (currentPort !== parseInt(process.env.PORT || 5002, 10)) {
+        console.warn(`⚠️ Warning: Backend is running on port ${currentPort} instead of the default ${process.env.PORT || 5002}.`);
+        console.warn(`Please ensure your frontend .env is updated: VITE_API_URL=http://localhost:${currentPort}/api`);
+    }
+});
+
+startServer(currentPort);
