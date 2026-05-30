@@ -114,29 +114,9 @@ exports.createInvoice = async (req, res) => {
         }
 
         // 6. Send Email Notification to Admin
-        try {
-            const adminEmailMessage = `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
-                    <h2 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px;">New Invoice Generated</h2>
-                    <p>A new invoice has been created in the system.</p>
-                    <div style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
-                        <p style="margin: 5px 0;"><b>Invoice Number:</b> ${invoice.invoiceNumber}</p>
-                        <p style="margin: 5px 0;"><b>Customer:</b> ${customerName}</p>
-                        <p style="margin: 5px 0;"><b>Total Amount:</b> ₹${grandTotal.toFixed(2)}</p>
-                        <p style="margin: 5px 0;"><b>Created By:</b> ${req.user.name} (${req.user.role})</p>
-                    </div>
-                    <p><b>Items Summary:</b></p>
-                    <ul style="color: #555;">
-                        ${processedItems.map(item => `<li>${item.name} x ${item.qty} - ₹${item.total.toFixed(2)}</li>`).join('')}
-                    </ul>
-                    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-                    <p style="font-size: 0.85em; color: #7f8c8d;">This is an automated alert from the SM GROUPS Billing System.</p>
-                </div>
-            `;
-            await sendEmail(process.env.EMAIL_USER, `New Invoice Created: ${invoice.invoiceNumber}`, "", adminEmailMessage);
-        } catch (emailErr) {
-            console.error("Failed to send admin notification email for invoice:", emailErr.message);
-        }
+        // Send Email Notification to Admin in the background (non-blocking)
+        sendEmail(process.env.EMAIL_USER, `New Invoice Created: ${invoice.invoiceNumber}`, "", adminEmailMessage)
+            .catch(emailErr => console.error("Failed to send admin notification email for invoice:", emailErr.message));
 
 
         res.status(201).json({

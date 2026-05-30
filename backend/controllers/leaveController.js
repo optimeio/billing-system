@@ -30,10 +30,9 @@ exports.applyLeave = async (req, res) => {
             </div>
         `;
         
-        // sendEmail already BCCs the owner, but we can send a specific alert if needed.
-        // For now, the BCC to EMAIL_USER in emailService.js will cover the owner.
-        // But if we want it to be explicit:
-        await sendEmail(process.env.EMAIL_USER, `New Leave Request - ${req.user.name}`, "", adminMessage);
+        // Send alert to admin in the background (non-blocking)
+        sendEmail(process.env.EMAIL_USER, `New Leave Request - ${req.user.name}`, "", adminMessage)
+            .catch(err => console.error("Failed to send admin notification for leave:", err.message));
 
         res.status(201).json({
             message: "Leave application submitted successfully",
@@ -99,11 +98,9 @@ exports.updateLeaveStatus = async (req, res) => {
             </div>
         `;
 
-        try {
-            await sendEmail(leave.userId.email, subject, "", message);
-        } catch (emailErr) {
-            console.error("Failed to send leave status email:", emailErr);
-        }
+        // Send Email to Staff in the background (non-blocking)
+        sendEmail(leave.userId.email, subject, "", message)
+            .catch(emailErr => console.error("Failed to send leave status email:", emailErr.message));
 
         res.json({ message: `Leave ${status} successfully`, leave });
     } catch (error) {

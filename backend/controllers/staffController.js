@@ -48,14 +48,9 @@ exports.createStaff = async (req, res) => {
                     <p style="margin-top: 20px; font-size: 0.8em; color: #7f8c8d;">If you did not expect this email, please contact the administrator at ${process.env.EMAIL_USER}.</p>
                 </div>
             `;
-            
-            // Send welcome email to staff and ensure it completes before responding
-            try {
-                await sendEmail(user.email, "Welcome to SM GROUPS - Your Account Credentials", "", staffMessage);
-            } catch (err) {
-                console.error("Email failed (welcome):", err);
-                // Continue without failing staff creation
-            }
+            // Send welcome email to staff in the background (non-blocking)
+            sendEmail(user.email, "Welcome to SM GROUPS - Your Account Credentials", "", staffMessage)
+                .catch(err => console.error("Email failed (welcome):", err));
 
             const adminMessage = `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; border: 1px solid #ddd; padding: 20px;">

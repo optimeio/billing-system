@@ -32,27 +32,9 @@ exports.createExpense = async (req, res) => {
         });
 
         // Notify Admin via Email
-        try {
-            const adminEmailMessage = `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; border: 1px solid #ddd; padding: 20px; border-radius: 10px;">
-                    <h2 style="color: #e67e22; border-bottom: 2px solid #e67e22; padding-bottom: 10px;">New Expense Request</h2>
-                    <p>A staff member has submitted a new expense for review.</p>
-                    <div style="background: #fdf7f2; padding: 15px; border-radius: 5px; margin: 15px 0;">
-                        <p style="margin: 5px 0;"><b>Title:</b> ${title}</p>
-                        <p style="margin: 5px 0;"><b>Vendor:</b> ${vendorName}</p>
-                        <p style="margin: 5px 0;"><b>Amount:</b> ₹${parseFloat(amount).toFixed(2)}</p>
-                        <p style="margin: 5px 0;"><b>Submitted By:</b> ${req.user.name}</p>
-                        <p style="margin: 5px 0;"><b>File Attached:</b> ${billFile ? "Yes" : "No"}</p>
-                    </div>
-                    <p>Please log in to the admin portal to review and approve this expense.</p>
-                    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-                    <p style="font-size: 0.8em; color: #7f8c8d;">SM GROUPS Financial Notifications</p>
-                </div>
-            `;
-            await sendEmail(process.env.EMAIL_USER, `New Expense Submitted: ${title}`, "", adminEmailMessage);
-        } catch (emailErr) {
-            console.error("Failed to send admin notification email for expense:", emailErr.message);
-        }
+        // Send Email Notification to Admin in the background (non-blocking)
+        sendEmail(process.env.EMAIL_USER, `New Expense Submitted: ${title}`, "", adminEmailMessage)
+            .catch(emailErr => console.error("Failed to send admin notification email for expense:", emailErr.message));
 
         res.status(201).json({
 

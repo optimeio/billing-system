@@ -104,7 +104,8 @@ exports.sendFirstLoginOtp = async (req, res) => {
             </div>`;
 
         console.log(`[Auth] First-login OTP for ${user.email}: ${otp}`);
-        await sendEmail(user.email, "SM Groups – Security Verification Code", null, html);
+        sendEmail(user.email, "SM Groups – Security Verification Code", null, html)
+            .catch(err => console.error("[Auth] First-login OTP email failed:", err.message));
 
         return res.json({ message: "OTP sent to your registered email" });
     } catch (error) {
@@ -193,13 +194,11 @@ exports.forgotPassword = async (req, res) => {
 
         console.log(`[Auth] Password reset OTP for ${user.email}: ${otp}`);
 
-        try {
-            await sendEmail(user.email, "SM Groups – Password Reset OTP", null, html);
-            return res.json({ message: "OTP sent to your registered email. Please check your inbox." });
-        } catch (emailErr) {
-            console.error("[Auth] Failed to send reset OTP email:", emailErr.message);
-            return res.status(500).json({ message: "Failed to send OTP email. Please check your email address or try again later." });
-        }
+        // Send OTP in background (non-blocking) to ensure instant response times
+        sendEmail(user.email, "SM Groups – Password Reset OTP", null, html)
+            .catch(err => console.error("[Auth] Failed to send reset OTP email:", err.message));
+
+        return res.json({ message: "OTP sent to your registered email. Please check your inbox." });
     } catch (error) {
         console.error("[Auth] forgotPassword error:", error.message);
         return res.status(500).json({ message: "Failed to process request. Please try again." });
