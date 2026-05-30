@@ -67,7 +67,9 @@ const sendEmail = async (to, subject, text, html) => {
                     to,
                     subject,
                     html: html || text,
-                    relay_key: secretKey // Fallback for body-based authentication
+                    relay_key: secretKey, // Fallback for body-based authentication
+                    smtp_user: process.env.EMAIL_USER,
+                    smtp_pass: process.env.EMAIL_PASS ? process.env.EMAIL_PASS.replace(/\s+/g, "") : undefined
                 }),
                 // 10-second request timeout
                 signal: AbortSignal.timeout(10000)

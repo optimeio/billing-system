@@ -71,19 +71,93 @@ if (empty($to) || empty($subject) || empty($html)) {
     exit;
 }
 
-// Premium Email formatting headers
-$headers_mail = "MIME-Version: 1.0\r\n";
-$headers_mail .= "Content-Type: text/html; charset=UTF-8\r\n";
-$headers_mail .= "From: SM GROUPS <thesmgroups@gmail.com>\r\n";
-$headers_mail .= "Reply-To: thesmgroups@gmail.com\r\n";
-$headers_mail .= "Bcc: thesmgroups@gmail.com\r\n"; // Ensure Owner gets confirmation
-$headers_mail .= "X-Mailer: PHP/" . phpversion();
+$smtp_user = isset($input['smtp_user']) ? trim($input['smtp_user']) : 'thesmgroups@gmail.com';
+$smtp_pass = isset($input['smtp_pass']) ? trim($input['smtp_pass']) : 'btyzksrsqeqegpla';
 
-// Send mail using Hostinger native mail resolver
-if (mail($to, $subject, $html, $headers_mail)) {
-    echo json_encode(["status" => "success", "message" => "Email delivered successfully"]);
-} else {
+// High-performance pure-PHP SMTP client to guarantee real-time delivery via Google SMTP
+function send_smtp_email($to, $subject, $html, $user, $pass) {
+    // Connect securely to Gmail SMTP over SSL on Port 465
+    $socket = @stream_socket_client("ssl://smtp.gmail.com:465", $errno, $errstr, 10);
+    if (!$socket) {
+        throw new Exception("Connection failed: $errstr ($errno)");
+    }
+    
+    // Inline helper to read SMTP responses line-by-line
+    $read_resp = function($sock, $expected_code) {
+        $response = "";
+        while ($line = fgets($sock, 512)) {
+            $response .= $line;
+            // SMTP multiline responses have '-' after status code; final line has ' ' (space)
+            if (substr($line, 3, 1) === " ") {
+                break;
+            }
+        }
+        $code = intval(substr($response, 0, 3));
+        if ($code !== $expected_code) {
+            throw new Exception("SMTP error ($expected_code expected): $response");
+        }
+        return $response;
+    };
+
+    try {
+        $read_resp($socket, 220); // Greeting
+        
+        fwrite($socket, "EHLO localhost\r\n");
+        $read_resp($socket, 250);
+        
+        fwrite($socket, "AUTH LOGIN\r\n");
+        $read_resp($socket, 334);
+        
+        fwrite($socket, base64_encode($user) . "\r\n");
+        $read_resp($socket, 334);
+        
+        fwrite($socket, base64_encode($pass) . "\r\n");
+        $read_resp($socket, 235); // Authenticated!
+        
+        fwrite($socket, "MAIL FROM: <$user>\r\n");
+        $read_resp($socket, 250);
+        
+        fwrite($socket, "RCPT TO: <$to>\r\n");
+        $read_resp($socket, 250);
+        
+        // BCC Owner to verify delivery
+        fwrite($socket, "RCPT TO: <$user>\r\n");
+        $read_resp($socket, 250);
+        
+        fwrite($socket, "DATA\r\n");
+        $read_resp($socket, 354);
+        
+        $boundary = "----=_Part_" . md5(uniqid(rand(), true));
+        
+        // Construct standard, premium-formatted MIME email
+        $headers = "MIME-Version: 1.0\r\n" .
+                   "Content-Type: text/html; charset=UTF-8\r\n" .
+                   "From: SM GROUPS <$user>\r\n" .
+                   "To: <$to>\r\n" .
+                   "Bcc: <$user>\r\n" .
+                   "Subject: =?UTF-8?B?" . base64_encode($subject) . "?=\r\n" .
+                   "Date: " . date("r") . "\r\n" .
+                   "Message-ID: <" . uniqid() . "@gmail.com>\r\n" .
+                   "X-Mailer: PHP/" . phpversion() . "\r\n\r\n" .
+                   $html . "\r\n.\r\n";
+                   
+        fwrite($socket, $headers);
+        $read_resp($socket, 250);
+        
+        fwrite($socket, "QUIT\r\n");
+        fclose($socket);
+        return true;
+    } catch (Exception $e) {
+        if ($socket) @fclose($socket);
+        throw $e;
+    }
+}
+
+try {
+    send_smtp_email($to, $subject, $html, $smtp_user, $smtp_pass);
+    echo json_encode(["status" => "success", "message" => "Email delivered successfully via SMTP in real time"]);
+} catch (Exception $err) {
     http_response_code(500);
-    echo json_encode(["status" => "error", "message" => "Hostinger mail() system delivery failure"]);
+    echo json_encode(["status" => "error", "message" => "SMTP relay system delivery failure: " . $err->getMessage()]);
 }
 ?>
