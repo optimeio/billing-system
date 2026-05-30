@@ -8,19 +8,10 @@ if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
 
 const dns = require("dns");
 
-// Custom DNS lookup that strictly resolves IPv4 A records, completely bypassing IPv6
+// Custom DNS lookup that strictly forces IPv4 resolution (family: 4) and ignores any IPv6 overrides
 const ipv4Lookup = (hostname, options, callback) => {
-    if (typeof options === "function") {
-        callback = options;
-        options = {};
-    }
-    dns.resolve4(hostname, (err, addresses) => {
-        if (err || !addresses || addresses.length === 0) {
-            // Fallback to standard lookup with family: 4 if resolve4 fails
-            return dns.lookup(hostname, Object.assign({}, options, { family: 4 }), callback);
-        }
-        return callback(null, addresses[0], 4);
-    });
+    const cb = typeof options === "function" ? options : callback;
+    return dns.lookup(hostname, { family: 4 }, cb);
 };
 
 const transporter = nodemailer.createTransport({
