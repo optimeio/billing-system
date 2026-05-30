@@ -55,7 +55,7 @@ exports.login = async (req, res) => {
             return res.status(401).json({ message: "Incorrect Email or Password" });
         }
 
-
+        const token = generateToken(user._id, user.role);
 
         const userResponse = user.toObject();
         delete userResponse.password;
