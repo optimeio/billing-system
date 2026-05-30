@@ -55,8 +55,7 @@ exports.login = async (req, res) => {
             return res.status(401).json({ message: "Incorrect Email or Password" });
         }
 
-        const token = generateToken(user._id, user.role);
-        console.log(`[Auth] ✓ Login successful: ${user.email} (${user.role})`);
+
 
         const userResponse = user.toObject();
         delete userResponse.password;
@@ -275,6 +274,9 @@ exports.resetPassword = async (req, res) => {
         user.password = newPassword; // pre-save hook will hash this
         user.otp = null;
         user.otpExpiry = null;
+        // Generate JWT token after successful password verification
+        const token = generateToken(user._id, user.role);
+        console.log(`[Auth] ✓ Login successful: ${user.email} (${user.role})`);
         await user.save();
 
         console.log(`[Auth] ✓ Password reset successful for: ${user.email}`);

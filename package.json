@@ -2,7 +2,6 @@
   "name": "billing-system",
   "version": "1.0.0",
   "description": "Premium Billing Software System",
-
   "scripts": {
     "backend": "npm run dev --prefix backend",
     "frontend": "npm run dev --prefix frontend",
@@ -13,6 +12,7 @@
     "concurrently": "^8.2.2"
   },
   "dependencies": {
+    "node-fetch": "^3.3.2",
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.4.2",
     "mongoose": "^9.6.2",

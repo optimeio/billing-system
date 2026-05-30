@@ -98,12 +98,58 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Database Connection
 const MONGODB_URI = process.env.MONGODB_URI;
+if (!MONGODB_URI) {
+  console.error('❌ MONGODB_URI is not set in .env — cannot start database connection.');
+  process.exit(1);
+}
 
-mongoose.connect(MONGODB_URI, {
-    serverSelectionTimeoutMS: 5000 // Timeout after 5s instead of hanging
-})
-    .then(() => console.log("✅ MongoDB Connected: Billingsoftware"))
-    .catch((err) => console.error("❌ MongoDB Connection Error:", err));
+const connectionOptions = {
+  serverSelectionTimeoutMS: 10000,
+  socketTimeoutMS: 45000,
+};
+
+let isConnecting = false;
+
+async function connectDB() {
+  // Prevent concurrent connection attempts
+  if (isConnecting) return;
+  const state = mongoose.connection.readyState;
+  // 1 = connected, 2 = connecting
+  if (state === 1 || state === 2) return;
+
+  isConnecting = true;
+  try {
+    await mongoose.connect(MONGODB_URI, connectionOptions);
+    console.log('✅ MongoDB Connected: Cluster0');
+  } catch (err) {
+    console.error('❌ MongoDB connection failed:', err.message);
+    // Retry after 5 seconds
+    setTimeout(() => {
+      isConnecting = false;
+      connectDB();
+    }, 5000);
+    return;
+  }
+  isConnecting = false;
+}
+
+// Initial connection
+connectDB();
+
+// Auto-reconnect on disconnect (guarded to prevent loops)
+mongoose.connection.on('disconnected', () => {
+  if (!isConnecting) {
+    console.warn('⚠️ MongoDB disconnected. Attempting to reconnect in 5s...');
+    setTimeout(() => {
+      isConnecting = false;
+      connectDB();
+    }, 5000);
+  }
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('❌ MongoDB error:', err.message);
+});
 
 // Test Route
 app.get("/", (req, res) => {
@@ -118,40 +164,20 @@ app.use((req, res) => {
     });
 });
 
-const maxPortAttempts = 10;
-let currentPort = parseInt(process.env.PORT || 5002, 10);
-let attempts = 0;
+const port = parseInt(process.env.PORT || 5002, 10);
 
-function startServer(port) {
-    server.listen(port);
-}
-
-server.on("error", (error) => {
-    if (error.syscall !== "listen") {
-        throw error;
-    }
-    if (error.code === "EADDRINUSE") {
-        console.warn(`⚠️ Port ${currentPort} is already in use.`);
-        attempts++;
-        if (attempts < maxPortAttempts) {
-            currentPort++;
-            console.log(`🔄 Retrying on the next available port: ${currentPort}...`);
-            startServer(currentPort);
-        } else {
-            console.error(`❌ Failed to start server: All ports from ${process.env.PORT || 5002} to ${currentPort} are occupied.`);
-            process.exit(1);
-        }
-    } else {
-        throw error;
-    }
+// Start server on fixed port
+server.listen(port, () => {
+  console.log(`🚀 Server successfully running on port ${port}`);
 });
 
-server.on("listening", () => {
-    console.log(`🚀 Server successfully running on port ${currentPort}`);
-    if (currentPort !== parseInt(process.env.PORT || 5002, 10)) {
-        console.warn(`⚠️ Warning: Backend is running on port ${currentPort} instead of the default ${process.env.PORT || 5002}.`);
-        console.warn(`Please ensure your frontend .env is updated: VITE_API_URL=http://localhost:${currentPort}/api`);
-    }
+// Handle startup errors (e.g., port already in use)
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`❌ Port ${port} is already in use. Please free the port and restart.`);
+    process.exit(1);
+  } else {
+    console.error('❌ Server error:', error);
+    process.exit(1);
+  }
 });
-
-startServer(currentPort);
