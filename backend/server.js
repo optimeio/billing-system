@@ -11,6 +11,7 @@ requiredEnv.forEach(key => {
     process.exit(1);
   }
 });
+
 const authRoutes = require("./routes/authRoutes");
 const staffRoutes = require("./routes/staffRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
@@ -25,6 +26,7 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const profileRoutes = require("./routes/profileRoutes");
 const leaveRoutes = require("./routes/leaveRoutes");
 const announcementRoutes = require("./routes/announcementRoutes");
+const healthRoutes = require("./routes/healthRoutes");
 const http = require("http");
 const path = require("path");
 const { init } = require("./utils/socketService");
@@ -37,22 +39,25 @@ init(server);
 
 // Middleware - CORS
 const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:5173',
+  process.env.FRONTEND_URL,
+  'https://billing.thesmgroups.com',
   'https://billing-system-udie.onrender.com',
   'http://localhost:5173',
   'http://localhost:3000',
-];
+].filter(Boolean);
+
 app.use(cors({
   origin: (origin, callback) => {
     // allow requests with no origin (mobile apps, curl, Postman)
     if (!origin) return callback(null, true);
-    
-    // Allow any localhost origin (e.g. localhost with any port like 5174) in development
+
+    // Allow any localhost origin in development
     const isLocal = origin.startsWith("http://localhost:") || origin === "http://localhost" || origin.startsWith("http://127.0.0.1:");
-    
+
     if (isLocal || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
+    console.warn(`⚠️ CORS blocked origin: ${origin}`);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
@@ -71,9 +76,11 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Request Logger
+// Request Logger (reduced in production)
 app.use((req, res, next) => {
-    console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url}`);
+    if (process.env.NODE_ENV !== 'production' || req.url.startsWith('/api')) {
+      console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url}`);
+    }
     next();
 });
 
@@ -92,6 +99,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/leaves", leaveRoutes);
 app.use("/api/announcements", announcementRoutes);
+app.use("/api/health", healthRoutes);
 
 // Static file serving for uploads
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -120,7 +128,7 @@ async function connectDB() {
   isConnecting = true;
   try {
     await mongoose.connect(MONGODB_URI, connectionOptions);
-    console.log('✅ MongoDB Connected: Cluster0');
+    console.log('✅ MongoDB Connected: Billingsoftware');
   } catch (err) {
     console.error('❌ MongoDB connection failed:', err.message);
     // Retry after 5 seconds
@@ -153,7 +161,12 @@ mongoose.connection.on('error', (err) => {
 
 // Test Route
 app.get("/", (req, res) => {
-    res.send("Billing Software API is running...");
+    res.json({
+      status: "ok",
+      message: "Billing Software API is running...",
+      environment: process.env.NODE_ENV || "development",
+      timestamp: new Date().toISOString()
+    });
 });
 
 // 404 Handler
@@ -164,14 +177,16 @@ app.use((req, res) => {
     });
 });
 
+// Start Server
 const port = parseInt(process.env.PORT || 5002, 10);
 
-// Start server on fixed port
 server.listen(port, () => {
   console.log(`🚀 Server successfully running on port ${port}`);
+  console.log(`📡 CORS allowed origins: ${allowedOrigins.join(', ')}`);
+  console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
-// Handle startup errors (e.g., port already in use)
+// Handle startup errors
 server.on('error', (error) => {
   if (error.code === 'EADDRINUSE') {
     console.error(`❌ Port ${port} is already in use. Please free the port and restart.`);

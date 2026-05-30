@@ -5,8 +5,15 @@ module.exports = {
         const { Server } = require("socket.io");
         io = new Server(httpServer, {
             cors: {
-                origin: "*", // Adjust this to your frontend URL in production
-                methods: ["GET", "POST", "PATCH", "PUT", "DELETE"]
+                origin: [
+                    process.env.FRONTEND_URL || 'http://localhost:5173',
+                    'https://billing.thesmgroups.com',
+                    'https://billing-system-udie.onrender.com',
+                    'http://localhost:5173',
+                    'http://localhost:3000',
+                ],
+                methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
+                credentials: true
             }
         });
 
