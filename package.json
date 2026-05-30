@@ -2,10 +2,12 @@
   "name": "billing-system",
   "version": "1.0.0",
   "description": "Premium Billing Software System",
+
   "scripts": {
     "backend": "npm run dev --prefix backend",
     "frontend": "npm run dev --prefix frontend",
-    "dev": "concurrently -k -s first \"npm run backend\" \"npm run frontend\""
+    "dev": "concurrently -k -s first \"npm run backend\" \"npm run frontend\"",
+    "build": "npm run build --prefix frontend"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
