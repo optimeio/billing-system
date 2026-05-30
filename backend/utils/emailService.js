@@ -10,6 +10,7 @@ const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 587,
     secure: false, // true for port 465, false for other ports. Uses STARTTLS.
+    localAddress: "0.0.0.0", // Forces Node to bind to IPv4 local address, preventing IPv6 resolution failures on Render
     pool: true, // Reuse connections to make sending extremely fast
     maxConnections: 5,
     maxMessages: 100,
