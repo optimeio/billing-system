@@ -6,11 +6,23 @@ if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     logger.warn("⚠️  EMAIL CONFIGURATION: EMAIL_USER or EMAIL_PASS is missing. Email sending will fail.");
 }
 
+const dns = require("dns");
+
+// Custom DNS lookup that forces family: 4 (IPv4) for Gmail SMTP to prevent IPv6 ENETUNREACH errors on Render
+const ipv4Lookup = (hostname, options, callback) => {
+    if (typeof options === "function") {
+        callback = options;
+        options = {};
+    }
+    const dnsOpts = Object.assign({}, options, { family: 4 });
+    return dns.lookup(hostname, dnsOpts, callback);
+};
+
 const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 587,
     secure: false, // true for port 465, false for other ports. Uses STARTTLS.
-    localAddress: "0.0.0.0", // Forces Node to bind to IPv4 local address, preventing IPv6 resolution failures on Render
+    lookup: ipv4Lookup, // Custom DNS resolver that guarantees IPv4 resolution
     pool: true, // Reuse connections to make sending extremely fast
     maxConnections: 5,
     maxMessages: 100,
