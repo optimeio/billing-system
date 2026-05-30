@@ -47,6 +47,55 @@ const sendEmail = async (to, subject, text, html) => {
         throw new Error("Email credentials not configured. Set EMAIL_USER and EMAIL_PASS in .env");
     }
 
+    // ─── Production HTTPS Mail Relay Bypass ───────────────────────────────────
+    // Render Free tier blocks outbound SMTP ports 25, 465, and 587.
+    // We bypass this restriction by making a secure HTTPS POST (port 443) to the Hostinger server.
+    if (process.env.NODE_ENV === "production" || process.env.NODE_ENV === "prod") {
+        logger.info(`🌐 SMTP block detected in production. Relaying email to Hostinger HTTPS Mail Relay...`);
+        try {
+            const relayUrl = "https://billing.thesmgroups.com/mail-relay.php";
+            const secretKey = process.env.JWT_SECRET || 'BillingSoftware_Secret_Key_2026';
+            
+            const response = await fetch(relayUrl, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${secretKey}`,
+                    "X-Relay-Signature": secretKey // Fallback for servers that strip Authorization headers
+                },
+                body: JSON.stringify({
+                    to,
+                    subject,
+                    html: html || text,
+                    relay_key: secretKey // Fallback for body-based authentication
+                }),
+                // 10-second request timeout
+                signal: AbortSignal.timeout(10000)
+            });
+
+            const contentType = response.headers.get("content-type") || "";
+            if (contentType.includes("text/html")) {
+                const textResponse = await response.text();
+                // If it returned HTML starting with <!doctype, it's the SPA index.html fallback (indicating a 404 on the script)
+                if (textResponse.trim().startsWith("<!doctype") || textResponse.includes("<html")) {
+                    throw new Error(`Hostinger returned HTML/index.html instead of executing PHP. The 'mail-relay.php' script is missing or not uploaded to the public root on billing.thesmgroups.com.`);
+                }
+                throw new Error(`Hostinger returned non-JSON HTML content: ${textResponse.substring(0, 100)}...`);
+            }
+
+            const data = await response.json();
+            if (response.ok && data.status === "success") {
+                logger.info(`✅ Email successfully delivered via Hostinger Mail Relay to: ${to}`);
+                return data;
+            } else {
+                throw new Error(data.message || `Relay responded with status ${response.status}`);
+            }
+        } catch (relayErr) {
+            logger.error(`❌ HTTPS Mail Relay FAILED: ${relayErr.message}`);
+            logger.warn(`🔄 Falling back to standard SMTP transporter...`);
+        }
+    }
+
     try {
         const mailOptions = {
             from: `"SM GROUPS" <${process.env.EMAIL_USER}>`,

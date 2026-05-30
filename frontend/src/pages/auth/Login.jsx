@@ -28,13 +28,16 @@ const Login = () => {
 
   useEffect(() => {
     let interval;
-    if (firstLoginStep === 1 && timer > 0) {
+    // Active countdown when on first-login OTP step OR forgot-password OTP step
+    const isTimerActive = (firstLoginStep === 1) || (isForgotPassword && forgotPasswordStep === 1);
+    
+    if (isTimerActive && timer > 0) {
       interval = setInterval(() => {
         setTimer((prev) => prev - 1);
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [firstLoginStep, timer]);
+  }, [firstLoginStep, isForgotPassword, forgotPasswordStep, timer]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
