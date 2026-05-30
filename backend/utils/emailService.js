@@ -8,8 +8,8 @@ if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
 
 const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
+    port: 587,
+    secure: false, // true for port 465, false for other ports. Uses STARTTLS.
     pool: true, // Reuse connections to make sending extremely fast
     maxConnections: 5,
     maxMessages: 100,
