@@ -195,9 +195,9 @@ exports.generateInvoicePDF = async (invoice, res) => {
         page.drawRectangle({
             x: 45,
             y: 338,
-            width: 385, // covers the pre-printed grand total words, leaves the number area untouched
+            width: 515, // covers the entire pre-printed totals bar (words and figures) to prevent overlaps
             height: 14,
-            color: rgb(0.8, 0.8, 0.8) // Match the exact grey color of the bar
+            color: rgb(0.85, 0.85, 0.85) // Match the exact grey color of the bar
         });
 
         // Words (Grand Total converted to english words, capitalized)
