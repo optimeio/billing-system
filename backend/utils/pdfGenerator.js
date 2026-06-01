@@ -172,7 +172,7 @@ exports.generateInvoicePDF = async (invoice, res) => {
         page.drawText(mdTxt,   { x: cx - fBold.widthOfTextAtSize(mdTxt,   8)/2, y: 155, size: 8, font: fBold, color: BLACK });
 
         // Signature in elegant oblique italic font
-        const sigTxt = "P. Gowtham";
+        const sigTxt = "Sankar Ganesh";
         page.drawText(sigTxt,  { x: cx - fObl.widthOfTextAtSize(sigTxt, 13)/2, y: 130, size: 13, font: fObl, color: rgb(0.15, 0.15, 0.15) });
 
         // Company contact details: right side below signature
