@@ -69,40 +69,39 @@ exports.generateInvoicePDF = async (invoice, res) => {
         const pdfDoc = await PDFDocument.load(templateBytes);
         const page = pdfDoc.getPages()[0];
 
-        // 2. Embed standard Helvetica and Oblique fonts
+        // 2. Embed standard Helvetica and Bold fonts
         const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
         const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-        const fontOblique = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
 
         const textColor = rgb(0, 0, 0);
         const mutedColor = rgb(0.2, 0.2, 0.2);
 
-        // 3. Cover the pre-printed misaligned Invoice No & Date labels under Consignee box
-        // Target: X = 320 to X = 570, Y = 560 to Y = 615 (height 55)
+        // 3. Cover and write the pre-printed test Invoice metadata under Consignee box
+        // Target: X = 490 to X = 565, Y = 585 to Y = 620 (covering only the old test values)
         page.drawRectangle({
-            x: 320,
-            y: 560,
-            width: 250,
-            height: 55,
+            x: 490,
+            y: 585,
+            width: 75,
+            height: 35,
             color: rgb(1, 1, 1)
         });
 
-        // Write correct Invoice Number and Date (perfect spacing, drawn together to prevent being "far away")
+        // Write correct Invoice Number and Date (perfectly spaced, drawn together to prevent being "far away")
         const invoiceDate = invoice.createdAt 
             ? new Date(invoice.createdAt).toLocaleDateString('en-GB') 
             : new Date().toLocaleDateString('en-GB');
 
         page.drawText(`Invoice No: ${invoice.invoiceNumber || ""}`, {
-            x: 425,
-            y: 592,
+            x: 491,
+            y: 608,
             size: 9,
             font: fontBold,
             color: textColor
         });
 
         page.drawText(`Date: ${invoiceDate}`, {
-            x: 425,
-            y: 573,
+            x: 491,
+            y: 592,
             size: 9,
             font: fontBold,
             color: textColor
@@ -114,7 +113,7 @@ exports.generateInvoicePDF = async (invoice, res) => {
         
         page.drawText(customerNameUpper, {
             x: 50,
-            y: 640,
+            y: 648,
             size: 9,
             font: fontBold,
             color: textColor
@@ -122,7 +121,7 @@ exports.generateInvoicePDF = async (invoice, res) => {
 
         page.drawText(customerNameUpper, {
             x: 300,
-            y: 640,
+            y: 648,
             size: 9,
             font: fontBold,
             color: textColor
@@ -140,7 +139,7 @@ exports.generateInvoicePDF = async (invoice, res) => {
             leftLines.push(phoneText);
         }
 
-        let leftY = 628;
+        let leftY = 636;
         leftLines.forEach(line => {
             page.drawText(line, {
                 x: 50,
@@ -158,7 +157,7 @@ exports.generateInvoicePDF = async (invoice, res) => {
             rightLines.push(phoneText);
         }
 
-        let rightY = 628;
+        let rightY = 636;
         rightLines.forEach(line => {
             page.drawText(line, {
                 x: 300,
@@ -203,12 +202,23 @@ exports.generateInvoicePDF = async (invoice, res) => {
             });
         });
 
-        // 6. Write Grand Total (Y = 340 - perfectly centered inside pre-printed Totals Row bar)
-        // Cover old grand total text with a GREY rectangle matching the grey totals bar background
+        // 6. Write Grand Total (Y = 341 - perfectly centered inside pre-printed Totals Row bar)
+        // Cover only the old pre-printed text parts to keep left/right borders and grid lines intact
+        
+        // Cover old grand total words
         page.drawRectangle({
-            x: 45,
+            x: 80,
             y: 338,
-            width: 515, // covers the entire pre-printed totals bar (words and figures) to prevent overlaps
+            width: 280,
+            height: 14,
+            color: rgb(0.85, 0.85, 0.85) // Match the exact grey color of the bar
+        });
+
+        // Cover old grand total figures
+        page.drawRectangle({
+            x: 500,
+            y: 338,
+            width: 55,
             height: 14,
             color: rgb(0.85, 0.85, 0.85) // Match the exact grey color of the bar
         });
@@ -216,8 +226,8 @@ exports.generateInvoicePDF = async (invoice, res) => {
         // Words (Grand Total converted to english words, capitalized)
         const totalWords = `TOTAL (${numberToWords(invoice.grandTotal).toUpperCase()})`;
         page.drawText(totalWords, {
-            x: 50,
-            y: 340,
+            x: 90,
+            y: 341,
             size: 7,
             font: fontBold,
             color: textColor,
@@ -230,108 +240,15 @@ exports.generateInvoicePDF = async (invoice, res) => {
         const grandTotalWidth = fontBold.widthOfTextAtSize(grandTotalText, 9);
         page.drawText(grandTotalText, {
             x: 545 - grandTotalWidth,
-            y: 340,
+            y: 341,
             size: 9,
             font: fontBold,
             color: textColor
         });
 
-        // 7. Write HSN/SAC Total Row (Static row in template at Y = 285)
-        // Columns: HSN/SAC (X=72 center), Taxable Value (X=155 center), CGST (X=265 center), SGST (X=385 center), Total Tax (X=502 center)
-        const hsnY = 285;
-
-        // Cover old HSN totals row before redrawing new ones
-        page.drawRectangle({
-            x: 22,
-            y: 278,
-            width: 545,
-            height: 12,
-            color: rgb(1, 1, 1)
-        });
-
-        const hsnLabel = "Total";
-        const hsnLabelWidth = fontRegular.widthOfTextAtSize(hsnLabel, 8);
-        page.drawText(hsnLabel, {
-            x: 72 - (hsnLabelWidth / 2),
-            y: hsnY,
-            size: 8,
-            font: fontRegular,
-            color: textColor
-        });
-
-        const dash = "-";
-        const dashWidth = fontRegular.widthOfTextAtSize(dash, 8);
-        const dashPositions = [155, 265, 385, 502];
-        dashPositions.forEach(pos => {
-            page.drawText(dash, {
-                x: pos - (dashWidth / 2),
-                y: hsnY,
-                size: 8,
-                font: fontRegular,
-                color: textColor
-            });
-        });
-
-        // 8. Cover and Redraw Bank details & signature section (Y = 40 to Y = 180)
-        // Erases pre-printed R. Sankarganesh signature and wrong bank accounts of TSMG completely
-        
-        // Cover bottom left bank details area (Increased height to 140 to completely mask signatory labels)
-        page.drawRectangle({
-            x: 25,
-            y: 40,
-            width: 295,
-            height: 140,
-            color: rgb(1, 1, 1)
-        });
-
-        // Cover bottom right signature and contact details area (Increased height to 140)
-        page.drawRectangle({
-            x: 330,
-            y: 40,
-            width: 242,
-            height: 140,
-            color: rgb(1, 1, 1)
-        });
-
-        // Draw correct Bank Details (CITY UNION BANK Salem)
-        page.drawText("Account Number: 520509010317851", { x: 30, y: 151, size: 8, font: fontBold, color: textColor });
-        page.drawText("IFSC: CIUB0000188", { x: 30, y: 139, size: 8, font: fontBold, color: textColor });
-        page.drawText("Account Name: THE SM GROUPS", { x: 30, y: 127, size: 8, font: fontBold, color: textColor });
-        page.drawText("Branch Name: FAIRLANDS SALEM", { x: 30, y: 115, size: 8, font: fontBold, color: textColor });
-        page.drawText("Bank Name: CITY UNION BANK", { x: 30, y: 103, size: 8, font: fontBold, color: textColor });
-
-        // Draw correct Authorized Signatory labels
-        const authText = "AUTHORIZED SIGNATORY";
-        const authWidth = fontBold.widthOfTextAtSize(authText, 8);
-        page.drawText(authText, { x: 450 - (authWidth / 2), y: 145, size: 8, font: fontBold, color: textColor });
-
-        const mdText = "MANAGING DIRECTOR";
-        const mdWidth = fontBold.widthOfTextAtSize(mdText, 8);
-        page.drawText(mdText, { x: 450 - (mdWidth / 2), y: 133, size: 8, font: fontBold, color: textColor });
-
-        // Draw signature P. Gowtham beautifully in red cursive-like font
-        const sigText = "P. Gowtham";
-        const sigWidth = fontOblique.widthOfTextAtSize(sigText, 12);
-        page.drawText(sigText, { x: 450 - (sigWidth / 2), y: 111, size: 12, font: fontOblique, color: rgb(0.72, 0.11, 0.11) });
-
-        // Draw correct Company Contact Details
-        const contact1 = "3rd Floor, OM Shiva Towers, 259-B, Advaitha Ashram Rd,";
-        const w1 = fontRegular.widthOfTextAtSize(contact1, 7);
-        page.drawText(contact1, { x: 560 - w1, y: 90, size: 7, font: fontRegular, color: textColor });
-
-        const contact2 = "Fairlands, Salem, Tamil Nadu 636016";
-        const w2 = fontRegular.widthOfTextAtSize(contact2, 7);
-        page.drawText(contact2, { x: 560 - w2, y: 80, size: 7, font: fontRegular, color: textColor });
-
-        const contact3 = "+91 9486783278  |  tsmgmdofficial@gmail.com";
-        const w3 = fontRegular.widthOfTextAtSize(contact3, 7);
-        page.drawText(contact3, { x: 560 - w3, y: 68, size: 7, font: fontRegular, color: textColor });
-
-        const contact4 = "www.thesmgroups.com";
-        const w4 = fontRegular.widthOfTextAtSize(contact4, 7);
-        page.drawText(contact4, { x: 560 - w4, y: 56, size: 7, font: fontRegular, color: textColor });
-
-        // 9. Save and Stream the PDF to response
+        // 7. Save and Stream the PDF to response
+        // Note: The template's bottom bank details, contact details, and signature section 
+        // are 100% correct, authentic, and beautifully pre-printed. We do NOT cover or redraw them!
         const pdfBytes = await pdfDoc.save();
         res.end(Buffer.from(pdfBytes));
 
