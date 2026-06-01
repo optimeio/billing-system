@@ -57,11 +57,11 @@ exports.generateInvoicePDF = async (invoice, res) => {
         const textColor = rgb(0, 0, 0);
         const mutedColor = rgb(0.2, 0.2, 0.2);
 
-        // 3. Write Invoice Number and Date (Top Right Corner)
-        // Target: X = 475, Y = 720 for Invoice No | Y = 708 for Date (Letter Height = 792)
+        // 3. Write Invoice Number and Date (Right column, below logo)
+        // Target: X = 505, Y = 696 for Invoice No | Y = 680 for Date
         page.drawText(invoice.invoiceNumber || "", {
-            x: 475,
-            y: 720,
+            x: 505,
+            y: 696,
             size: 9,
             font: fontBold,
             color: textColor
@@ -72,8 +72,8 @@ exports.generateInvoicePDF = async (invoice, res) => {
             : new Date().toLocaleDateString('en-GB');
 
         page.drawText(invoiceDate, {
-            x: 475,
-            y: 708,
+            x: 505,
+            y: 680,
             size: 9,
             font: fontBold,
             color: textColor
@@ -85,7 +85,7 @@ exports.generateInvoicePDF = async (invoice, res) => {
         
         page.drawText(customerNameUpper, {
             x: 50,
-            y: 735,
+            y: 635,
             size: 9,
             font: fontBold,
             color: textColor
@@ -93,7 +93,7 @@ exports.generateInvoicePDF = async (invoice, res) => {
 
         page.drawText(customerNameUpper, {
             x: 300,
-            y: 735,
+            y: 635,
             size: 9,
             font: fontBold,
             color: textColor
@@ -104,7 +104,7 @@ exports.generateInvoicePDF = async (invoice, res) => {
         if (addressText) {
             page.drawText(addressText, {
                 x: 50,
-                y: 723,
+                y: 622,
                 size: 8,
                 font: fontRegular,
                 color: mutedColor,
@@ -114,7 +114,7 @@ exports.generateInvoicePDF = async (invoice, res) => {
 
             page.drawText(addressText, {
                 x: 300,
-                y: 723,
+                y: 622,
                 size: 8,
                 font: fontRegular,
                 color: mutedColor,
@@ -131,7 +131,7 @@ exports.generateInvoicePDF = async (invoice, res) => {
             }
             page.drawText(phoneText, {
                 x: 50,
-                y: 694,
+                y: 590,
                 size: 8,
                 font: fontRegular,
                 color: mutedColor
@@ -139,21 +139,21 @@ exports.generateInvoicePDF = async (invoice, res) => {
 
             page.drawText(phoneText, {
                 x: 300,
-                y: 694,
+                y: 590,
                 size: 8,
                 font: fontRegular,
                 color: mutedColor
             });
         }
 
-        // 5. Write Line Items (Template has 3 pre-drawn rows)
-        // Row 1: Y = 595
-        // Row 2: Y = 545
-        // Row 3: Y = 495
+        // 5. Write Line Items (Template has 3 pre-drawn rows spaced by 60 points)
+        // Row 1: Y = 445
+        // Row 2: Y = 385
+        // Row 3: Y = 325
         const itemsToDraw = (invoice.items || []).slice(0, 3);
         
         itemsToDraw.forEach((item, idx) => {
-            const rowY = 595 - (idx * 50);
+            const rowY = 445 - (idx * 60);
 
             // Centered S.No inside column (approx X = 50 to X = 75, mid = 62)
             const sNo = (idx + 1).toString();
@@ -190,12 +190,12 @@ exports.generateInvoicePDF = async (invoice, res) => {
             });
         });
 
-        // 6. Write Grand Total
+        // 6. Write Grand Total (Y = 265)
         // Words (Grand Total converted to english words, capitalized)
         const totalWords = `TOTAL (${numberToWords(invoice.grandTotal).toUpperCase()})`;
         page.drawText(totalWords, {
             x: 50,
-            y: 445,
+            y: 265,
             size: 7,
             font: fontBold,
             color: textColor,
@@ -208,15 +208,15 @@ exports.generateInvoicePDF = async (invoice, res) => {
         const grandTotalWidth = fontBold.widthOfTextAtSize(grandTotalText, 9);
         page.drawText(grandTotalText, {
             x: 545 - grandTotalWidth,
-            y: 445,
+            y: 265,
             size: 9,
             font: fontBold,
             color: textColor
         });
 
-        // 7. Write HSN/SAC Total Row (Static row in template at Y = 385)
+        // 7. Write HSN/SAC Total Row (Static row in template at Y = 205)
         // Columns: HSN/SAC (X=72 center), Taxable Value (X=155 center), CGST (X=265 center), SGST (X=385 center), Total Tax (X=502 center)
-        const hsnY = 385;
+        const hsnY = 205;
 
         const hsnLabel = "Total";
         const hsnLabelWidth = fontRegular.widthOfTextAtSize(hsnLabel, 8);
@@ -247,7 +247,6 @@ exports.generateInvoicePDF = async (invoice, res) => {
 
     } catch (error) {
         console.error("Error generating PDF template overlay:", error);
-        // Fallback error response if PDF generation fails completely
         if (!res.headersSent) {
             res.status(500).json({ message: `Failed to compile PDF invoice: ${error.message}` });
         }

@@ -7,7 +7,8 @@ const {
     cancelInvoice,
     markInvoiceAsPaid,
     downloadInvoice,
-    deleteInvoice
+    deleteInvoice,
+    updateInvoice
 } = require("../controllers/invoiceController");
 const { protect } = require("../middleware/authMiddleware");
 
@@ -19,6 +20,7 @@ router.route("/")
     .get(getInvoices);
 
 router.get("/:id", getInvoiceById);
+router.put("/:id", updateInvoice);
 router.get("/:id/download", downloadInvoice);
 router.patch("/:id/cancel", cancelInvoice);
 router.patch("/:id/paid", markInvoiceAsPaid);

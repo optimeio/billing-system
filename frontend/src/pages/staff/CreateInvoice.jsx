@@ -1,15 +1,68 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Trash2, FileText, Loader2 } from 'lucide-react';
+import { Plus, Trash2, FileText, Loader2, ArrowLeft } from 'lucide-react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 
 const CreateInvoice = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const isEditMode = !!id;
+
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [invoiceDate, setInvoiceDate] = useState('');
+  
   const [items, setItems] = useState([{ productName: '', category: '', price: '', qty: 1 }]);
+  const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Fetch invoice details if in edit mode
+  useEffect(() => {
+    if (!isEditMode) return;
+
+    const fetchInvoiceDetails = async () => {
+      try {
+        setLoading(true);
+        const res = await api.get(`/invoices/${id}`);
+        const inv = res.data;
+        
+        setCustomerName(inv.customerName || '');
+        setCustomerPhone(inv.customerPhone || '');
+        setCustomerAddress(inv.customerAddress || '');
+        setInvoiceNumber(inv.invoiceNumber || '');
+        
+        // Format ISO date to YYYY-MM-DD for date input
+        if (inv.createdAt) {
+          const dateStr = new Date(inv.createdAt).toISOString().split('T')[0];
+          setInvoiceDate(dateStr);
+        } else {
+          setInvoiceDate('');
+        }
+
+        // Map items
+        if (inv.items && inv.items.length > 0) {
+          setItems(inv.items.map(item => ({
+            productId: item.productId?._id || item.productId || '',
+            productName: item.name || '',
+            category: item.productId?.category || 'General',
+            price: item.price || '',
+            qty: item.qty || 1
+          })));
+        }
+      } catch (err) {
+        toast.error('Failed to load invoice details for editing');
+        navigate(-1);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchInvoiceDetails();
+  }, [id, isEditMode, navigate]);
 
   const handleAddItem = () => {
     setItems([...items, { productName: '', category: '', price: '', qty: 1 }]);
@@ -46,7 +99,10 @@ const CreateInvoice = () => {
         customerName,
         customerPhone,
         customerAddress,
+        invoiceNumber: invoiceNumber ? invoiceNumber.trim() : undefined,
+        invoiceDate: invoiceDate ? new Date(invoiceDate).toISOString() : undefined,
         items: items.map(item => ({
+          productId: item.productId || undefined,
           productName: item.productName,
           category: item.category || 'General',
           price: Number(item.price),
@@ -54,35 +110,62 @@ const CreateInvoice = () => {
         }))
       };
 
-      const res = await api.post('/invoices', payload);
-      toast.success(res.data.message || 'Invoice created successfully!');
-      
-      // Reset form
-      setCustomerName('');
-      setCustomerPhone('');
-      setCustomerAddress('');
-      setItems([{ productName: '', category: '', price: '', qty: 1 }]);
+      if (isEditMode) {
+        const res = await api.put(`/invoices/${id}`, payload);
+        toast.success(res.data.message || 'Invoice updated successfully!');
+        navigate(-1);
+      } else {
+        const res = await api.post('/invoices', payload);
+        toast.success(res.data.message || 'Invoice created successfully!');
+        
+        // Reset form
+        setCustomerName('');
+        setCustomerPhone('');
+        setCustomerAddress('');
+        setInvoiceNumber('');
+        setInvoiceDate('');
+        setItems([{ productName: '', category: '', price: '', qty: 1 }]);
+      }
       
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to create invoice');
+      toast.error(err.response?.data?.message || 'Failed to submit invoice');
     } finally {
       setSubmitting(false);
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px]">
+        <Loader2 size={48} className="animate-spin text-primary mb-4" />
+        <p className="text-slate-600 font-medium">Loading Invoice details...</p>
+      </div>
+    );
+  }
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center space-x-3">
-        <div className="p-2 bg-primary/10 rounded-lg text-primary">
-          <FileText size={24} />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="p-2 bg-primary/10 rounded-lg text-primary">
+            <FileText size={24} />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-800">
+            {isEditMode ? 'Edit Invoice' : 'Create New Invoice'}
+          </h1>
         </div>
-        <h1 className="text-2xl font-bold text-slate-800">Create New Invoice</h1>
+        <button 
+          onClick={() => navigate(-1)} 
+          className="text-slate-600 hover:text-slate-800 flex items-center text-sm font-medium border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+        >
+          <ArrowLeft size={16} className="mr-1.5" /> Back
+        </button>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Customer Details */}
+        {/* Customer & Invoice Details */}
         <div className="glass p-6 rounded-xl shadow-sm border border-slate-200">
-          <h2 className="text-lg font-semibold mb-4 text-slate-700 border-b pb-2">Customer Details</h2>
+          <h2 className="text-lg font-semibold mb-4 text-slate-700 border-b pb-2">Customer & Invoice Settings</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-600 mb-1">Customer Name (Optional)</label>
@@ -104,6 +187,30 @@ const CreateInvoice = () => {
                 placeholder="+91..."
               />
             </div>
+            
+            {/* New manual Invoice No input */}
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1">Invoice Number (Optional)</label>
+              <input 
+                type="text" 
+                value={invoiceNumber} 
+                onChange={(e) => setInvoiceNumber(e.target.value)} 
+                className="w-full border border-slate-300 p-2.5 rounded-lg focus:ring-primary focus:border-primary bg-white"
+                placeholder="e.g. INV1005 (Leave blank to auto-generate)"
+              />
+            </div>
+
+            {/* New manual Date input */}
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1">Invoice Date (Optional)</label>
+              <input 
+                type="date" 
+                value={invoiceDate} 
+                onChange={(e) => setInvoiceDate(e.target.value)} 
+                className="w-full border border-slate-300 p-2.5 rounded-lg focus:ring-primary focus:border-primary bg-white"
+              />
+            </div>
+
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-slate-600 mb-1">Customer Address (Optional)</label>
               <input 
@@ -210,7 +317,7 @@ const CreateInvoice = () => {
             className="bg-primary hover:bg-blue-600 text-white font-semibold py-3 px-8 rounded-xl shadow-lg shadow-primary/30 flex items-center transition-all disabled:opacity-70"
           >
             {submitting ? <Loader2 size={20} className="animate-spin mr-2" /> : <FileText size={20} className="mr-2" />}
-            {submitting ? 'Generating Invoice...' : 'Complete Billing'}
+            {submitting ? 'Saving Invoice...' : isEditMode ? 'Save Changes' : 'Complete Billing'}
           </button>
         </div>
       </form>

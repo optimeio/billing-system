@@ -113,6 +113,7 @@ function App() {
           <Route index element={<AdminDashboard />} />
           <Route path="staff" element={<StaffManagement />} />
           <Route path="invoices" element={<AdminInvoices />} />
+          <Route path="edit-invoice/:id" element={<CreateInvoice />} />
           <Route path="products" element={<ProductManagement />} />
           <Route path="expenses" element={<ExpenseManagement />} />
           <Route path="payments" element={<PaymentManagement />} />
@@ -122,7 +123,7 @@ function App() {
           <Route path="leaves" element={<LeaveManagement />} />
           <Route path="announcements" element={<AnnouncementManagement />} />
         </Route>
-
+ 
         {/* Staff Routes */}
         <Route path="/staff" element={
           <ProtectedRoute allowedRoles={['staff']}>
@@ -131,6 +132,7 @@ function App() {
         }>
           <Route index element={<StaffDashboard />} />
           <Route path="create-invoice" element={<CreateInvoice />} />
+          <Route path="edit-invoice/:id" element={<CreateInvoice />} />
           <Route path="invoices" element={<MyInvoices />} />
           <Route path="scanners" element={<GenerateQR />} />
           <Route path="expenses" element={<ExpenseManagement />} />

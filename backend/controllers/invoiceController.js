@@ -13,7 +13,7 @@ const { sendEmail } = require("../utils/emailService");
 // @access  Admin/Staff
 exports.createInvoice = async (req, res) => {
     try {
-        let { customerName, customerPhone, customerAddress, items, tax = 0, discount = 0 } = req.body;
+        let { invoiceNumber, invoiceDate, customerName, customerPhone, customerAddress, items, tax = 0, discount = 0 } = req.body;
 
         customerName = customerName || "Walk-in Customer";
         customerPhone = customerPhone || "0000000000";
@@ -23,13 +23,25 @@ exports.createInvoice = async (req, res) => {
             return res.status(400).json({ message: "Invoice must have at least one item." });
         }
 
-        // 1. Generate Invoice Number (INV1001, INV1002...)
-        const lastInvoice = await Invoice.findOne().sort({ createdAt: -1 });
-        let nextInvoiceNumber = "INV1001";
-        if (lastInvoice && lastInvoice.invoiceNumber) {
-            const lastNum = parseInt(lastInvoice.invoiceNumber.replace("INV", ""));
-            nextInvoiceNumber = `INV${lastNum + 1}`;
+        // 1. Resolve Invoice Number (custom manual value or auto-generated)
+        let finalInvoiceNumber = invoiceNumber ? invoiceNumber.trim() : "";
+        if (!finalInvoiceNumber) {
+            const lastInvoice = await Invoice.findOne().sort({ createdAt: -1 });
+            let nextInvoiceNumber = "INV1001";
+            if (lastInvoice && lastInvoice.invoiceNumber) {
+                const lastNum = parseInt(lastInvoice.invoiceNumber.replace("INV", ""));
+                nextInvoiceNumber = `INV${lastNum + 1}`;
+            }
+            finalInvoiceNumber = nextInvoiceNumber;
+        } else {
+            // Verify manual entry is unique
+            const existing = await Invoice.findOne({ invoiceNumber: finalInvoiceNumber });
+            if (existing) {
+                return res.status(400).json({ message: `Invoice number "${finalInvoiceNumber}" is already in use.` });
+            }
         }
+
+        const dateToSet = invoiceDate ? new Date(invoiceDate) : new Date();
 
         let processedItems = [];
         let subtotal = 0;
@@ -87,9 +99,9 @@ exports.createInvoice = async (req, res) => {
         // 3. Final Calculations
         const grandTotal = subtotal + parseFloat(tax) - parseFloat(discount);
 
-        // 4. Save Invoice
+        // 4. Save Invoice with exact fields
         const invoice = await Invoice.create({
-            invoiceNumber: nextInvoiceNumber,
+            invoiceNumber: finalInvoiceNumber,
             customerName,
             customerPhone,
             customerAddress,
@@ -98,7 +110,8 @@ exports.createInvoice = async (req, res) => {
             tax,
             discount,
             grandTotal,
-            createdBy: req.user._id
+            createdBy: req.user._id,
+            createdAt: dateToSet
         });
 
         // 5. Emit socket event and create notification
@@ -260,7 +273,7 @@ exports.downloadInvoice = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
-// @desc    Delete invoice (Admin Only)
+// @desc    Delete invoice (Admin or Creator)
 // @route   DELETE /api/invoices/:id
 exports.deleteInvoice = async (req, res) => {
     try {
@@ -269,13 +282,103 @@ exports.deleteInvoice = async (req, res) => {
             return res.status(404).json({ message: "Invoice not found" });
         }
 
-        // Restriction: Only Admin can delete invoices for financial record integrity
-        if (req.user.role !== "admin") {
-            return res.status(403).json({ message: "Only administrators can permanently delete invoices" });
+        // Restriction: Admin or Creator can delete
+        if (req.user.role !== "admin" && invoice.createdBy.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: "Not authorized to delete this invoice" });
         }
 
         await Invoice.findByIdAndDelete(req.params.id);
         res.json({ message: "Invoice deleted permanently" });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Update/Edit existing invoice
+// @route   PUT /api/invoices/:id
+// @access  Admin/Staff
+exports.updateInvoice = async (req, res) => {
+    try {
+        const { invoiceNumber, invoiceDate, customerName, customerPhone, customerAddress, items, tax = 0, discount = 0, paymentStatus } = req.body;
+        
+        const invoice = await Invoice.findById(req.params.id);
+        if (!invoice) {
+            return res.status(404).json({ message: "Invoice not found" });
+        }
+
+        // Check permission: Admin or Creator
+        if (req.user.role !== "admin" && invoice.createdBy.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: "Not authorized to edit this invoice" });
+        }
+
+        if (invoiceNumber && invoiceNumber !== invoice.invoiceNumber) {
+            // Verify uniqueness
+            const existing = await Invoice.findOne({ invoiceNumber });
+            if (existing) {
+                return res.status(400).json({ message: `Invoice number "${invoiceNumber}" is already in use.` });
+            }
+            invoice.invoiceNumber = invoiceNumber;
+        }
+
+        if (invoiceDate) {
+            invoice.createdAt = new Date(invoiceDate);
+        }
+
+        invoice.customerName = customerName || invoice.customerName;
+        invoice.customerPhone = customerPhone || invoice.customerPhone;
+        invoice.customerAddress = customerAddress !== undefined ? customerAddress : invoice.customerAddress;
+        
+        if (paymentStatus) {
+            invoice.paymentStatus = paymentStatus;
+        }
+
+        if (items && items.length > 0) {
+            let processedItems = [];
+            let subtotal = 0;
+
+            for (let item of items) {
+                let product;
+                if (item.productId) {
+                    product = await Product.findById(item.productId);
+                } else if (item.productName) {
+                    const productResult = await findOrCreateProduct(item.productName, null, item.price, req.user._id);
+                    product = productResult.product;
+                }
+
+                if (!product) {
+                    return res.status(400).json({ message: `Product not found or created for: ${item.productName || item.productId}` });
+                }
+
+                const itemPrice = item.price || product.price;
+                const itemQty = item.qty || 1;
+                const itemTotal = itemPrice * itemQty;
+
+                processedItems.push({
+                    productId: product._id,
+                    name: product.name,
+                    price: itemPrice,
+                    qty: itemQty,
+                    total: itemTotal
+                });
+
+                subtotal += itemTotal;
+            }
+
+            invoice.items = processedItems;
+            invoice.subtotal = subtotal;
+        }
+
+        // Recompute totals
+        invoice.tax = tax !== undefined ? parseFloat(tax) : invoice.tax;
+        invoice.discount = discount !== undefined ? parseFloat(discount) : invoice.discount;
+        invoice.grandTotal = invoice.subtotal + invoice.tax - invoice.discount;
+
+        await invoice.save();
+
+        res.json({
+            message: "Invoice updated successfully",
+            invoice
+        });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
