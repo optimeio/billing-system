@@ -181,7 +181,7 @@ exports.generateInvoicePDF = async (invoice, res) => {
         page.drawText("IInd Floor, OM Shiva Towers, 259-B, Advaitha Ashram Rd,", { x: 334, y: 100, size: 7, font: fReg, color: BLACK });
         page.drawText("Fairlands, Salem, Tamil Nadu 636004",                      { x: 334, y: 90,  size: 7, font: fReg, color: BLACK });
         page.drawText("+91 9486783278  |  tsmgmdofficial@gmail.com",              { x: 334, y: 79,  size: 7, font: fReg, color: BLACK });
-        page.drawText("www.thesmgroups.in",                                        { x: 334, y: 68,  size: 7, font: fReg, color: BLACK });
+        page.drawText("www.thesmgroups.com",                                       { x: 334, y: 68,  size: 7, font: fReg, color: BLACK });
 
         // Save and respond
         const pdfBytes = await pdfDoc.save();
