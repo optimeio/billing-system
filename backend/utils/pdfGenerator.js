@@ -31,6 +31,25 @@ const formatCurrency = (num) => {
     });
 };
 
+// Helper to wrap text cleanly to a maximum character length
+const wrapText = (text, maxLength) => {
+    if (!text) return [];
+    const words = text.split(" ");
+    const lines = [];
+    let currentLine = "";
+
+    words.forEach(word => {
+        if ((currentLine + " " + word).trim().length <= maxLength) {
+            currentLine = (currentLine + " " + word).trim();
+        } else {
+            if (currentLine) lines.push(currentLine);
+            currentLine = word;
+        }
+    });
+    if (currentLine) lines.push(currentLine);
+    return lines;
+};
+
 /**
  * Generates an Invoice PDF by loading the pre-designed template InvoiceNITYA.pdf
  * and drawing the dynamic text fields as an overlay.
@@ -59,30 +78,30 @@ exports.generateInvoicePDF = async (invoice, res) => {
         const mutedColor = rgb(0.2, 0.2, 0.2);
 
         // 3. Cover the pre-printed misaligned Invoice No & Date labels under Consignee box
-        // Target: X = 380 to X = 570, Y = 565 to Y = 600
+        // Target: X = 320 to X = 570, Y = 560 to Y = 615 (height 55)
         page.drawRectangle({
-            x: 380,
-            y: 565,
-            width: 190,
-            height: 35,
+            x: 320,
+            y: 560,
+            width: 250,
+            height: 55,
             color: rgb(1, 1, 1)
         });
 
-        // Write correct Invoice Number and Date (Shifted to X = 450 to align close to pre-printed labels)
-        page.drawText(invoice.invoiceNumber || "", {
-            x: 450,
+        // Write correct Invoice Number and Date (perfect spacing, drawn together to prevent being "far away")
+        const invoiceDate = invoice.createdAt 
+            ? new Date(invoice.createdAt).toLocaleDateString('en-GB') 
+            : new Date().toLocaleDateString('en-GB');
+
+        page.drawText(`Invoice No: ${invoice.invoiceNumber || ""}`, {
+            x: 425,
             y: 592,
             size: 9,
             font: fontBold,
             color: textColor
         });
 
-        const invoiceDate = invoice.createdAt 
-            ? new Date(invoice.createdAt).toLocaleDateString('en-GB') 
-            : new Date().toLocaleDateString('en-GB');
-
-        page.drawText(invoiceDate, {
-            x: 450,
+        page.drawText(`Date: ${invoiceDate}`, {
+            x: 425,
             y: 573,
             size: 9,
             font: fontBold,
@@ -109,53 +128,47 @@ exports.generateInvoicePDF = async (invoice, res) => {
             color: textColor
         });
 
-        // Customer Address (wrapped cleanly, fallback to blank if empty)
-        const addressText = invoice.customerAddress || "";
-        if (addressText) {
-            page.drawText(addressText, {
-                x: 50,
-                y: 628,
-                size: 8,
-                font: fontRegular,
-                color: mutedColor,
-                maxWidth: 220,
-                lineHeight: 10
-            });
-
-            page.drawText(addressText, {
-                x: 300,
-                y: 628,
-                size: 8,
-                font: fontRegular,
-                color: mutedColor,
-                maxWidth: 220,
-                lineHeight: 10
-            });
-        }
-
-        // Customer Phone (formatted with +91 if 10-digit number)
-        // Shifted Y up to 608 to completely prevent overlapping with pre-printed labels under Consignee box
+        // Format customer phone cleanly if present
         let phoneText = invoice.customerPhone || "";
-        if (phoneText) {
-            if (/^\d{10}$/.test(phoneText)) {
-                phoneText = `+91 ${phoneText}`;
-            }
-            page.drawText(phoneText, {
-                x: 50,
-                y: 608,
-                size: 8,
-                font: fontRegular,
-                color: mutedColor
-            });
-
-            page.drawText(phoneText, {
-                x: 300,
-                y: 608,
-                size: 8,
-                font: fontRegular,
-                color: mutedColor
-            });
+        if (phoneText && /^\d{10}$/.test(phoneText)) {
+            phoneText = `+91 ${phoneText}`;
         }
+
+        // Bill To Address & Phone Layout (Left Column: wrapped cleanly to max width 38 chars, dynamic shifting)
+        const leftLines = wrapText(invoice.customerAddress || "", 38);
+        if (phoneText) {
+            leftLines.push(phoneText);
+        }
+
+        let leftY = 628;
+        leftLines.forEach(line => {
+            page.drawText(line, {
+                x: 50,
+                y: leftY,
+                size: 8,
+                font: fontRegular,
+                color: mutedColor
+            });
+            leftY -= 11;
+        });
+
+        // Consignee To Address & Phone Layout (Right Column: wrapped cleanly to max width 26 chars, dynamic shifting)
+        const rightLines = wrapText(invoice.customerAddress || "", 26);
+        if (phoneText) {
+            rightLines.push(phoneText);
+        }
+
+        let rightY = 628;
+        rightLines.forEach(line => {
+            page.drawText(line, {
+                x: 300,
+                y: rightY,
+                size: 8,
+                font: fontRegular,
+                color: mutedColor
+            });
+            rightY -= 11;
+        });
 
         // 5. Write Line Items (Template has exactly 2 pre-drawn rows spaced by 63.5 points)
         // Row 1: Y = 447
