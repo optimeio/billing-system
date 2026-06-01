@@ -2,9 +2,9 @@ const nodemailer = require("nodemailer");
 const logger = require("./logger");
 const dns = require("dns");
 
-// Warn if email credentials are missing, but don't crash the server
-if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    logger.warn("⚠️  EMAIL CONFIGURATION: EMAIL_USER or EMAIL_PASS is missing. Email sending will fail.");
+// Warn if critical email credentials are missing, but don't crash
+if (!process.env.EMAIL_USER && !process.env.RESEND_API_KEY) {
+    logger.warn("⚠️  EMAIL CONFIGURATION: Neither EMAIL_USER nor RESEND_API_KEY is configured. Email sending will fail.");
 }
 
 // Custom DNS lookup that strictly forces IPv4 resolution (family: 4) and ignores any IPv6 overrides
@@ -13,8 +13,7 @@ const ipv4Lookup = (hostname, options, callback) => {
     return dns.lookup(hostname, { family: 4 }, cb);
 };
 
-// Transporter using Port 465 (Direct SSL) with custom IPv4 lookup.
-// Direct SSL prevents STARTTLS re-resolution, ensuring the custom resolver is enforced.
+// Standard Nodemailer Transporter (for local dev and local SMTP testing)
 const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 465,
@@ -24,7 +23,7 @@ const transporter = nodemailer.createTransport({
     maxConnections: 5,
     maxMessages: 100,
     rateLimit: 5,
-    connectionTimeout: 10000, // 10s connection timeout
+    connectionTimeout: 10000,
     greetingTimeout: 10000,
     socketTimeout: 15000,
     auth: {
@@ -33,23 +32,56 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// Verify connection on startup (non-blocking)
-transporter.verify((error) => {
-    if (error) {
-        logger.error("❌ EMAIL SERVICE ERROR:", error && error.message ? error.message : error);
-    } else {
-        logger.info("✅ EMAIL SERVICE: Ready to send messages");
-    }
-});
+// Non-blocking verification on startup (only if using standard SMTP locally)
+if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "prod" && process.env.EMAIL_USER) {
+    transporter.verify((error) => {
+        if (error) {
+            logger.error("❌ EMAIL SERVICE (SMTP): Local verification failed:", error.message || error);
+        } else {
+            logger.info("✅ EMAIL SERVICE (SMTP): Ready to send messages locally");
+        }
+    });
+}
 
+/**
+ * Sends email using either Resend API (HTTPS), Hostinger Mail Relay (HTTPS), or standard SMTP.
+ */
 const sendEmail = async (to, subject, text, html) => {
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-        throw new Error("Email credentials not configured. Set EMAIL_USER and EMAIL_PASS in .env");
+    // 1. Resend API (Recommended Production Option - Port 443 HTTPS, bypasses all SMTP blocks)
+    if (process.env.RESEND_API_KEY) {
+        logger.info(`📧 Routing email to Resend API (HTTPS) for recipient: ${to}`);
+        try {
+            const sender = process.env.RESEND_SENDER || "SM GROUPS <noreply@thesmgroups.com>";
+            const response = await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${process.env.RESEND_API_KEY}`
+                },
+                body: JSON.stringify({
+                    from: sender,
+                    to: [to],
+                    subject: subject,
+                    text: text || (html ? html.replace(/<[^>]*>?/gm, "") : ""),
+                    html: html || text
+                }),
+                signal: AbortSignal.timeout(10000)
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                logger.info(`✅ Email successfully sent via Resend API to: ${to} (ID: ${data.id})`);
+                return { messageId: data.id, status: "success", provider: "resend" };
+            } else {
+                throw new Error(data.message || `Resend API error status ${response.status}`);
+            }
+        } catch (resendErr) {
+            logger.error(`❌ Resend API FAILED: ${resendErr.message}`);
+            logger.warn(`🔄 Falling back to other configured methods...`);
+        }
     }
 
-    // ─── Production HTTPS Mail Relay Bypass ───────────────────────────────────
-    // Render Free tier blocks outbound SMTP ports 25, 465, and 587.
-    // We bypass this restriction by making a secure HTTPS POST (port 443) to the Hostinger server.
+    // 2. Hostinger HTTPS Mail Relay Bypass (Legacy Production Bypass)
     if (process.env.NODE_ENV === "production" || process.env.NODE_ENV === "prod") {
         logger.info(`🌐 SMTP block detected in production. Relaying email to Hostinger HTTPS Mail Relay...`);
         try {
@@ -61,26 +93,24 @@ const sendEmail = async (to, subject, text, html) => {
                 headers: {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${secretKey}`,
-                    "X-Relay-Signature": secretKey // Fallback for servers that strip Authorization headers
+                    "X-Relay-Signature": secretKey
                 },
                 body: JSON.stringify({
                     to,
                     subject,
                     html: html || text,
-                    relay_key: secretKey, // Fallback for body-based authentication
+                    relay_key: secretKey,
                     smtp_user: process.env.EMAIL_USER,
                     smtp_pass: process.env.EMAIL_PASS ? process.env.EMAIL_PASS.replace(/\s+/g, "") : undefined
                 }),
-                // 10-second request timeout
                 signal: AbortSignal.timeout(10000)
             });
 
             const contentType = response.headers.get("content-type") || "";
             if (contentType.includes("text/html")) {
                 const textResponse = await response.text();
-                // If it returned HTML starting with <!doctype, it's the SPA index.html fallback (indicating a 404 on the script)
                 if (textResponse.trim().startsWith("<!doctype") || textResponse.includes("<html")) {
-                    throw new Error(`Hostinger returned HTML/index.html instead of executing PHP. The 'mail-relay.php' script is missing or not uploaded to the public root on billing.thesmgroups.com.`);
+                    throw new Error(`Hostinger returned HTML/index.html instead of executing PHP. The 'mail-relay.php' script is missing or not uploaded to the public root.`);
                 }
                 throw new Error(`Hostinger returned non-JSON HTML content: ${textResponse.substring(0, 100)}...`);
             }
@@ -88,7 +118,7 @@ const sendEmail = async (to, subject, text, html) => {
             const data = await response.json();
             if (response.ok && data.status === "success") {
                 logger.info(`✅ Email successfully delivered via Hostinger Mail Relay to: ${to}`);
-                return data;
+                return { messageId: "relay-success", ...data, provider: "relay" };
             } else {
                 throw new Error(data.message || `Relay responded with status ${response.status}`);
             }
@@ -98,20 +128,25 @@ const sendEmail = async (to, subject, text, html) => {
         }
     }
 
+    // 3. Fallback to standard SMTP (Local dev or environments with unblocked SMTP ports)
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+        throw new Error("No mail provider credentials configured. Please set RESEND_API_KEY or EMAIL_USER/EMAIL_PASS.");
+    }
+
     try {
         const mailOptions = {
             from: `"SM GROUPS" <${process.env.EMAIL_USER}>`,
             to,
-            bcc: process.env.EMAIL_USER, // Always BCC the owner/admin
+            bcc: process.env.EMAIL_USER,
             subject,
             text: text || (html ? html.replace(/<[^>]*>?/gm, "") : ""),
             html
         };
         const info = await transporter.sendMail(mailOptions);
-        logger.info(`📧 Email sent to ${to}: ${info.messageId}`);
-        return info;
+        logger.info(`📧 Email sent via local SMTP to ${to}: ${info.messageId}`);
+        return { messageId: info.messageId, status: "success", provider: "smtp" };
     } catch (error) {
-        logger.error("❌ EMAIL SEND ERROR:", error.message);
+        logger.error("❌ EMAIL SEND ERROR (SMTP):", error.message);
         throw error;
     }
 };

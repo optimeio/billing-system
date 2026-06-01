@@ -23,6 +23,10 @@ const Login = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [timer, setTimer] = useState(60);
 
+  // Forgot password state
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [forgotPasswordStep, setForgotPasswordStep] = useState(0);
+
   const navigate = useNavigate();
   const { login } = useAuthStore();
 
@@ -143,9 +147,6 @@ const Login = () => {
       setLoading(false);
     }
   };
-
-  const [isForgotPassword, setIsForgotPassword] = useState(false);
-  const [forgotPasswordStep, setForgotPasswordStep] = useState(0);
 
   const handleForgotPasswordRequest = async (e, isResend = false) => {
     if (e) e.preventDefault();
