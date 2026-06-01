@@ -146,42 +146,41 @@ exports.generateInvoicePDF = async (invoice, res) => {
 
         // ══════════════════════════════════════════════════
         // 5. BANK DETAILS & SIGNATURE (bottom section)
-        //    Template has wrong account + company name preprinted
-        //    Erase the whole info band from Y=85..175 and redraw correctly
-        //    Template footer icons (phone, mail, web) are preprinted below Y=85
-        //    Contact text will be placed to the RIGHT of the icons, not overlapping
+        //    Template preprinted WRONG data (from InvoiceNITYA.pdf):
+        //      Left:  Account 510909010317647, TSMG SERVICES PRIVATE LIMITED
+        //      Right: AUTHORIZED SIGNATORY, MANAGING DIRECTOR, P. Sankarganesh signature
+        //             Phone/email/web icons + www.thesmgroups.in
+        //    Erase ALL of it from Y=40..185 and redraw with correct values
         // ══════════════════════════════════════════════════
 
-        // Erase wrong left bank details block (preprinted at Y=100..162)
-        page.drawRectangle({ x: 16, y: 88, width: 310, height: 88, color: WHITE });
-        // Erase wrong right signature/director block (preprinted at Y=149..162)
-        page.drawRectangle({ x: 330, y: 88, width: 278, height: 88, color: WHITE });
+        // ── Erase entire left bank block (x=16..326, y=40..185) ──
+        page.drawRectangle({ x: 16, y: 40, width: 314, height: 145, color: WHITE });
 
-        // Correct bank details (left side)
+        // ── Erase entire right signatory + contact block (x=326..608, y=40..185) ──
+        page.drawRectangle({ x: 326, y: 40, width: 282, height: 145, color: WHITE });
+
+        // ── Draw correct Bank Details (left side) ──
         page.drawText("Account Number: 530509010317851", { x: 20, y: 168, size: 8, font: fBold, color: BLACK });
         page.drawText("IFSC: CIUB0000188",               { x: 20, y: 156, size: 8, font: fBold, color: BLACK });
         page.drawText("Account Name: THE SM GROUPS",     { x: 20, y: 144, size: 8, font: fBold, color: BLACK });
         page.drawText("Branch Name: FAIRLANDS SALEM",    { x: 20, y: 132, size: 8, font: fBold, color: BLACK });
         page.drawText("Bank Name: CITY UNION BANK",      { x: 20, y: 120, size: 8, font: fBold, color: BLACK });
 
-        // Authorized Signatory block (right side, centered around x=470)
+        // ── Draw correct Authorized Signatory block (right side, centered x=470) ──
         const cx = 470;
         const authTxt = "AUTHORIZED SIGNATORY";
-        page.drawText(authTxt, { x: cx - fBold.widthOfTextAtSize(authTxt, 8)/2, y: 168, size: 8, font: fBold, color: BLACK });
-        const mdTxt = "MANAGING DIRECTOR";
-        page.drawText(mdTxt,   { x: cx - fBold.widthOfTextAtSize(mdTxt,   8)/2, y: 155, size: 8, font: fBold, color: BLACK });
+        const mdTxt   = "MANAGING DIRECTOR";
+        const sigTxt  = "Sankar Ganesh";
 
-        // Signature in elegant oblique italic font
-        const sigTxt = "Sankar Ganesh";
-        page.drawText(sigTxt,  { x: cx - fObl.widthOfTextAtSize(sigTxt, 13)/2, y: 130, size: 13, font: fObl, color: rgb(0.15, 0.15, 0.15) });
+        page.drawText(authTxt, { x: cx - fBold.widthOfTextAtSize(authTxt, 8)  / 2, y: 168, size: 8,  font: fBold, color: BLACK });
+        page.drawText(mdTxt,   { x: cx - fBold.widthOfTextAtSize(mdTxt,   8)  / 2, y: 155, size: 8,  font: fBold, color: BLACK });
+        page.drawText(sigTxt,  { x: cx - fObl.widthOfTextAtSize(sigTxt,   13) / 2, y: 130, size: 13, font: fObl,  color: rgb(0.15, 0.15, 0.15) });
 
-        // Company contact details: right side below signature
-        // Erase the entire footer icon/text strip on the right side
-        page.drawRectangle({ x: 330, y: 40, width: 278, height: 50, color: WHITE });
-        page.drawText("IInd Floor, OM Shiva Towers, 259-B, Advaitha Ashram Rd,", { x: 334, y: 100, size: 7, font: fReg, color: BLACK });
-        page.drawText("Fairlands, Salem, Tamil Nadu 636004",                      { x: 334, y: 90,  size: 7, font: fReg, color: BLACK });
-        page.drawText("+91 9486783278  |  tsmgmdofficial@gmail.com",              { x: 334, y: 79,  size: 7, font: fReg, color: BLACK });
-        page.drawText("www.thesmgroups.com",                                       { x: 334, y: 68,  size: 7, font: fReg, color: BLACK });
+        // ── Draw correct company contact details (right side) ──
+        page.drawText("IInd Floor, OM Shiva Towers, 259-B, Advaitha Ashram Rd,", { x: 334, y: 105, size: 7, font: fReg, color: BLACK });
+        page.drawText("Fairlands, Salem, Tamil Nadu 636004",                      { x: 334, y: 94,  size: 7, font: fReg, color: BLACK });
+        page.drawText("+91 9486783278  |  tsmgmdofficial@gmail.com",              { x: 334, y: 82,  size: 7, font: fReg, color: BLACK });
+        page.drawText("www.thesmgroups.com",                                       { x: 334, y: 70,  size: 7, font: fReg, color: BLACK });
 
         // Save and respond
         const pdfBytes = await pdfDoc.save();
