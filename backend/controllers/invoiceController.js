@@ -114,6 +114,20 @@ exports.createInvoice = async (req, res) => {
         }
 
         // 6. Send Email Notification to Admin
+        const adminEmailMessage = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; border: 1px solid #ddd; padding: 20px;">
+                <h2 style="color: #2c3e50;">New Invoice Generated</h2>
+                <p>An invoice has been successfully created in the system:</p>
+                <ul>
+                    <li><b>Invoice Number:</b> ${invoice.invoiceNumber}</li>
+                    <li><b>Customer Name:</b> ${customerName}</li>
+                    <li><b>Grand Total:</b> ₹${grandTotal.toLocaleString()}</li>
+                    <li><b>Created By:</b> ${req.user.name || "Staff"}</li>
+                </ul>
+                <p>Please log in to the admin portal to review the invoice details.</p>
+            </div>
+        `;
+
         // Send Email Notification to Admin in the background (non-blocking)
         sendEmail(process.env.EMAIL_USER, `New Invoice Created: ${invoice.invoiceNumber}`, "", adminEmailMessage)
             .catch(emailErr => console.error("Failed to send admin notification email for invoice:", emailErr.message));

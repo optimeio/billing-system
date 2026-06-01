@@ -32,6 +32,20 @@ exports.createExpense = async (req, res) => {
         });
 
         // Notify Admin via Email
+        const adminEmailMessage = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; border: 1px solid #ddd; padding: 20px;">
+                <h2 style="color: #2c3e50;">New Expense Request</h2>
+                <p>A new expense request has been submitted for approval:</p>
+                <ul>
+                    <li><b>Title:</b> ${title}</li>
+                    <li><b>Amount:</b> ₹${parseFloat(amount).toLocaleString()}</li>
+                    <li><b>Submitted By:</b> ${req.user.name || "Staff"}</li>
+                    <li><b>Category:</b> ${category || "General"}</li>
+                </ul>
+                <p>Please log in to the admin panel to approve or reject this request.</p>
+            </div>
+        `;
+
         // Send Email Notification to Admin in the background (non-blocking)
         sendEmail(process.env.EMAIL_USER, `New Expense Submitted: ${title}`, "", adminEmailMessage)
             .catch(emailErr => console.error("Failed to send admin notification email for expense:", emailErr.message));
