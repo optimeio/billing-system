@@ -68,9 +68,9 @@ exports.generateInvoicePDF = async (invoice, res) => {
             color: rgb(1, 1, 1)
         });
 
-        // Write correct Invoice Number and Date right next to their top-right pre-printed label coordinates
+        // Write correct Invoice Number and Date (Shifted to X = 450 to align close to pre-printed labels)
         page.drawText(invoice.invoiceNumber || "", {
-            x: 495,
+            x: 450,
             y: 592,
             size: 9,
             font: fontBold,
@@ -82,7 +82,7 @@ exports.generateInvoicePDF = async (invoice, res) => {
             : new Date().toLocaleDateString('en-GB');
 
         page.drawText(invoiceDate, {
-            x: 495,
+            x: 450,
             y: 573,
             size: 9,
             font: fontBold,
@@ -134,6 +134,7 @@ exports.generateInvoicePDF = async (invoice, res) => {
         }
 
         // Customer Phone (formatted with +91 if 10-digit number)
+        // Shifted Y up to 608 to completely prevent overlapping with pre-printed labels under Consignee box
         let phoneText = invoice.customerPhone || "";
         if (phoneText) {
             if (/^\d{10}$/.test(phoneText)) {
@@ -141,7 +142,7 @@ exports.generateInvoicePDF = async (invoice, res) => {
             }
             page.drawText(phoneText, {
                 x: 50,
-                y: 590,
+                y: 608,
                 size: 8,
                 font: fontRegular,
                 color: mutedColor
@@ -149,7 +150,7 @@ exports.generateInvoicePDF = async (invoice, res) => {
 
             page.drawText(phoneText, {
                 x: 300,
-                y: 590,
+                y: 608,
                 size: 8,
                 font: fontRegular,
                 color: mutedColor
@@ -189,19 +190,18 @@ exports.generateInvoicePDF = async (invoice, res) => {
             });
         });
 
-        // 6. Write Grand Total (Y = 346 - perfectly centered inside pre-printed Totals Row bar)
-        // Words (Grand Total converted to english words, capitalized)
-        const totalWords = `TOTAL (${numberToWords(invoice.grandTotal).toUpperCase()})`;
-        
-        // Cover old grand total text before redrawing new dynamic grand total words/numbers
+        // 6. Write Grand Total (Y = 340 - perfectly centered inside pre-printed Totals Row bar)
+        // Cover old grand total text with a GREY rectangle matching the grey totals bar background
         page.drawRectangle({
             x: 45,
             y: 338,
-            width: 520,
-            height: 12,
-            color: rgb(1, 1, 1)
+            width: 385, // covers the pre-printed grand total words, leaves the number area untouched
+            height: 14,
+            color: rgb(0.8, 0.8, 0.8) // Match the exact grey color of the bar
         });
 
+        // Words (Grand Total converted to english words, capitalized)
+        const totalWords = `TOTAL (${numberToWords(invoice.grandTotal).toUpperCase()})`;
         page.drawText(totalWords, {
             x: 50,
             y: 340,
@@ -259,24 +259,24 @@ exports.generateInvoicePDF = async (invoice, res) => {
             });
         });
 
-        // 8. Cover and Redraw Bank details & signature section (Y = 40 to Y = 160)
-        // Erases pre-printed R. Sankarganesh signature and wrong bank accounts of TSMG
+        // 8. Cover and Redraw Bank details & signature section (Y = 40 to Y = 180)
+        // Erases pre-printed R. Sankarganesh signature and wrong bank accounts of TSMG completely
         
-        // Cover bottom left bank details area
+        // Cover bottom left bank details area (Increased height to 140 to completely mask signatory labels)
         page.drawRectangle({
             x: 25,
             y: 40,
             width: 295,
-            height: 120,
+            height: 140,
             color: rgb(1, 1, 1)
         });
 
-        // Cover bottom right signature and contact details area
+        // Cover bottom right signature and contact details area (Increased height to 140)
         page.drawRectangle({
             x: 330,
             y: 40,
             width: 242,
-            height: 120,
+            height: 140,
             color: rgb(1, 1, 1)
         });
 
