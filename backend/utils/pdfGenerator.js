@@ -59,19 +59,19 @@ exports.generateInvoicePDF = async (invoice, res) => {
         const mutedColor = rgb(0.2, 0.2, 0.2);
 
         // 3. Cover the pre-printed misaligned Invoice No & Date labels under Consignee box
-        // Target: X = 400 to X = 570, Y = 565 to Y = 600
+        // Target: X = 380 to X = 570, Y = 565 to Y = 600
         page.drawRectangle({
-            x: 400,
+            x: 380,
             y: 565,
-            width: 170,
+            width: 190,
             height: 35,
             color: rgb(1, 1, 1)
         });
 
-        // Write correct Invoice Number and Date at the top right white space (spacious and clear)
-        page.drawText(`Invoice No: ${invoice.invoiceNumber || ""}`, {
-            x: 430,
-            y: 696,
+        // Write correct Invoice Number and Date right next to their top-right pre-printed label coordinates
+        page.drawText(invoice.invoiceNumber || "", {
+            x: 495,
+            y: 592,
             size: 9,
             font: fontBold,
             color: textColor
@@ -81,9 +81,9 @@ exports.generateInvoicePDF = async (invoice, res) => {
             ? new Date(invoice.createdAt).toLocaleDateString('en-GB') 
             : new Date().toLocaleDateString('en-GB');
 
-        page.drawText(`Date: ${invoiceDate}`, {
-            x: 430,
-            y: 680,
+        page.drawText(invoiceDate, {
+            x: 495,
+            y: 573,
             size: 9,
             font: fontBold,
             color: textColor
@@ -95,7 +95,7 @@ exports.generateInvoicePDF = async (invoice, res) => {
         
         page.drawText(customerNameUpper, {
             x: 50,
-            y: 635,
+            y: 640,
             size: 9,
             font: fontBold,
             color: textColor
@@ -103,7 +103,7 @@ exports.generateInvoicePDF = async (invoice, res) => {
 
         page.drawText(customerNameUpper, {
             x: 300,
-            y: 635,
+            y: 640,
             size: 9,
             font: fontBold,
             color: textColor
@@ -114,7 +114,7 @@ exports.generateInvoicePDF = async (invoice, res) => {
         if (addressText) {
             page.drawText(addressText, {
                 x: 50,
-                y: 622,
+                y: 628,
                 size: 8,
                 font: fontRegular,
                 color: mutedColor,
@@ -124,7 +124,7 @@ exports.generateInvoicePDF = async (invoice, res) => {
 
             page.drawText(addressText, {
                 x: 300,
-                y: 622,
+                y: 628,
                 size: 8,
                 font: fontRegular,
                 color: mutedColor,
@@ -141,7 +141,7 @@ exports.generateInvoicePDF = async (invoice, res) => {
             }
             page.drawText(phoneText, {
                 x: 50,
-                y: 602,
+                y: 590,
                 size: 8,
                 font: fontRegular,
                 color: mutedColor
@@ -149,36 +149,21 @@ exports.generateInvoicePDF = async (invoice, res) => {
 
             page.drawText(phoneText, {
                 x: 300,
-                y: 602,
+                y: 590,
                 size: 8,
                 font: fontRegular,
                 color: mutedColor
             });
         }
 
-        // 5. Write Line Items (Template has 3 pre-drawn rows spaced by 60 points)
-        // Row 1: Y = 505
-        // Row 2: Y = 445
-        // Row 3: Y = 385
-        const itemsToDraw = (invoice.items || []).slice(0, 3);
+        // 5. Write Line Items (Template has exactly 2 pre-drawn rows spaced by 63.5 points)
+        // Row 1: Y = 447
+        // Row 2: Y = 384
+        // Note: S.No (1 and 2) is already pre-printed on the background template, so we don't draw it.
+        const itemsToDraw = (invoice.items || []).slice(0, 2);
 
         itemsToDraw.forEach((item, idx) => {
-            const rowY = 505 - (idx * 60);
-
-            // Centered S.No inside column (approx X = 50 to X = 75, mid = 62)
-            // S.No 1 is already pre-printed in the background InvoiceNITYA.pdf template,
-            // so we only draw dynamic serial numbers for index > 0 to prevent double-printing "1 1"
-            const sNo = (idx + 1).toString();
-            const sNoWidth = fontRegular.widthOfTextAtSize(sNo, 9);
-            if (idx > 0) {
-                page.drawText(sNo, {
-                    x: 62 - (sNoWidth / 2),
-                    y: rowY,
-                    size: 9,
-                    font: fontRegular,
-                    color: textColor
-                });
-            }
+            const rowY = idx === 0 ? 447 : 384;
 
             // Description / Product Name (wrapped slightly to avoid column boundary)
             const itemNameUpper = (item.name || "").toUpperCase();
@@ -204,12 +189,22 @@ exports.generateInvoicePDF = async (invoice, res) => {
             });
         });
 
-        // 6. Write Grand Total (Y = 325)
+        // 6. Write Grand Total (Y = 346 - perfectly centered inside pre-printed Totals Row bar)
         // Words (Grand Total converted to english words, capitalized)
         const totalWords = `TOTAL (${numberToWords(invoice.grandTotal).toUpperCase()})`;
+        
+        // Cover old grand total text before redrawing new dynamic grand total words/numbers
+        page.drawRectangle({
+            x: 45,
+            y: 338,
+            width: 520,
+            height: 12,
+            color: rgb(1, 1, 1)
+        });
+
         page.drawText(totalWords, {
             x: 50,
-            y: 325,
+            y: 340,
             size: 7,
             font: fontBold,
             color: textColor,
@@ -222,15 +217,24 @@ exports.generateInvoicePDF = async (invoice, res) => {
         const grandTotalWidth = fontBold.widthOfTextAtSize(grandTotalText, 9);
         page.drawText(grandTotalText, {
             x: 545 - grandTotalWidth,
-            y: 325,
+            y: 340,
             size: 9,
             font: fontBold,
             color: textColor
         });
 
-        // 7. Write HSN/SAC Total Row (Static row in template at Y = 265)
+        // 7. Write HSN/SAC Total Row (Static row in template at Y = 285)
         // Columns: HSN/SAC (X=72 center), Taxable Value (X=155 center), CGST (X=265 center), SGST (X=385 center), Total Tax (X=502 center)
-        const hsnY = 265;
+        const hsnY = 285;
+
+        // Cover old HSN totals row before redrawing new ones
+        page.drawRectangle({
+            x: 22,
+            y: 278,
+            width: 545,
+            height: 12,
+            color: rgb(1, 1, 1)
+        });
 
         const hsnLabel = "Total";
         const hsnLabelWidth = fontRegular.widthOfTextAtSize(hsnLabel, 8);
@@ -260,9 +264,9 @@ exports.generateInvoicePDF = async (invoice, res) => {
         
         // Cover bottom left bank details area
         page.drawRectangle({
-            x: 40,
+            x: 25,
             y: 40,
-            width: 280,
+            width: 295,
             height: 120,
             color: rgb(1, 1, 1)
         });
@@ -277,11 +281,11 @@ exports.generateInvoicePDF = async (invoice, res) => {
         });
 
         // Draw correct Bank Details (CITY UNION BANK Salem)
-        page.drawText("Account Number: 520509010317851", { x: 50, y: 135, size: 8, font: fontBold, color: textColor });
-        page.drawText("IFSC: CIUB0000188", { x: 50, y: 123, size: 8, font: fontBold, color: textColor });
-        page.drawText("Account Name: THE SM GROUPS", { x: 50, y: 111, size: 8, font: fontBold, color: textColor });
-        page.drawText("Branch Name: FAIRLANDS SALEM", { x: 50, y: 99, size: 8, font: fontBold, color: textColor });
-        page.drawText("Bank Name: CITY UNION BANK", { x: 50, y: 87, size: 8, font: fontBold, color: textColor });
+        page.drawText("Account Number: 520509010317851", { x: 30, y: 151, size: 8, font: fontBold, color: textColor });
+        page.drawText("IFSC: CIUB0000188", { x: 30, y: 139, size: 8, font: fontBold, color: textColor });
+        page.drawText("Account Name: THE SM GROUPS", { x: 30, y: 127, size: 8, font: fontBold, color: textColor });
+        page.drawText("Branch Name: FAIRLANDS SALEM", { x: 30, y: 115, size: 8, font: fontBold, color: textColor });
+        page.drawText("Bank Name: CITY UNION BANK", { x: 30, y: 103, size: 8, font: fontBold, color: textColor });
 
         // Draw correct Authorized Signatory labels
         const authText = "AUTHORIZED SIGNATORY";
