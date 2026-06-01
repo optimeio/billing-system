@@ -7,6 +7,7 @@ import api from '../../services/api';
 const CreateInvoice = () => {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [customerAddress, setCustomerAddress] = useState('');
   const [items, setItems] = useState([{ productName: '', category: '', price: '', qty: 1 }]);
   const [submitting, setSubmitting] = useState(false);
 
@@ -44,6 +45,7 @@ const CreateInvoice = () => {
       const payload = {
         customerName,
         customerPhone,
+        customerAddress,
         items: items.map(item => ({
           productName: item.productName,
           category: item.category || 'General',
@@ -58,6 +60,7 @@ const CreateInvoice = () => {
       // Reset form
       setCustomerName('');
       setCustomerPhone('');
+      setCustomerAddress('');
       setItems([{ productName: '', category: '', price: '', qty: 1 }]);
       
     } catch (err) {
@@ -99,6 +102,16 @@ const CreateInvoice = () => {
                 onChange={(e) => setCustomerPhone(e.target.value)} 
                 className="w-full border border-slate-300 p-2.5 rounded-lg focus:ring-primary focus:border-primary"
                 placeholder="+91..."
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-slate-600 mb-1">Customer Address (Optional)</label>
+              <input 
+                type="text" 
+                value={customerAddress} 
+                onChange={(e) => setCustomerAddress(e.target.value)} 
+                className="w-full border border-slate-300 p-2.5 rounded-lg focus:ring-primary focus:border-primary"
+                placeholder="46, PATTELSHA STREET, Kadathur, Dharmapuri..."
               />
             </div>
           </div>

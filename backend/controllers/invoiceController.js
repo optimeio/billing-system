@@ -13,10 +13,11 @@ const { sendEmail } = require("../utils/emailService");
 // @access  Admin/Staff
 exports.createInvoice = async (req, res) => {
     try {
-        let { customerName, customerPhone, items, tax = 0, discount = 0 } = req.body;
+        let { customerName, customerPhone, customerAddress, items, tax = 0, discount = 0 } = req.body;
 
         customerName = customerName || "Walk-in Customer";
         customerPhone = customerPhone || "0000000000";
+        customerAddress = customerAddress || "";
 
         if (!items || items.length === 0) {
             return res.status(400).json({ message: "Invoice must have at least one item." });
@@ -91,6 +92,7 @@ exports.createInvoice = async (req, res) => {
             invoiceNumber: nextInvoiceNumber,
             customerName,
             customerPhone,
+            customerAddress,
             items: processedItems,
             subtotal,
             tax,
@@ -253,7 +255,7 @@ exports.downloadInvoice = async (req, res) => {
             `attachment; filename=Invoice_${invoice.invoiceNumber}.pdf`
         );
 
-        generateInvoicePDF(invoice, res);
+        await generateInvoicePDF(invoice, res);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

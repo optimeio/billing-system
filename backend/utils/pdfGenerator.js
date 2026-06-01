@@ -1,4 +1,5 @@
-const PDFDocument = require("pdfkit");
+const { PDFDocument, rgb, StandardFonts } = require("pdf-lib");
+const fs = require("fs");
 const path = require("path");
 
 // Helper to convert number to English words
@@ -6,7 +7,6 @@ const numberToWords = (num) => {
     const a = ['', 'one ', 'two ', 'three ', 'four ', 'five ', 'six ', 'seven ', 'eight ', 'nine ', 'ten ', 'eleven ', 'twelve ', 'thirteen ', 'fourteen ', 'fifteen ', 'sixteen ', 'seventeen ', 'eighteen ', 'nineteen '];
     const b = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
 
-    // round to integer just in case
     num = Math.round(num);
 
     if (num === 0) return 'zero only';
@@ -23,135 +23,233 @@ const numberToWords = (num) => {
     return str.trim();
 };
 
-exports.generateInvoicePDF = (invoice, res) => {
-    const doc = new PDFDocument({ margin: 40, size: 'A4' });
-
-    // Stream the PDF directly to the response
-    doc.pipe(res);
-
-    // Header Red block
-    doc.rect(40, 30, 260, 45).fill('#b91c1c');
-    doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(22).text('INVOICE', 60, 42);
-
-    // Logo image on the right
-    try {
-        doc.image(path.join(__dirname, 'logo.png'), 410, 30, { width: 140 });
-    } catch (err) {
-        // Fallback text if logo is missing or corrupt at runtime
-        doc.fillColor('#b91c1c').font('Helvetica-Bold').fontSize(16).text('SM GROUPS', 410, 35, { align: 'right' });
-    }
-
-    // Right border vertical accent strip
-    doc.rect(550, 30, 10, 45).fill('#444444');
-
-    // Horizontal separator
-    doc.moveTo(40, 85).lineTo(560, 85).strokeColor('#CCCCCC').lineWidth(1).stroke();
-
-    // Bill To & Consignee columns
-    const columnsY = 95;
-    doc.fillColor('#000000').font('Helvetica-Bold').fontSize(8).text('INVOICE ON (BILL TO):', 40, columnsY);
-    doc.font('Helvetica-Bold').fontSize(9).text(invoice.customerName.toUpperCase(), 40, columnsY + 14);
-    doc.font('Helvetica').fontSize(8).fillColor('#333333');
-    doc.text('46, PATTELSHA STREET, Kadathur, Dharmapuri,\nTamil Nadu-635303', 40, columnsY + 26, { width: 220 });
-    doc.text(`+91 ${invoice.customerPhone}`, 40, columnsY + 48);
-
-    doc.fillColor('#000000').font('Helvetica-Bold').fontSize(8).text('CONSIGNEE TO (SHIP TO):', 300, columnsY);
-    doc.font('Helvetica-Bold').fontSize(9).text(invoice.customerName.toUpperCase(), 300, columnsY + 14);
-    doc.font('Helvetica').fontSize(8).fillColor('#333333');
-    doc.text('46, PATTELSHA STREET, Kadathur, Dharmapuri,\nTamil Nadu-635303', 300, columnsY + 26, { width: 220 });
-    doc.text(`+91 ${invoice.customerPhone}`, 300, columnsY + 48);
-
-    // Invoice Metadata
-    doc.fillColor('#000000').font('Helvetica-Bold').fontSize(8);
-    doc.text(`Invoice No: ${invoice.invoiceNumber}`, 300, columnsY + 64);
-    doc.text(`Date: ${new Date(invoice.createdAt).toLocaleDateString('en-GB')}`, 300, columnsY + 76);
-
-    // Items table
-    const tableTop = 195;
-    doc.rect(40, tableTop, 520, 20).fill('#CCCCCC');
-    doc.fillColor('#000000').font('Helvetica-Bold').fontSize(8);
-    doc.text('S.NO', 45, tableTop + 6, { width: 30, align: 'center' });
-    doc.text('DESCRIPTION', 85, tableTop + 6, { width: 340, align: 'center' });
-    doc.text('TOTAL AMOUNT', 435, tableTop + 6, { width: 120, align: 'center' });
-
-    let y = tableTop + 20;
-    invoice.items.forEach((item, idx) => {
-        // Draw grid cell borders
-        doc.rect(40, y, 520, 30).strokeColor('#999999').lineWidth(0.5).stroke();
-        
-        // Vertical grid lines
-        doc.moveTo(75, y).lineTo(75, y + 30).stroke();
-        doc.moveTo(430, y).lineTo(430, y + 30).stroke();
-
-        // Row contents
-        doc.font('Helvetica').fontSize(8).text(idx + 1, 45, y + 10, { width: 30, align: 'center' });
-        doc.font('Helvetica-Bold').fontSize(8).text(item.name.toUpperCase(), 85, y + 10, { width: 340 });
-        doc.text(`₹${item.total.toLocaleString()}`, 435, y + 10, { width: 110, align: 'right' });
-        
-        y += 30;
+// Helper to format currency values cleanly without throwing font errors on ₹
+const formatCurrency = (num) => {
+    return Number(num).toLocaleString('en-IN', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
     });
+};
 
-    // Totals footer row
-    doc.rect(40, y, 520, 20).strokeColor('#999999').stroke();
-    doc.moveTo(430, y).lineTo(430, y + 20).stroke();
-    
-    const words = `TOTAL (${numberToWords(invoice.grandTotal).toUpperCase()})`;
-    doc.font('Helvetica-Bold').fontSize(7).text(words, 45, y + 6, { width: 380 });
-    doc.fontSize(8).text(`₹${invoice.grandTotal.toLocaleString()}`, 435, y + 6, { width: 110, align: 'right' });
-    
-    y += 20;
+/**
+ * Generates an Invoice PDF by loading the pre-designed template InvoiceNITYA.pdf
+ * and drawing the dynamic text fields as an overlay.
+ * 
+ * @param {Object} invoice - The Mongoose invoice document
+ * @param {Object} res - The Express response object
+ */
+exports.generateInvoicePDF = async (invoice, res) => {
+    try {
+        // 1. Load the pre-designed PDF template
+        const templatePath = path.join(__dirname, "InvoiceNITYA.pdf");
+        if (!fs.existsSync(templatePath)) {
+            throw new Error(`Invoice template not found at ${templatePath}`);
+        }
+        
+        const templateBytes = fs.readFileSync(templatePath);
+        const pdfDoc = await PDFDocument.load(templateBytes);
+        const page = pdfDoc.getPages()[0];
 
-    // HSN/SAC breakdown table
-    const hsnTop = y + 12;
-    doc.rect(40, hsnTop, 520, 15).fill('#EAEAEA');
-    doc.fillColor('#000000').font('Helvetica-Bold').fontSize(7);
-    doc.text('HSN/SAC', 45, hsnTop + 4, { width: 60, align: 'center' });
-    doc.text('TAXABLE VALUE', 110, hsnTop + 4, { width: 90, align: 'center' });
-    doc.text('CGST (Rate/Amt)', 210, hsnTop + 4, { width: 110, align: 'center' });
-    doc.text('SGST (Rate/Amt)', 330, hsnTop + 4, { width: 110, align: 'center' });
-    doc.text('Total Tax Amount', 450, hsnTop + 4, { width: 100, align: 'center' });
+        // 2. Embed standard Helvetica fonts
+        const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-    const hsnRowY = hsnTop + 15;
-    doc.rect(40, hsnRowY, 520, 15).strokeColor('#999999').stroke();
-    doc.font('Helvetica').fontSize(8);
-    doc.text('Total', 45, hsnRowY + 4, { width: 60, align: 'center' });
-    doc.text('-', 110, hsnRowY + 4, { width: 90, align: 'center' });
-    doc.text('-', 210, hsnRowY + 4, { width: 110, align: 'center' });
-    doc.text('-', 330, hsnRowY + 4, { width: 110, align: 'center' });
-    doc.text('-', 450, hsnRowY + 4, { width: 100, align: 'center' });
-    
-    doc.moveTo(105, hsnTop).lineTo(105, hsnRowY + 15).stroke();
-    doc.moveTo(205, hsnTop).lineTo(205, hsnRowY + 15).stroke();
-    doc.moveTo(325, hsnTop).lineTo(325, hsnRowY + 15).stroke();
-    doc.moveTo(445, hsnTop).lineTo(445, hsnRowY + 15).stroke();
+        const textColor = rgb(0, 0, 0);
+        const mutedColor = rgb(0.2, 0.2, 0.2);
 
-    // Notes
-    doc.font('Helvetica-Bold').fontSize(7).text('NOTE:', 40, hsnRowY + 36);
-    doc.font('Helvetica').text('Goods are checked and delivered in good condition. No return or exchange will be accepted after delivery.', 70, hsnRowY + 36);
+        // 3. Write Invoice Number and Date (Top Right Corner)
+        // Target: X = 475, Y = 720 for Invoice No | Y = 708 for Date (Letter Height = 792)
+        page.drawText(invoice.invoiceNumber || "", {
+            x: 475,
+            y: 720,
+            size: 9,
+            font: fontBold,
+            color: textColor
+        });
 
-    // Bank Details & Signatory
-    const bottomY = hsnRowY + 54;
-    doc.font('Helvetica-Bold').fontSize(8).fillColor('#000000');
-    doc.text('Account Number: 520509010317851', 40, bottomY);
-    doc.text('IFSC: CIUB0000188', 40, bottomY + 12);
-    doc.text('Account Name: THE SM GROUPS', 40, bottomY + 24);
-    doc.text('Branch Name: FAIRLANDS SALEM', 40, bottomY + 36);
-    doc.text('Bank Name: CITY UNION BANK', 40, bottomY + 48);
+        const invoiceDate = invoice.createdAt 
+            ? new Date(invoice.createdAt).toLocaleDateString('en-GB') 
+            : new Date().toLocaleDateString('en-GB');
 
-    doc.text('AUTHORIZED SIGNATORY', 380, bottomY, { align: 'center', width: 180 });
-    doc.text('MANAGING DIRECTOR', 380, bottomY + 10, { align: 'center', width: 180 });
-    
-    // Digital Signature Representation
-    doc.font('Helvetica-Oblique').fontSize(11).fillColor('#b91c1c').text('P. Gowtham', 380, bottomY + 26, { align: 'center', width: 180 });
-    
-    doc.fillColor('#000000').font('Helvetica').fontSize(7);
-    doc.text('3rd Floor, OM Shiva Towers, 259-B, Advaitha Ashram Rd,\nFairlands, Salem, Tamil Nadu 636016', 350, bottomY + 44, { align: 'right', width: 210 });
-    doc.text('+91 9486783278  |  tsmgmdofficial@gmail.com', 350, bottomY + 64, { align: 'right', width: 210 });
-    doc.text('www.thesmgroups.com', 350, bottomY + 74, { align: 'right', width: 210 });
+        page.drawText(invoiceDate, {
+            x: 475,
+            y: 708,
+            size: 9,
+            font: fontBold,
+            color: textColor
+        });
 
-    // Swoop Bottom Bars
-    doc.rect(40, 785, 260, 12).fill('#b91c1c');
-    doc.rect(300, 785, 260, 12).fill('#444444');
+        // 4. Write Bill To (Left Column) and Consignee/Ship To (Right Column) Details
+        // Customer Name
+        const customerNameUpper = (invoice.customerName || "Walk-in Customer").toUpperCase();
+        
+        page.drawText(customerNameUpper, {
+            x: 50,
+            y: 735,
+            size: 9,
+            font: fontBold,
+            color: textColor
+        });
 
-    doc.end();
+        page.drawText(customerNameUpper, {
+            x: 300,
+            y: 735,
+            size: 9,
+            font: fontBold,
+            color: textColor
+        });
+
+        // Customer Address (wrapped cleanly, fallback to blank if empty)
+        const addressText = invoice.customerAddress || "";
+        if (addressText) {
+            page.drawText(addressText, {
+                x: 50,
+                y: 723,
+                size: 8,
+                font: fontRegular,
+                color: mutedColor,
+                maxWidth: 220,
+                lineHeight: 10
+            });
+
+            page.drawText(addressText, {
+                x: 300,
+                y: 723,
+                size: 8,
+                font: fontRegular,
+                color: mutedColor,
+                maxWidth: 220,
+                lineHeight: 10
+            });
+        }
+
+        // Customer Phone (formatted with +91 if 10-digit number)
+        let phoneText = invoice.customerPhone || "";
+        if (phoneText) {
+            if (/^\d{10}$/.test(phoneText)) {
+                phoneText = `+91 ${phoneText}`;
+            }
+            page.drawText(phoneText, {
+                x: 50,
+                y: 694,
+                size: 8,
+                font: fontRegular,
+                color: mutedColor
+            });
+
+            page.drawText(phoneText, {
+                x: 300,
+                y: 694,
+                size: 8,
+                font: fontRegular,
+                color: mutedColor
+            });
+        }
+
+        // 5. Write Line Items (Template has 3 pre-drawn rows)
+        // Row 1: Y = 595
+        // Row 2: Y = 545
+        // Row 3: Y = 495
+        const itemsToDraw = (invoice.items || []).slice(0, 3);
+        
+        itemsToDraw.forEach((item, idx) => {
+            const rowY = 595 - (idx * 50);
+
+            // Centered S.No inside column (approx X = 50 to X = 75, mid = 62)
+            const sNo = (idx + 1).toString();
+            const sNoWidth = fontRegular.widthOfTextAtSize(sNo, 9);
+            page.drawText(sNo, {
+                x: 62 - (sNoWidth / 2),
+                y: rowY,
+                size: 9,
+                font: fontRegular,
+                color: textColor
+            });
+
+            // Description / Product Name (wrapped slightly to avoid column boundary)
+            const itemNameUpper = (item.name || "").toUpperCase();
+            page.drawText(itemNameUpper, {
+                x: 90,
+                y: rowY,
+                size: 8,
+                font: fontBold,
+                color: textColor,
+                maxWidth: 320,
+                lineHeight: 9
+            });
+
+            // Total Amount (Right-aligned to X = 545)
+            const amountText = formatCurrency(item.total);
+            const amountWidth = fontBold.widthOfTextAtSize(amountText, 9);
+            page.drawText(amountText, {
+                x: 545 - amountWidth,
+                y: rowY,
+                size: 9,
+                font: fontBold,
+                color: textColor
+            });
+        });
+
+        // 6. Write Grand Total
+        // Words (Grand Total converted to english words, capitalized)
+        const totalWords = `TOTAL (${numberToWords(invoice.grandTotal).toUpperCase()})`;
+        page.drawText(totalWords, {
+            x: 50,
+            y: 445,
+            size: 7,
+            font: fontBold,
+            color: textColor,
+            maxWidth: 380,
+            lineHeight: 8
+        });
+
+        // Amount figures (Right-aligned to X = 545)
+        const grandTotalText = formatCurrency(invoice.grandTotal);
+        const grandTotalWidth = fontBold.widthOfTextAtSize(grandTotalText, 9);
+        page.drawText(grandTotalText, {
+            x: 545 - grandTotalWidth,
+            y: 445,
+            size: 9,
+            font: fontBold,
+            color: textColor
+        });
+
+        // 7. Write HSN/SAC Total Row (Static row in template at Y = 385)
+        // Columns: HSN/SAC (X=72 center), Taxable Value (X=155 center), CGST (X=265 center), SGST (X=385 center), Total Tax (X=502 center)
+        const hsnY = 385;
+
+        const hsnLabel = "Total";
+        const hsnLabelWidth = fontRegular.widthOfTextAtSize(hsnLabel, 8);
+        page.drawText(hsnLabel, {
+            x: 72 - (hsnLabelWidth / 2),
+            y: hsnY,
+            size: 8,
+            font: fontRegular,
+            color: textColor
+        });
+
+        const dash = "-";
+        const dashWidth = fontRegular.widthOfTextAtSize(dash, 8);
+        const dashPositions = [155, 265, 385, 502];
+        dashPositions.forEach(pos => {
+            page.drawText(dash, {
+                x: pos - (dashWidth / 2),
+                y: hsnY,
+                size: 8,
+                font: fontRegular,
+                color: textColor
+            });
+        });
+
+        // 8. Save and Stream the PDF to response
+        const pdfBytes = await pdfDoc.save();
+        res.end(Buffer.from(pdfBytes));
+
+    } catch (error) {
+        console.error("Error generating PDF template overlay:", error);
+        // Fallback error response if PDF generation fails completely
+        if (!res.headersSent) {
+            res.status(500).json({ message: `Failed to compile PDF invoice: ${error.message}` });
+        }
+    }
 };
