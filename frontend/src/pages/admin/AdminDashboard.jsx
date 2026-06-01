@@ -15,7 +15,9 @@ const AdminDashboard = () => {
     fetchStats();
 
     // Listen for realtime updates
-    const socket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5002');
+    const socket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5002', {
+      transports: ['websocket']
+    });
     
     socket.on('connect', () => console.log('Admin Dashboard connected to socket'));
     socket.on('connect_error', (err) => console.error('Socket connection error:', err));

@@ -13,7 +13,7 @@ const StaffDashboard = () => {
 
   const fetchStaffStats = async () => {
     try {
-      const res = await api.get('/invoices/my');
+      const res = await api.get('/invoices');
       const invoices = res.data;
       
       setStats({
@@ -33,7 +33,9 @@ const StaffDashboard = () => {
     fetchStaffStats();
 
     // Listen for realtime updates
-    const socket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5002');
+    const socket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5002', {
+      transports: ['websocket']
+    });
 
     socket.on('invoiceCreated', () => {
       fetchStaffStats(); // Refresh stats when any invoice is created
@@ -54,14 +56,14 @@ const StaffDashboard = () => {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-      <div className="flex justify-between items-end">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">Welcome, {user?.name}!</h1>
           <p className="text-slate-500 mt-1">Here is what's happening today.</p>
         </div>
         <Link 
           to="/staff/create-invoice"
-          className="bg-primary text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-primary/30 flex items-center hover:bg-blue-600 transition-all"
+          className="w-full md:w-auto bg-primary text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-primary/30 flex items-center justify-center hover:bg-blue-600 transition-all"
         >
           <PlusCircle size={20} className="mr-2" /> Create New Invoice
         </Link>
