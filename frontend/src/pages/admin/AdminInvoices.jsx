@@ -9,6 +9,10 @@ const AdminInvoices = () => {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Modal Preview States
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
 
   const fetchInvoices = async () => {
     try {
@@ -54,6 +58,11 @@ const AdminInvoices = () => {
       const message = error.response?.data?.message || 'Failed to delete invoice';
       toast.error(message);
     }
+  };
+
+  const handlePreview = (invoice) => {
+    setSelectedInvoice(invoice);
+    setShowPreviewModal(true);
   };
 
   const filteredInvoices = invoices.filter(inv => 
@@ -140,7 +149,11 @@ const AdminInvoices = () => {
                     >
                       <Download size={18} />
                     </button>
-                    <button className="text-slate-600 hover:text-slate-800 p-2" title="View Details">
+                    <button 
+                      onClick={() => handlePreview(inv)}
+                      className="text-slate-600 hover:text-slate-800 p-2" 
+                      title="View & Preview Details"
+                    >
                       <FileText size={18} />
                     </button>
                     <Link 
@@ -167,6 +180,136 @@ const AdminInvoices = () => {
           </table>
         </div>
       </div>
+
+      {/* Invoice Preview Modal */}
+      {showPreviewModal && selectedInvoice && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0 }} 
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]"
+          >
+            {/* Modal Header */}
+            <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+              <div>
+                <h3 className="font-bold text-slate-800 text-lg">Invoice Preview</h3>
+                <p className="text-xs text-slate-500">Invoice: {selectedInvoice.invoiceNumber}</p>
+              </div>
+              <button 
+                onClick={() => { setShowPreviewModal(false); setSelectedInvoice(null); }}
+                className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-lg transition-colors text-lg"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1 text-slate-800">
+              {/* Invoice Header Style Replica */}
+              <div className="flex justify-between items-start border-b pb-4 border-slate-100">
+                <div>
+                  <div className="inline-block bg-red-700 text-white font-bold px-4 py-1.5 rounded text-sm mb-2">INVOICE</div>
+                  <h4 className="font-bold text-base text-slate-800">THE SM GROUPS</h4>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-slate-500">Invoice No:</p>
+                  <p className="font-bold text-sm text-slate-800">{selectedInvoice.invoiceNumber}</p>
+                  <p className="text-xs text-slate-500 mt-2">Date:</p>
+                  <p className="font-bold text-sm text-slate-800">{new Date(selectedInvoice.createdAt).toLocaleDateString()}</p>
+                </div>
+              </div>
+
+              {/* Bill To / Ship To Grid */}
+              <div className="grid grid-cols-2 gap-6 bg-slate-50 p-4 rounded-xl">
+                <div>
+                  <h5 className="text-xs uppercase font-bold text-slate-400 mb-1.5">Invoice On (Bill To):</h5>
+                  <p className="font-bold text-sm">{selectedInvoice.customerName}</p>
+                  <p className="text-xs text-slate-600 mt-1 whitespace-pre-line">{selectedInvoice.customerAddress || 'No Address Provided'}</p>
+                  <p className="text-xs text-slate-500 mt-1">Phone: {selectedInvoice.customerPhone}</p>
+                </div>
+                <div>
+                  <h5 className="text-xs uppercase font-bold text-slate-400 mb-1.5">Consignee To (Ship To):</h5>
+                  <p className="font-bold text-sm">{selectedInvoice.customerName}</p>
+                  <p className="text-xs text-slate-600 mt-1 whitespace-pre-line">{selectedInvoice.customerAddress || 'No Address Provided'}</p>
+                  <p className="text-xs text-slate-500 mt-1">Phone: {selectedInvoice.customerPhone}</p>
+                </div>
+              </div>
+
+              {/* Items Table */}
+              <div className="border border-slate-100 rounded-xl overflow-hidden">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500">
+                    <tr>
+                      <th className="p-3 text-center w-12">S.No</th>
+                      <th className="p-3">Description</th>
+                      <th className="p-3 text-right w-24">Price</th>
+                      <th className="p-3 text-center w-16">Qty</th>
+                      <th className="p-3 text-right w-28">Total Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50 text-sm">
+                    {selectedInvoice.items?.map((item, idx) => (
+                      <tr key={idx}>
+                        <td className="p-3 text-center text-slate-500">{idx + 1}</td>
+                        <td className="p-3 font-semibold text-slate-800">{item.name}</td>
+                        <td className="p-3 text-right">₹{item.price.toLocaleString()}</td>
+                        <td className="p-3 text-center">{item.qty}</td>
+                        <td className="p-3 text-right font-bold text-slate-800">₹{item.total.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Totals */}
+              <div className="flex flex-col items-end border-t pt-4 border-slate-100">
+                <div className="w-64 space-y-1.5 text-sm">
+                  <div className="flex justify-between text-slate-500">
+                    <span>Subtotal</span>
+                    <span>₹{selectedInvoice.subtotal?.toLocaleString()}</span>
+                  </div>
+                  {selectedInvoice.tax > 0 && (
+                    <div className="flex justify-between text-slate-500">
+                      <span>Tax</span>
+                      <span>₹{selectedInvoice.tax?.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {selectedInvoice.discount > 0 && (
+                    <div className="flex justify-between text-red-500">
+                      <span>Discount</span>
+                      <span>-₹{selectedInvoice.discount?.toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-base font-bold text-slate-800 border-t pt-1.5 border-slate-100">
+                    <span>Grand Total</span>
+                    <span>₹{selectedInvoice.grandTotal?.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end space-x-2">
+              <button 
+                onClick={() => { setShowPreviewModal(false); setSelectedInvoice(null); }}
+                className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-100 transition-colors"
+              >
+                Close
+              </button>
+              <button 
+                onClick={() => {
+                  handleDownload(selectedInvoice._id, selectedInvoice.invoiceNumber);
+                  setShowPreviewModal(false);
+                  setSelectedInvoice(null);
+                }}
+                className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-medium hover:bg-blue-600 shadow-md shadow-primary/25 transition-colors flex items-center"
+              >
+                <Download size={16} className="mr-1.5" /> Download PDF
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </motion.div>
   );
 };
