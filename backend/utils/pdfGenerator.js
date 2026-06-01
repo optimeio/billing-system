@@ -69,9 +69,10 @@ exports.generateInvoicePDF = async (invoice, res) => {
         const pdfDoc = await PDFDocument.load(templateBytes);
         const page = pdfDoc.getPages()[0];
 
-        // 2. Embed standard Helvetica and Bold fonts
+        // 2. Embed standard Helvetica, Bold, and Oblique fonts
         const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
         const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+        const fontOblique = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
 
         const textColor = rgb(0, 0, 0);
         const mutedColor = rgb(0.2, 0.2, 0.2);
@@ -202,24 +203,24 @@ exports.generateInvoicePDF = async (invoice, res) => {
             });
         });
 
-        // 6. Write Grand Total (Y = 341 - perfectly centered inside pre-printed Totals Row bar)
+        // 6. Write Grand Total (Y = 321 - perfectly centered inside pre-printed Totals Row bar)
         // Cover only the old pre-printed text parts to keep left/right borders and grid lines intact
         
         // Cover old grand total words
         page.drawRectangle({
             x: 80,
-            y: 338,
+            y: 315,
             width: 280,
-            height: 14,
+            height: 12,
             color: rgb(0.85, 0.85, 0.85) // Match the exact grey color of the bar
         });
 
         // Cover old grand total figures
         page.drawRectangle({
             x: 500,
-            y: 338,
+            y: 315,
             width: 55,
-            height: 14,
+            height: 12,
             color: rgb(0.85, 0.85, 0.85) // Match the exact grey color of the bar
         });
 
@@ -227,7 +228,7 @@ exports.generateInvoicePDF = async (invoice, res) => {
         const totalWords = `TOTAL (${numberToWords(invoice.grandTotal).toUpperCase()})`;
         page.drawText(totalWords, {
             x: 90,
-            y: 341,
+            y: 318,
             size: 7,
             font: fontBold,
             color: textColor,
@@ -240,15 +241,72 @@ exports.generateInvoicePDF = async (invoice, res) => {
         const grandTotalWidth = fontBold.widthOfTextAtSize(grandTotalText, 9);
         page.drawText(grandTotalText, {
             x: 545 - grandTotalWidth,
-            y: 341,
+            y: 318,
             size: 9,
             font: fontBold,
             color: textColor
         });
 
-        // 7. Save and Stream the PDF to response
-        // Note: The template's bottom bank details, contact details, and signature section 
-        // are 100% correct, authentic, and beautifully pre-printed. We do NOT cover or redraw them!
+        // 7. Cover and Redraw Bank details & signature section (Y = 40 to Y = 180)
+        // Erases pre-printed R. Sankarganesh signature and wrong bank accounts of TSMG completely
+        
+        // Cover bottom left bank details area (height 140 to completely mask signatory labels)
+        page.drawRectangle({
+            x: 25,
+            y: 40,
+            width: 295,
+            height: 140,
+            color: rgb(1, 1, 1)
+        });
+
+        // Cover bottom right signature and contact details area (height 140)
+        page.drawRectangle({
+            x: 330,
+            y: 40,
+            width: 242,
+            height: 140,
+            color: rgb(1, 1, 1)
+        });
+
+        // Draw correct Bank Details (CITY UNION BANK Salem, Account Number 530509010317851)
+        page.drawText("Account Number: 530509010317851", { x: 30, y: 151, size: 8, font: fontBold, color: textColor });
+        page.drawText("IFSC: CIUB0000188", { x: 30, y: 139, size: 8, font: fontBold, color: textColor });
+        page.drawText("Account Name: THE SM GROUPS", { x: 30, y: 127, size: 8, font: fontBold, color: textColor });
+        page.drawText("Branch Name: FAIRLANDS SALEM", { x: 30, y: 115, size: 8, font: fontBold, color: textColor });
+        page.drawText("Bank Name: CITY UNION BANK", { x: 30, y: 103, size: 8, font: fontBold, color: textColor });
+
+        // Draw correct Authorized Signatory labels
+        const authText = "AUTHORIZED SIGNATORY";
+        const authWidth = fontBold.widthOfTextAtSize(authText, 8);
+        page.drawText(authText, { x: 450 - (authWidth / 2), y: 145, size: 8, font: fontBold, color: textColor });
+
+        const mdText = "MANAGING DIRECTOR";
+        const mdWidth = fontBold.widthOfTextAtSize(mdText, 8);
+        page.drawText(mdText, { x: 450 - (mdWidth / 2), y: 133, size: 8, font: fontBold, color: textColor });
+
+        // Draw signature P. Gowtham beautifully in oblique cursive-style font
+        const sigText = "P. Gowtham";
+        const sigWidth = fontOblique.widthOfTextAtSize(sigText, 12);
+        page.drawText(sigText, { x: 450 - (sigWidth / 2), y: 111, size: 12, font: fontOblique, color: rgb(0.3, 0.3, 0.3) });
+
+        // Draw correct Company Contact Details
+        const contact1 = "IInd Floor, OM Shiva Towers, 259-B, Advaitha Ashram Rd,";
+        const w1 = fontRegular.widthOfTextAtSize(contact1, 7);
+        page.drawText(contact1, { x: 560 - w1, y: 90, size: 7, font: fontRegular, color: textColor });
+
+        const contact2 = "Fairlands, Salem, Tamil Nadu 636004";
+        const w2 = fontRegular.widthOfTextAtSize(contact2, 7);
+        page.drawText(contact2, { x: 560 - w2, y: 80, size: 7, font: fontRegular, color: textColor });
+
+        const contact3 = "+91 9486783278  |  tsmgmdofficial@gmail.com";
+        const w3 = fontRegular.widthOfTextAtSize(contact3, 7);
+        page.drawText(contact3, { x: 560 - w3, y: 68, size: 7, font: fontRegular, color: textColor });
+
+        const contact4 = "www.thesmgroups.in";
+        const w4 = fontRegular.widthOfTextAtSize(contact4, 7);
+        page.drawText(contact4, { x: 560 - w4, y: 56, size: 7, font: fontRegular, color: textColor });
+
+        // 8. Save and Stream the PDF to response
         const pdfBytes = await pdfDoc.save();
         res.end(Buffer.from(pdfBytes));
 
