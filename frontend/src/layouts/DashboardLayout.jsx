@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, FileText, QrCode, CreditCard, 
   Wallet, Package, Tags, Bell, Settings, LogOut, Menu, X, Calendar, Megaphone 
@@ -10,6 +10,7 @@ import useSocket from '../hooks/useSocket';
 const DashboardLayout = () => {
   const { logout, user } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Initialize Realtime Sockets
@@ -143,7 +144,7 @@ const DashboardLayout = () => {
         {/* Desktop Header */}
         <header className="hidden md:flex justify-between items-center p-6 bg-white border-b border-slate-200">
           <h2 className="text-xl font-semibold text-slate-800 capitalize">
-             {window.location.pathname.split('/').pop().replace('-', ' ') || 'Dashboard'}
+             {location.pathname.split('/').pop().replace('-', ' ') || 'Dashboard'}
           </h2>
           <div className="flex items-center space-x-4">
              <div className="text-right mr-2 hidden lg:block">
