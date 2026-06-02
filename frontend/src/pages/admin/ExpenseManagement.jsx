@@ -5,6 +5,7 @@ import api from '../../services/api';
 import toast from 'react-hot-toast';
 import Modal from '../../components/common/Modal';
 import useAuthStore from '../../store/authStore';
+import { socket } from '../../services/socket';
 
 const ExpenseManagement = () => {
   const { user } = useAuthStore();
@@ -34,6 +35,24 @@ const ExpenseManagement = () => {
 
   useEffect(() => {
     fetchExpenses();
+
+    const handleUpdate = () => {
+      fetchExpenses();
+    };
+
+    socket.on('expenseCreated', handleUpdate);
+    socket.on('expenseApproved', handleUpdate);
+    socket.on('expensePaid', handleUpdate);
+    socket.on('expenseRejected', handleUpdate);
+    socket.on('expenseDeleted', handleUpdate);
+
+    return () => {
+      socket.off('expenseCreated', handleUpdate);
+      socket.off('expenseApproved', handleUpdate);
+      socket.off('expensePaid', handleUpdate);
+      socket.off('expenseRejected', handleUpdate);
+      socket.off('expenseDeleted', handleUpdate);
+    };
   }, []);
 
   const handleAddExpense = async (e) => {

@@ -1,6 +1,7 @@
 const Leave = require("../models/Leave");
 const User = require("../models/User");
 const { sendEmail } = require("../utils/emailService");
+const { getIO } = require("../utils/socketService");
 
 // @desc    Apply for leave
 // @route   POST /api/leaves
@@ -33,6 +34,13 @@ exports.applyLeave = async (req, res) => {
         // Send alert to admin in the background (non-blocking)
         sendEmail(process.env.EMAIL_USER, `New Leave Request - ${req.user.name}`, "", adminMessage)
             .catch(err => console.error("Failed to send admin notification for leave:", err.message));
+
+        try {
+            const io = getIO();
+            io.emit("leaveApplied", leave);
+        } catch (err) {
+            console.error("Socket error on leave apply:", err);
+        }
 
         res.status(201).json({
             message: "Leave application submitted successfully",
@@ -101,6 +109,13 @@ exports.updateLeaveStatus = async (req, res) => {
         // Send Email to Staff in the background (non-blocking)
         sendEmail(leave.userId.email, subject, "", message)
             .catch(emailErr => console.error("Failed to send leave status email:", emailErr.message));
+
+        try {
+            const io = getIO();
+            io.emit("leaveStatusUpdated", leave);
+        } catch (err) {
+            console.error("Socket error on leave status update:", err);
+        }
 
         res.json({ message: `Leave ${status} successfully`, leave });
     } catch (error) {

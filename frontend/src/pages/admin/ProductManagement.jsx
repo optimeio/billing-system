@@ -4,6 +4,7 @@ import { Plus, Package, Edit2, Trash2, Loader2 } from 'lucide-react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import Modal from '../../components/common/Modal';
+import { socket } from '../../services/socket';
 
 const ProductManagement = () => {
   const [products, setProducts] = useState([]);
@@ -39,6 +40,36 @@ const ProductManagement = () => {
   useEffect(() => {
     fetchProducts();
     fetchCategories();
+
+    const handleProductUpdate = () => {
+      fetchProducts();
+    };
+
+    const handleCategoryUpdate = () => {
+      fetchCategories();
+    };
+
+    socket.on('productCreated', handleProductUpdate);
+    socket.on('productUpdated', handleProductUpdate);
+    socket.on('productDeleted', handleProductUpdate);
+    socket.on('stockUpdated', handleProductUpdate);
+    socket.on('lowStock', handleProductUpdate);
+
+    socket.on('categoryCreated', handleCategoryUpdate);
+    socket.on('categoryUpdated', handleCategoryUpdate);
+    socket.on('categoryDeleted', handleCategoryUpdate);
+
+    return () => {
+      socket.off('productCreated', handleProductUpdate);
+      socket.off('productUpdated', handleProductUpdate);
+      socket.off('productDeleted', handleProductUpdate);
+      socket.off('stockUpdated', handleProductUpdate);
+      socket.off('lowStock', handleProductUpdate);
+
+      socket.off('categoryCreated', handleCategoryUpdate);
+      socket.off('categoryUpdated', handleCategoryUpdate);
+      socket.off('categoryDeleted', handleCategoryUpdate);
+    };
   }, []);
 
   const handleSubmit = async (e) => {

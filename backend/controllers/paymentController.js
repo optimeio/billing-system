@@ -52,6 +52,13 @@ exports.createPayment = async (req, res) => {
             status: "pending"
         });
 
+        try {
+            const io = getIO();
+            io.emit("paymentCreated", payment);
+        } catch (err) {
+            console.error("Socket error on payment create:", err);
+        }
+
         res.status(201).json({
             message: "Payment request created successfully",
             payment
@@ -89,6 +96,13 @@ exports.createRazorpayOrder = async (req, res) => {
             razorpayOrderId: order.id,
             status: "pending"
         });
+
+        try {
+            const io = getIO();
+            io.emit("paymentCreated", payment);
+        } catch (err) {
+            console.error("Socket error on payment create:", err);
+        }
 
         res.status(201).json({
             message: "Razorpay order created",
@@ -206,6 +220,13 @@ exports.rejectPayment = async (req, res) => {
 
         payment.status = "rejected";
         await payment.save();
+
+        try {
+            const io = getIO();
+            io.emit("paymentRejected", { payment });
+        } catch (err) {
+            console.error("Socket error on payment reject:", err);
+        }
 
         res.json({
             message: "Payment rejected successfully",

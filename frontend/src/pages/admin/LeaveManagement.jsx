@@ -4,6 +4,7 @@ import { Users, Calendar, CheckCircle, XCircle, Clock, ChevronRight, MessageSqua
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import Modal from '../../components/common/Modal';
+import { socket } from '../../services/socket';
 
 const LeaveManagement = () => {
   const [staffList, setStaffList] = useState([]);
@@ -18,6 +19,22 @@ const LeaveManagement = () => {
 
   useEffect(() => {
     fetchInitialData();
+
+    const handleUpdate = () => {
+      fetchInitialData();
+    };
+
+    socket.on('leaveApplied', handleUpdate);
+    socket.on('leaveStatusUpdated', handleUpdate);
+    socket.on('staffCreated', handleUpdate);
+    socket.on('staffDeleted', handleUpdate);
+
+    return () => {
+      socket.off('leaveApplied', handleUpdate);
+      socket.off('leaveStatusUpdated', handleUpdate);
+      socket.off('staffCreated', handleUpdate);
+      socket.off('staffDeleted', handleUpdate);
+    };
   }, []);
 
   const fetchInitialData = async () => {

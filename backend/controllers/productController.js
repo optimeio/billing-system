@@ -1,4 +1,5 @@
 const Product = require("../models/Product");
+const { getIO } = require("../utils/socketService");
 
 // @desc    Create new product
 // @route   POST /api/products
@@ -23,6 +24,13 @@ exports.createProduct = async (req, res) => {
             unit,
             description
         });
+
+        try {
+            const io = getIO();
+            io.emit("productCreated", product);
+        } catch (err) {
+            console.error("Socket error on product create:", err);
+        }
 
         res.status(201).json(product);
     } catch (error) {
@@ -79,6 +87,13 @@ exports.updateProduct = async (req, res) => {
             { new: true, runValidators: true }
         );
 
+        try {
+            const io = getIO();
+            io.emit("productUpdated", updatedProduct);
+        } catch (err) {
+            console.error("Socket error on product update:", err);
+        }
+
         res.json(updatedProduct);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -93,6 +108,14 @@ exports.deleteProduct = async (req, res) => {
         if (!product) return res.status(404).json({ message: "Product not found" });
 
         await Product.findByIdAndDelete(req.params.id);
+
+        try {
+            const io = getIO();
+            io.emit("productDeleted", { id: req.params.id });
+        } catch (err) {
+            console.error("Socket error on product delete:", err);
+        }
+
         res.json({ message: "Product removed successfully" });
     } catch (error) {
         res.status(500).json({ message: error.message });

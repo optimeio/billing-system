@@ -4,6 +4,7 @@ import { Shield, ShieldOff, Trash2, Plus, Loader2, Edit2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import Modal from '../../components/common/Modal';
+import { socket } from '../../services/socket';
 
 const StaffManagement = () => {
   const [staffList, setStaffList] = useState([]);
@@ -16,10 +17,6 @@ const StaffManagement = () => {
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', staffId: '', password: '', role: '' });
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    fetchStaff();
-  }, []);
-
   const fetchStaff = async () => {
     try {
       setLoading(true);
@@ -31,6 +28,30 @@ const StaffManagement = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchStaff();
+
+    const handleUpdate = () => {
+      fetchStaff();
+    };
+
+    socket.on('staffCreated', handleUpdate);
+    socket.on('staffUpdated', handleUpdate);
+    socket.on('staffDeleted', handleUpdate);
+    socket.on('staffBlocked', handleUpdate);
+    socket.on('staffUnblocked', handleUpdate);
+
+    return () => {
+      socket.off('staffCreated', handleUpdate);
+      socket.off('staffUpdated', handleUpdate);
+      socket.off('staffDeleted', handleUpdate);
+      socket.off('staffBlocked', handleUpdate);
+      socket.off('staffUnblocked', handleUpdate);
+    };
+  }, []);
+
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();

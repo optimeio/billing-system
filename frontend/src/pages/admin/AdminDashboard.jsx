@@ -5,7 +5,7 @@ import {
   ArrowUpRight, CheckCircle, AlertTriangle 
 } from 'lucide-react';
 import api from '../../services/api';
-import { io } from 'socket.io-client';
+import { socket } from '../../services/socket';
 
 const AdminDashboard = () => {
   const [data, setData] = useState(null);
@@ -14,26 +14,48 @@ const AdminDashboard = () => {
   useEffect(() => {
     fetchStats();
 
-    // Listen for realtime updates
-    const socket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5002', {
-      transports: ['websocket']
-    });
-    
-    socket.on('connect', () => console.log('Admin Dashboard connected to socket'));
-    socket.on('connect_error', (err) => console.error('Socket connection error:', err));
+    // Listen for realtime updates using the socket singleton
+    const events = [
+      'invoiceCreated',
+      'invoiceUpdated',
+      'invoiceDeleted',
+      'paymentCreated',
+      'paymentApproved',
+      'paymentRejected',
+      'productCreated',
+      'productUpdated',
+      'productDeleted',
+      'stockUpdated',
+      'lowStock',
+      'staffCreated',
+      'staffUpdated',
+      'staffDeleted',
+      'staffBlocked',
+      'staffUnblocked',
+      'categoryCreated',
+      'categoryUpdated',
+      'categoryDeleted',
+      'leaveApplied',
+      'leaveStatusUpdated',
+      'expenseCreated',
+      'expenseApproved',
+      'expensePaid',
+      'expenseRejected',
+      'expenseDeleted'
+    ];
 
-    socket.on('invoiceCreated', () => {
-      fetchStats(); // Refresh stats on new invoice
-    });
+    const handleUpdate = () => {
+      fetchStats();
+    };
 
-    socket.on('stockUpdated', () => {
-      fetchStats(); // Refresh stats on stock change
+    events.forEach(evt => {
+      socket.on(evt, handleUpdate);
     });
 
     return () => {
-      socket.off('invoiceCreated');
-      socket.off('stockUpdated');
-      socket.disconnect();
+      events.forEach(evt => {
+        socket.off(evt, handleUpdate);
+      });
     };
   }, []);
 

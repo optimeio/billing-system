@@ -4,7 +4,7 @@ import { FileText, PlusCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import useAuthStore from '../../store/authStore';
-import { io } from 'socket.io-client';
+import { socket } from '../../services/socket';
 
 const StaffDashboard = () => {
   const { user } = useAuthStore();
@@ -32,23 +32,22 @@ const StaffDashboard = () => {
   useEffect(() => {
     fetchStaffStats();
 
-    // Listen for realtime updates
-    const socket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5002', {
-      transports: ['websocket']
-    });
+    const handleUpdate = () => {
+      fetchStaffStats();
+    };
 
-    socket.on('invoiceCreated', () => {
-      fetchStaffStats(); // Refresh stats when any invoice is created
-    });
-
-    socket.on('paymentApproved', () => {
-      fetchStaffStats(); // Refresh stats when a payment is approved
-    });
+    socket.on('invoiceCreated', handleUpdate);
+    socket.on('invoiceUpdated', handleUpdate);
+    socket.on('invoiceDeleted', handleUpdate);
+    socket.on('paymentApproved', handleUpdate);
+    socket.on('paymentRejected', handleUpdate);
 
     return () => {
-      socket.off('invoiceCreated');
-      socket.off('paymentApproved');
-      socket.disconnect();
+      socket.off('invoiceCreated', handleUpdate);
+      socket.off('invoiceUpdated', handleUpdate);
+      socket.off('invoiceDeleted', handleUpdate);
+      socket.off('paymentApproved', handleUpdate);
+      socket.off('paymentRejected', handleUpdate);
     };
   }, []);
 

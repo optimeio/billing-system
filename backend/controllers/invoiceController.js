@@ -222,6 +222,13 @@ exports.cancelInvoice = async (req, res) => {
         invoice.paymentStatus = "cancelled";
         await invoice.save();
 
+        try {
+            const io = getIO();
+            io.emit("invoiceUpdated", invoice);
+        } catch (err) {
+            console.error("Socket error on invoice cancel:", err);
+        }
+
         res.json({ message: "Invoice cancelled successfully", invoice });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -244,6 +251,13 @@ exports.markInvoiceAsPaid = async (req, res) => {
 
         invoice.paymentStatus = "paid";
         await invoice.save();
+
+        try {
+            const io = getIO();
+            io.emit("invoiceUpdated", invoice);
+        } catch (err) {
+            console.error("Socket error on invoice mark paid:", err);
+        }
 
         res.json({ message: "Invoice marked as PAID successfully", invoice });
     } catch (error) {
@@ -288,6 +302,14 @@ exports.deleteInvoice = async (req, res) => {
         }
 
         await Invoice.findByIdAndDelete(req.params.id);
+
+        try {
+            const io = getIO();
+            io.emit("invoiceDeleted", { id: req.params.id });
+        } catch (err) {
+            console.error("Socket error on invoice delete:", err);
+        }
+
         res.json({ message: "Invoice deleted permanently" });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -374,6 +396,13 @@ exports.updateInvoice = async (req, res) => {
         invoice.grandTotal = invoice.subtotal + invoice.tax - invoice.discount;
 
         await invoice.save();
+
+        try {
+            const io = getIO();
+            io.emit("invoiceUpdated", invoice);
+        } catch (err) {
+            console.error("Socket error on invoice update:", err);
+        }
 
         res.json({
             message: "Invoice updated successfully",

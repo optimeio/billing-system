@@ -71,6 +71,13 @@ exports.createStaff = async (req, res) => {
                 sendEmail(req.user.email, "Staff Creation Confirmation", "", adminMessage).catch(err => console.error("Admin email failed:", err));
             }
 
+            try {
+                const io = getIO();
+                io.emit("staffCreated", user);
+            } catch (err) {
+                console.error("Socket error on staff create:", err);
+            }
+
             res.status(201).json({
                 message: "Staff created successfully. Emails are being sent in the background.",
                 user: {
@@ -191,6 +198,14 @@ exports.updateStaff = async (req, res) => {
 
 
         const updatedUser = await user.save();
+
+        try {
+            const io = getIO();
+            io.emit("staffUpdated", updatedUser);
+        } catch (err) {
+            console.error("Socket error on staff update:", err);
+        }
+
         res.json({
             message: "Staff updated successfully",
             user: {
@@ -222,6 +237,14 @@ exports.editRole = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
     user.role = role;
     await user.save();
+
+    try {
+        const io = getIO();
+        io.emit("staffUpdated", user);
+    } catch (err) {
+        console.error("Socket error on staff role update:", err);
+    }
+
     res.json({ message: "Role updated successfully", user: { id: user._id, role: user.role } });
   } catch (error) {
     console.error("Role update error:", error);
@@ -236,6 +259,14 @@ exports.deleteStaff = async (req, res) => {
         if (!user) return res.status(404).json({ message: "Staff member not found" });
 
         await User.findByIdAndDelete(req.params.id);
+
+        try {
+            const io = getIO();
+            io.emit("staffDeleted", { id: req.params.id });
+        } catch (err) {
+            console.error("Socket error on staff delete:", err);
+        }
+
         res.json({ message: "Staff member removed permanently" });
     } catch (error) {
         res.status(500).json({ message: error.message });

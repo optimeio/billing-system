@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { CreditCard, CheckCircle, XCircle, Clock, Loader2 } from 'lucide-react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
+import { socket } from '../../services/socket';
 
 const PaymentManagement = () => {
   const [payments, setPayments] = useState([]);
@@ -23,6 +24,20 @@ const PaymentManagement = () => {
 
   useEffect(() => {
     fetchPayments();
+
+    const handleUpdate = () => {
+      fetchPayments();
+    };
+
+    socket.on('paymentCreated', handleUpdate);
+    socket.on('paymentApproved', handleUpdate);
+    socket.on('paymentRejected', handleUpdate);
+
+    return () => {
+      socket.off('paymentCreated', handleUpdate);
+      socket.off('paymentApproved', handleUpdate);
+      socket.off('paymentRejected', handleUpdate);
+    };
   }, []);
 
   const handleStatusUpdate = async (id, status) => {

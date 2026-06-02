@@ -73,7 +73,7 @@ const DashboardLayout = () => {
   const links = getLinks();
 
   return (
-    <div className="min-h-screen bg-white flex flex-col md:flex-row font-sans">
+    <div className="h-screen overflow-hidden bg-white flex flex-col md:flex-row font-sans">
       
       {/* Mobile Topbar */}
       <header className="md:hidden bg-white text-slate-800 p-4 flex justify-between items-center z-20 shadow-sm border-b border-slate-100">

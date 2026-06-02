@@ -1,4 +1,5 @@
 const Category = require("../models/Category");
+const { getIO } = require("../utils/socketService");
 
 // @desc    Create new category
 // @route   POST /api/categories
@@ -13,6 +14,14 @@ exports.createCategory = async (req, res) => {
         }
 
         const category = await Category.create({ name, description });
+
+        try {
+            const io = getIO();
+            io.emit("categoryCreated", category);
+        } catch (err) {
+            console.error("Socket error on category create:", err);
+        }
+
         res.status(201).json(category);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -47,6 +56,14 @@ exports.updateCategory = async (req, res) => {
         category.description = description || category.description;
 
         const updatedCategory = await category.save();
+
+        try {
+            const io = getIO();
+            io.emit("categoryUpdated", updatedCategory);
+        } catch (err) {
+            console.error("Socket error on category update:", err);
+        }
+
         res.json(updatedCategory);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -64,6 +81,14 @@ exports.deleteCategory = async (req, res) => {
         }
 
         await Category.findByIdAndDelete(req.params.id);
+
+        try {
+            const io = getIO();
+            io.emit("categoryDeleted", { id: req.params.id });
+        } catch (err) {
+            console.error("Socket error on category delete:", err);
+        }
+
         res.json({ message: "Category removed successfully" });
     } catch (error) {
         res.status(500).json({ message: error.message });

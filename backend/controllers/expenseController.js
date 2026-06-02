@@ -50,8 +50,14 @@ exports.createExpense = async (req, res) => {
         sendEmail(process.env.EMAIL_USER, `New Expense Submitted: ${title}`, "", adminEmailMessage)
             .catch(emailErr => console.error("Failed to send admin notification email for expense:", emailErr.message));
 
-        res.status(201).json({
+        try {
+            const io = getIO();
+            io.emit("expenseCreated", expense);
+        } catch (err) {
+            console.error("Socket error on expense create:", err);
+        }
 
+        res.status(201).json({
             message: "Expense created successfully",
             expense
         });
@@ -160,6 +166,13 @@ exports.rejectExpense = async (req, res) => {
 
         await expense.save();
 
+        try {
+            const io = getIO();
+            io.emit("expenseRejected", expense);
+        } catch (err) {
+            console.error("Socket error on expense reject:", err);
+        }
+
         res.json({ message: "Expense rejected successfully", expense });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -216,8 +229,12 @@ exports.deleteExpense = async (req, res) => {
             }
         }
 
-        await Expense.findByIdAndDelete(req.params.id);
-        console.log("[DEBUG] Expense record deleted from DB");
+        try {
+            const io = getIO();
+            io.emit("expenseDeleted", { id: req.params.id });
+        } catch (err) {
+            console.error("Socket error on expense delete:", err);
+        }
 
         res.json({ message: "Expense deleted successfully" });
     } catch (error) {

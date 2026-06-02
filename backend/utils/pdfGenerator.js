@@ -83,11 +83,15 @@ exports.generateInvoicePDF = async (invoice, res) => {
         // ══════════════════════════════════════════════════════════
         // 2. CUSTOMER DETAILS — Bill To (left) and Consignee To (right)
         //    Headers preprinted at ~Y=700. Customer data goes below.
+        //    Erase both customer zones first so template text doesn't bleed.
         // ══════════════════════════════════════════════════════════
         const nameUpper = (invoice.customerName || "Walk-in Customer").toUpperCase();
 
         let phone = invoice.customerPhone || "";
         if (phone && /^\d{10}$/.test(phone)) phone = `+91 ${phone}`;
+
+        // Erase LEFT customer zone (Bill To): x=14..265, y=620..670
+        page.drawRectangle({ x: 14, y: 618, width: 251, height: 58, color: WHITE });
 
         // LEFT: Bill To — x=34
         page.drawText(nameUpper, { x: 34, y: 660, size: 9, font: fBold, color: BLACK });
@@ -99,6 +103,9 @@ exports.generateInvoicePDF = async (invoice, res) => {
             ly -= 11;
         });
 
+        // Erase RIGHT customer zone (Consignee/Ship To): x=275..590, y=620..670
+        page.drawRectangle({ x: 275, y: 618, width: 315, height: 58, color: WHITE });
+
         // RIGHT: Consignee To — x=295
         page.drawText(nameUpper, { x: 295, y: 660, size: 9, font: fBold, color: BLACK });
         const rightLines = wrapText(invoice.customerAddress || "", 26);
@@ -108,6 +115,7 @@ exports.generateInvoicePDF = async (invoice, res) => {
             page.drawText(line, { x: 295, y: ry, size: 8, font: fReg, color: MUTED });
             ry -= 11;
         });
+
 
         // ══════════════════════════════════════════════════════════
         // 3. LINE ITEMS (max 2 rows — template has rows at Y=444, Y=381)

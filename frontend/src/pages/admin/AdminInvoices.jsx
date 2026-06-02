@@ -4,6 +4,7 @@ import { Search, Download, Filter, FileText, CheckCircle, Clock, XCircle, Loader
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
+import { socket } from '../../services/socket';
 
 const AdminInvoices = () => {
   const [invoices, setInvoices] = useState([]);
@@ -28,6 +29,24 @@ const AdminInvoices = () => {
 
   useEffect(() => {
     fetchInvoices();
+
+    const handleUpdate = () => {
+      fetchInvoices();
+    };
+
+    socket.on('invoiceCreated', handleUpdate);
+    socket.on('invoiceUpdated', handleUpdate);
+    socket.on('invoiceDeleted', handleUpdate);
+    socket.on('paymentApproved', handleUpdate);
+    socket.on('paymentRejected', handleUpdate);
+
+    return () => {
+      socket.off('invoiceCreated', handleUpdate);
+      socket.off('invoiceUpdated', handleUpdate);
+      socket.off('invoiceDeleted', handleUpdate);
+      socket.off('paymentApproved', handleUpdate);
+      socket.off('paymentRejected', handleUpdate);
+    };
   }, []);
 
   const handleDownload = async (id, invoiceNumber) => {
