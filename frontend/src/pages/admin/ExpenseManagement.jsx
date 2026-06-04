@@ -18,7 +18,8 @@ const ExpenseManagement = () => {
     amount: '',
     category: 'General',
     description: '',
-    file: null
+    billFile: null,
+    scannerFile: null
   });
 
   const fetchExpenses = async () => {
@@ -64,17 +65,20 @@ const ExpenseManagement = () => {
     data.append('amount', formData.amount);
     data.append('category', formData.category);
     data.append('description', formData.description);
-    if (formData.file) {
-      data.append('file', formData.file);
+    if (formData.billFile) {
+      data.append('billFile', formData.billFile);
     }
-
+    if (formData.scannerFile) {
+      data.append('scannerFile', formData.scannerFile);
+    }
+ 
     try {
       await api.post('/expenses', data, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       toast.success('Expense added successfully');
       setIsModalOpen(false);
-      setFormData({ title: '', amount: '', category: 'General', description: '', file: null });
+      setFormData({ title: '', amount: '', category: 'General', description: '', billFile: null, scannerFile: null });
       fetchExpenses();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to add expense');
@@ -106,11 +110,11 @@ const ExpenseManagement = () => {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <h1 className="text-2xl font-bold text-slate-800">Expense Tracking</h1>
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="bg-primary hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center shadow-sm transition-all"
+          className="bg-primary hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center shadow-sm transition-all self-start sm:self-auto"
         >
           <Plus size={18} className="mr-2" /> Add Expense
         </button>
@@ -170,14 +174,24 @@ const ExpenseManagement = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Upload Receipt / Scanner (Optional)</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Upload Purchase Bill (Optional)</label>
             <input
               type="file"
-              onChange={(e) => setFormData({...formData, file: e.target.files[0]})}
+              onChange={(e) => setFormData({...formData, billFile: e.target.files[0]})}
               className="w-full p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 bg-white"
               accept="image/*,.pdf"
             />
-            <p className="text-xs text-slate-500 mt-1">Upload proof of payment or scanner screenshot.</p>
+            <p className="text-xs text-slate-500 mt-1">Upload itemized invoice or purchase bill.</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Upload Payment Scanner Screenshot (Optional)</label>
+            <input
+              type="file"
+              onChange={(e) => setFormData({...formData, scannerFile: e.target.files[0]})}
+              className="w-full p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+              accept="image/*,.pdf"
+            />
+            <p className="text-xs text-slate-500 mt-1">Upload payment confirmation screenshot or scanner capture.</p>
           </div>
           <button
             type="submit"
@@ -211,20 +225,39 @@ const ExpenseManagement = () => {
             <tbody className="divide-y divide-slate-100">
               {expenses.map((exp) => (
                 <tr key={exp._id} className="hover:bg-slate-50">
-                  <td className="p-4 text-sm text-slate-600">{new Date(exp.createdAt).toLocaleDateString()}</td>
+                  <td className="p-4 text-sm text-slate-600">
+                    <div>{new Date(exp.createdAt).toLocaleDateString()}</div>
+                    {exp.createdBy && (
+                      <div className="text-xs text-slate-400 font-medium mt-0.5">
+                        By: {exp.createdBy.name} ({exp.createdBy.staffId})
+                      </div>
+                    )}
+                  </td>
                   <td className="p-4 text-sm font-medium">
                     <div className="flex flex-col">
                       <span>{exp.category || 'General'}</span>
-                      {exp.billFile && (
-                        <a 
-                          href={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5002'}${exp.billFile}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-500 hover:text-blue-700 text-xs mt-1 flex items-center"
-                        >
-                          View Receipt
-                        </a>
-                      )}
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {exp.billFile && (
+                          <a 
+                            href={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5002'}${exp.billFile}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-500 hover:text-blue-700 text-xs font-semibold underline flex items-center"
+                          >
+                            View Bill
+                          </a>
+                        )}
+                        {exp.scannerFile && (
+                          <a 
+                            href={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5002'}${exp.scannerFile}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-purple-600 hover:text-purple-800 text-xs font-semibold underline flex items-center"
+                          >
+                            View Scanner
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </td>
                   <td className="p-4 font-bold text-slate-800">₹{exp.amount}</td>

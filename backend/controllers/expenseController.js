@@ -1,5 +1,6 @@
 const Expense = require("../models/Expense");
 const Notification = require("../models/Notification");
+const User = require("../models/User");
 const { getIO } = require("../utils/socketService");
 const fs = require("fs");
 const path = require("path");
@@ -14,9 +15,14 @@ exports.createExpense = async (req, res) => {
         const { title, description, amount, vendorName, category, paymentMethod } = req.body;
         
         let billFile = null;
-        if (req.file) {
-            // Save relative path for easy frontend access
-            billFile = `/uploads/${req.file.filename}`;
+        let scannerFile = null;
+        if (req.files) {
+            if (req.files.billFile && req.files.billFile[0]) {
+                billFile = `/uploads/${req.files.billFile[0].filename}`;
+            }
+            if (req.files.scannerFile && req.files.scannerFile[0]) {
+                scannerFile = `/uploads/${req.files.scannerFile[0].filename}`;
+            }
         }
 
         const expense = await Expense.create({
@@ -27,6 +33,7 @@ exports.createExpense = async (req, res) => {
             category,
             paymentMethod,
             billFile,
+            scannerFile,
             createdBy: req.user._id,
             status: "pending"
         });
@@ -130,6 +137,50 @@ exports.approveExpense = async (req, res) => {
 
         await expense.save();
 
+        // Send Email Notification to Staff
+        try {
+            const creator = await User.findById(expense.createdBy).select("name email");
+            if (creator && creator.email) {
+                const emailHtml = `
+                    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                      <div style="background: linear-gradient(135deg, #1e293b, #0f172a); color: white; padding: 24px; text-align: center;">
+                        <h2 style="margin: 0; font-size: 22px; font-weight: 600; letter-spacing: 0.5px;">SM GROUPS</h2>
+                        <p style="margin: 4px 0 0 0; font-size: 14px; opacity: 0.85;">Expense Request Approved</p>
+                      </div>
+                      <div style="padding: 24px; background-color: #ffffff;">
+                        <p style="font-size: 16px; color: #1e293b; margin-top: 0;">Hello <strong>${creator.name}</strong>,</p>
+                        <p style="font-size: 14px; color: #475569; line-height: 1.5;">Your expense request has been <strong>APPROVED</strong> by the administrator. Below are the details:</p>
+                        
+                        <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px;">
+                          <tbody>
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                              <td style="padding: 10px; color: #475569; font-weight: 600;">Title / Reason</td>
+                              <td style="padding: 10px; text-align: right; color: #1e293b;">${expense.title}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                              <td style="padding: 10px; color: #475569; font-weight: 600;">Amount</td>
+                              <td style="padding: 10px; text-align: right; color: #1e293b; font-weight: bold;">₹${parseFloat(expense.amount).toLocaleString()}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                              <td style="padding: 10px; color: #475569; font-weight: 600;">Category</td>
+                              <td style="padding: 10px; text-align: right; color: #1e293b;">${expense.category || "General"}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 10px; color: #475569; font-weight: 600;">Status</td>
+                              <td style="padding: 10px; text-align: right; color: #16a34a; font-weight: bold;">APPROVED</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                `;
+                sendEmail(creator.email, `Expense Approved: ${expense.title}`, "", emailHtml)
+                    .catch(emailErr => console.error("Failed to send expense approval email:", emailErr.message));
+            }
+        } catch (fetchErr) {
+            console.error("Failed to fetch creator for email notification:", fetchErr.message);
+        }
+
         // Emit notification
         try {
             const io = getIO();
@@ -165,6 +216,50 @@ exports.rejectExpense = async (req, res) => {
         expense.rejectedAt = Date.now();
 
         await expense.save();
+
+        // Send Email Notification to Staff
+        try {
+            const creator = await User.findById(expense.createdBy).select("name email");
+            if (creator && creator.email) {
+                const emailHtml = `
+                    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                      <div style="background: linear-gradient(135deg, #1e293b, #0f172a); color: white; padding: 24px; text-align: center;">
+                        <h2 style="margin: 0; font-size: 22px; font-weight: 600; letter-spacing: 0.5px;">SM GROUPS</h2>
+                        <p style="margin: 4px 0 0 0; font-size: 14px; opacity: 0.85;">Expense Request Rejected</p>
+                      </div>
+                      <div style="padding: 24px; background-color: #ffffff;">
+                        <p style="font-size: 16px; color: #1e293b; margin-top: 0;">Hello <strong>${creator.name}</strong>,</p>
+                        <p style="font-size: 14px; color: #475569; line-height: 1.5;">Your expense request has been <strong style="color: #dc2626;">REJECTED</strong> by the administrator. Below are the details:</p>
+                        
+                        <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px;">
+                          <tbody>
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                              <td style="padding: 10px; color: #475569; font-weight: 600;">Title / Reason</td>
+                              <td style="padding: 10px; text-align: right; color: #1e293b;">${expense.title}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                              <td style="padding: 10px; color: #475569; font-weight: 600;">Amount</td>
+                              <td style="padding: 10px; text-align: right; color: #1e293b; font-weight: bold;">₹${parseFloat(expense.amount).toLocaleString()}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                              <td style="padding: 10px; color: #475569; font-weight: 600;">Category</td>
+                              <td style="padding: 10px; text-align: right; color: #1e293b;">${expense.category || "General"}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 10px; color: #475569; font-weight: 600;">Status</td>
+                              <td style="padding: 10px; text-align: right; color: #dc2626; font-weight: bold;">REJECTED</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                `;
+                sendEmail(creator.email, `Expense Rejected: ${expense.title}`, "", emailHtml)
+                    .catch(emailErr => console.error("Failed to send expense rejection email:", emailErr.message));
+            }
+        } catch (fetchErr) {
+            console.error("Failed to fetch creator for email notification:", fetchErr.message);
+        }
 
         try {
             const io = getIO();
@@ -209,25 +304,29 @@ exports.deleteExpense = async (req, res) => {
         }
 
 
-        // Remove uploaded file if exists
-        if (expense.billFile) {
-            try {
-                // Normalize path for Windows/Linux consistency
-                const relativePath = expense.billFile.startsWith("/") ? expense.billFile.substring(1) : expense.billFile;
-                const filePath = path.join(__dirname, "..", relativePath);
-                
-                console.log(`[DEBUG] Attempting to remove file: ${filePath}`);
-                if (fs.existsSync(filePath)) {
-                    fs.unlinkSync(filePath);
-                    console.log("[DEBUG] File removed successfully");
-                } else {
-                    console.log("[DEBUG] File does not exist on disk, skipping deletion");
+        // Remove uploaded files if they exist
+        const filesToDelete = [expense.billFile, expense.scannerFile];
+        filesToDelete.forEach(f => {
+            if (f) {
+                try {
+                    // Normalize path for Windows/Linux consistency
+                    const relativePath = f.startsWith("/") ? f.substring(1) : f;
+                    const filePath = path.join(__dirname, "..", relativePath);
+                    
+                    console.log(`[DEBUG] Attempting to remove file: ${filePath}`);
+                    if (fs.existsSync(filePath)) {
+                        fs.unlinkSync(filePath);
+                        console.log("[DEBUG] File removed successfully");
+                    } else {
+                        console.log("[DEBUG] File does not exist on disk, skipping deletion");
+                    }
+                } catch (fileErr) {
+                    console.error("[DEBUG] Error deleting file:", fileErr.message);
                 }
-            } catch (fileErr) {
-                console.error("[DEBUG] Error deleting file:", fileErr.message);
-                // We don't return 500 here because we still want to delete the DB record even if file is missing
             }
-        }
+        });
+
+        await Expense.findByIdAndDelete(req.params.id);
 
         try {
             const io = getIO();

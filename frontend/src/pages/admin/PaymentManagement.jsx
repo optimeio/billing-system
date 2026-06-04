@@ -55,9 +55,9 @@ const PaymentManagement = () => {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <h1 className="text-2xl font-bold text-slate-800">Payment Transactions</h1>
-        <div className="text-sm font-medium text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+        <div className="text-sm font-medium text-slate-500 bg-slate-100 px-3 py-1 rounded-full self-start sm:self-auto">
           Total: {payments.length} Records
         </div>
       </div>

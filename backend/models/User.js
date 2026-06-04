@@ -53,6 +53,10 @@ const userSchema = new mongoose.Schema({
     profilePic: {
         type: String,
         default: ""
+    },
+    basicSalary: {
+        type: Number,
+        default: 0
     }
 }, { timestamps: true });
 

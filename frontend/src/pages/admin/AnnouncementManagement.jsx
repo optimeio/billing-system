@@ -76,16 +76,16 @@ const AnnouncementManagement = () => {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div className="flex items-center space-x-3">
-          <div className="p-3 bg-gradient-to-br from-red-500 to-red-700 rounded-xl text-white shadow-lg shadow-red-100">
+          <div className="p-3 bg-gradient-to-br from-red-500 to-red-700 rounded-xl text-white shadow-lg shadow-red-100 flex-shrink-0">
             <Megaphone size={24} />
           </div>
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Announcement Center</h1>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-6 py-3 rounded-xl flex items-center font-bold shadow-lg shadow-red-500/30 transition-all hover:scale-105"
+          className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-6 py-3 rounded-xl flex items-center font-bold shadow-lg shadow-red-500/30 transition-all hover:scale-105 self-start sm:self-auto"
         >
           <Send size={18} className="mr-2" /> Broadcast Notice
         </button>

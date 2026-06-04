@@ -64,6 +64,24 @@ async function runTests() {
         console.error("   ❌ FAIL: Error during Admin login:", err.message, "\n");
     }
 
+    // Test 1b: Extra Admin Login Verification
+    totalTests++;
+    console.log(`[Test 1b] Verifying Extra Admin Login: tsmgmdofficial@gmail.com...`);
+    try {
+        const result = await makePostRequest("/api/auth/login", {
+            loginId: "tsmgmdofficial@gmail.com",
+            password: "TSMG1997"
+        });
+        if (result.statusCode === 200 && result.body.token && result.body.user.role === "admin") {
+            console.log("   👉 PASS: Extra Admin logged in successfully. Token generated. Role: admin.\n");
+            passedTests++;
+        } else {
+            console.error(`   ❌ FAIL: Extra Admin login failed. Status: ${result.statusCode}, Response:`, result.body, "\n");
+        }
+    } catch (err) {
+        console.error("   ❌ FAIL: Error during Extra Admin login:", err.message, "\n");
+    }
+
     // Test 2: Inventory Manager Login Verification
     totalTests++;
     console.log(`[Test 2] Verifying Inventory Manager Login: theoptime.io@gmail.com (role: inventory_manager)...`);

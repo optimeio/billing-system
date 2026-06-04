@@ -46,25 +46,32 @@ if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "prod" && 
 /**
  * Sends email using either Resend API (HTTPS), Hostinger Mail Relay (HTTPS), or standard SMTP.
  */
-const sendEmail = async (to, subject, text, html) => {
+const sendEmail = async (to, subject, text, html, attachments) => {
     // 1. Resend API (Recommended Production Option - Port 443 HTTPS, bypasses all SMTP blocks)
     if (process.env.RESEND_API_KEY) {
         logger.info(`📧 Routing email to Resend API (HTTPS) for recipient: ${to}`);
         try {
             const sender = process.env.RESEND_SENDER || "SM GROUPS <noreply@thesmgroups.com>";
+            const emailBody = {
+                from: sender,
+                to: [to],
+                subject: subject,
+                text: text || (html ? html.replace(/<[^>]*>?/gm, "") : ""),
+                html: html || text
+            };
+            if (attachments && attachments.length > 0) {
+                emailBody.attachments = attachments.map(att => ({
+                    filename: att.filename,
+                    content: att.content.toString("base64")
+                }));
+            }
             const response = await fetch("https://api.resend.com/emails", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${process.env.RESEND_API_KEY}`
                 },
-                body: JSON.stringify({
-                    from: sender,
-                    to: [to],
-                    subject: subject,
-                    text: text || (html ? html.replace(/<[^>]*>?/gm, "") : ""),
-                    html: html || text
-                }),
+                body: JSON.stringify(emailBody),
                 signal: AbortSignal.timeout(10000)
             });
 
@@ -88,6 +95,14 @@ const sendEmail = async (to, subject, text, html) => {
             const relayUrl = "https://billing.thesmgroups.com/mail-relay.php";
             const secretKey = process.env.JWT_SECRET || 'BillingSoftware_Secret_Key_2026';
             
+            let attachmentsPayload = [];
+            if (attachments && attachments.length > 0) {
+                attachmentsPayload = attachments.map(att => ({
+                    filename: att.filename,
+                    content: att.content.toString("base64")
+                }));
+            }
+
             const response = await fetch(relayUrl, {
                 method: "POST",
                 headers: {
@@ -101,7 +116,8 @@ const sendEmail = async (to, subject, text, html) => {
                     html: html || text,
                     relay_key: secretKey,
                     smtp_user: process.env.EMAIL_USER,
-                    smtp_pass: process.env.EMAIL_PASS ? process.env.EMAIL_PASS.replace(/\s+/g, "") : undefined
+                    smtp_pass: process.env.EMAIL_PASS ? process.env.EMAIL_PASS.replace(/\s+/g, "") : undefined,
+                    attachments: attachmentsPayload
                 }),
                 signal: AbortSignal.timeout(10000)
             });
@@ -140,7 +156,8 @@ const sendEmail = async (to, subject, text, html) => {
             bcc: process.env.EMAIL_USER,
             subject,
             text: text || (html ? html.replace(/<[^>]*>?/gm, "") : ""),
-            html
+            html,
+            attachments
         };
         const info = await transporter.sendMail(mailOptions);
         logger.info(`📧 Email sent via local SMTP to ${to}: ${info.messageId}`);

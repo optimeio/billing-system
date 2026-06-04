@@ -75,7 +75,8 @@ $smtp_user = isset($input['smtp_user']) ? trim($input['smtp_user']) : 'thesmgrou
 $smtp_pass = isset($input['smtp_pass']) ? trim($input['smtp_pass']) : 'btyzksrsqeqegpla';
 
 // High-performance pure-PHP SMTP client to guarantee real-time delivery via Google SMTP
-function send_smtp_email($to, $subject, $html, $user, $pass) {
+// High-performance pure-PHP SMTP client to guarantee real-time delivery via Google SMTP
+function send_smtp_email($to, $subject, $html, $user, $pass, $attachments = []) {
     // Connect securely to Gmail SMTP over SSL on Port 465
     $socket = @stream_socket_client("ssl://smtp.gmail.com:465", $errno, $errstr, 10);
     if (!$socket) {
@@ -131,17 +132,47 @@ function send_smtp_email($to, $subject, $html, $user, $pass) {
         
         // Construct standard, premium-formatted MIME email
         $headers = "MIME-Version: 1.0\r\n" .
-                   "Content-Type: text/html; charset=UTF-8\r\n" .
                    "From: SM GROUPS <$user>\r\n" .
                    "To: <$to>\r\n" .
                    "Bcc: <$user>\r\n" .
                    "Subject: =?UTF-8?B?" . base64_encode($subject) . "?=\r\n" .
                    "Date: " . date("r") . "\r\n" .
                    "Message-ID: <" . uniqid() . "@gmail.com>\r\n" .
-                   "X-Mailer: PHP/" . phpversion() . "\r\n\r\n" .
-                   $html . "\r\n.\r\n";
+                   "X-Mailer: PHP/" . phpversion() . "\r\n";
                    
-        fwrite($socket, $headers);
+        if (!empty($attachments)) {
+            $headers .= "Content-Type: multipart/mixed; boundary=\"$boundary\"\r\n\r\n";
+            
+            // Body section
+            $body = "--$boundary\r\n" .
+                    "Content-Type: text/html; charset=UTF-8\r\n" .
+                    "Content-Transfer-Encoding: 7bit\r\n\r\n" .
+                    $html . "\r\n\r\n";
+            
+            // Attachment sections
+            foreach ($attachments as $att) {
+                $filename = isset($att['filename']) ? $att['filename'] : 'attachment.dat';
+                $content = isset($att['content']) ? $att['content'] : ''; // Base64 content
+                
+                $chunked_content = chunk_split($content);
+                
+                $body .= "--$boundary\r\n" .
+                         "Content-Type: application/octet-stream; name=\"$filename\"\r\n" .
+                         "Content-Description: $filename\r\n" .
+                         "Content-Disposition: attachment; filename=\"$filename\"\r\n" .
+                         "Content-Transfer-Encoding: base64\r\n\r\n" .
+                         $chunked_content . "\r\n\r\n";
+            }
+            
+            $body .= "--$boundary--\r\n";
+        } else {
+            $headers .= "Content-Type: text/html; charset=UTF-8\r\n\r\n";
+            $body = $html . "\r\n";
+        }
+        
+        $headers_and_body = $headers . $body . ".\r\n";
+                   
+        fwrite($socket, $headers_and_body);
         $read_resp($socket, 250);
         
         fwrite($socket, "QUIT\r\n");
@@ -154,7 +185,8 @@ function send_smtp_email($to, $subject, $html, $user, $pass) {
 }
 
 try {
-    send_smtp_email($to, $subject, $html, $smtp_user, $smtp_pass);
+    $attachments = isset($input['attachments']) ? $input['attachments'] : [];
+    send_smtp_email($to, $subject, $html, $smtp_user, $smtp_pass, $attachments);
     echo json_encode(["status" => "success", "message" => "Email delivered successfully via SMTP in real time"]);
 } catch (Exception $err) {
     http_response_code(500);

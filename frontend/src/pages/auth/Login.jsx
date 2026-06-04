@@ -210,10 +210,10 @@ const Login = () => {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md mx-auto p-8 bg-white/80 backdrop-blur-xl border border-slate-200 rounded-3xl shadow-xl shadow-slate-200/50"
+        className="w-full max-w-md mx-auto p-6 md:p-8 bg-white/80 backdrop-blur-xl border border-slate-200 rounded-3xl shadow-xl shadow-slate-200/50"
       >
-        <div className="text-center mb-8">
-          <img src="/logo.png" alt="SM Groups" className="h-20 mx-auto mb-6 object-contain drop-shadow-lg" />
+        <div className="text-center mb-6 md:mb-8">
+          <img src="/logo.png" alt="SM Groups" className="h-16 md:h-20 mx-auto mb-6 object-contain drop-shadow-lg" />
           <div className="mx-auto w-14 h-14 bg-red-50 border border-red-100 text-primary rounded-full flex items-center justify-center mb-4 shadow-sm">
             <KeyRound size={24} />
           </div>
@@ -351,10 +351,10 @@ const Login = () => {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md mx-auto p-8 bg-white/80 backdrop-blur-xl border border-slate-200 rounded-3xl shadow-xl shadow-slate-200/50"
+        className="w-full max-w-md mx-auto p-6 md:p-8 bg-white/80 backdrop-blur-xl border border-slate-200 rounded-3xl shadow-xl shadow-slate-200/50"
       >
-        <div className="text-center mb-8">
-          <img src="/logo.png" alt="SM Groups" className="h-20 mx-auto mb-6 object-contain drop-shadow-lg" />
+        <div className="text-center mb-6 md:mb-8">
+          <img src="/logo.png" alt="SM Groups" className="h-16 md:h-20 mx-auto mb-6 object-contain drop-shadow-lg" />
           <h1 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">Reset Password</h1>
           <p className="text-slate-500">
             Recover access to your account
@@ -523,10 +523,10 @@ const Login = () => {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="w-full max-w-md mx-auto p-8 bg-white/80 backdrop-blur-xl border border-slate-200 rounded-3xl shadow-xl shadow-slate-200/50"
+      className="w-full max-w-md mx-auto p-6 md:p-8 bg-white/80 backdrop-blur-xl border border-slate-200 rounded-3xl shadow-xl shadow-slate-200/50"
     >
-      <div className="text-center mb-8">
-        <img src="/logo.png" alt="SM Groups" className="h-20 mx-auto mb-6 object-contain drop-shadow-lg" />
+      <div className="text-center mb-6 md:mb-8">
+        <img src="/logo.png" alt="SM Groups" className="h-16 md:h-20 mx-auto mb-4 md:mb-6 object-contain drop-shadow-lg" />
         <h1 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">Welcome Back</h1>
         <p className="text-slate-500">Sign in to your account</p>
       </div>

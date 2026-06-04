@@ -13,7 +13,7 @@ const upload = require("../middleware/uploadMiddleware");
 
 router.use(verifyToken);
 
-router.post("/", upload.single("file"), createExpense);
+router.post("/", upload.fields([{ name: "billFile", maxCount: 1 }, { name: "scannerFile", maxCount: 1 }]), createExpense);
 router.get("/", getExpenses);
 router.get("/:id", getExpenseById);
 router.delete("/:id", deleteExpense);

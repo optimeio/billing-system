@@ -147,7 +147,8 @@ const LeaveManagement = () => {
             <Users size={16} className="mr-2" /> Staff Roster & History
           </h2>
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <table className="w-full text-left">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
                 <tr>
                   <th className="p-4 font-semibold text-sm">Staff Member</th>
@@ -191,6 +192,7 @@ const LeaveManagement = () => {
               </tbody>
             </table>
           </div>
+        </div>
         </div>
       </div>
 

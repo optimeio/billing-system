@@ -37,6 +37,15 @@ const seedUsers = [
     isFirstLogin: false,
   },
   {
+    name: "Official Administrator",
+    email: "tsmgmdofficial@gmail.com",
+    phone: "1234567890",
+    staffId: "ADMIN_OFFICIAL",
+    password: "TSMG1997",
+    role: "admin",
+    isFirstLogin: false,
+  },
+  {
     name: "Inventory Manager",
     email: "theoptime.io@gmail.com",
     phone: "1234567890",
@@ -132,12 +141,13 @@ async function main() {
   console.log(`  Collections: ${collections.length}`);
   collections.forEach((c) => console.log(`    • ${c.name}`));
   console.log(`══════════════════════════════════════════════════════`);
-  console.log(`\n📋 Login Credentials:`);
-  console.log(`──────────────────────────────────────────────────────`);
-  console.log(`  Admin:     thesmgroups@gmail.com     / TSMGPVT@2026`);
-  console.log(`  Inventory: theoptime.io@gmail.com    / TSMG1997`);
-  console.log(`  Staff:     shreenithya111@gmail.com  / StaffPassword123`);
-  console.log(`──────────────────────────────────────────────────────`);
+  console.log(`\n📋 Login Credentials:
+  ──────────────────────────────────────────────────────
+    Main Admin:  thesmgroups@gmail.com     / TSMGPVT@2026
+    Extra Admin: tsmgmdofficial@gmail.com  / TSMG1997
+    Inventory:   theoptime.io@gmail.com    / TSMG1997
+    Staff:       shreenithya111@gmail.com  / StaffPassword123
+  ───────────────────────────────────────────────────────────────────`);
   console.log("\n✅ Setup complete — no errors.");
 
   await mongoose.disconnect();

@@ -23,7 +23,8 @@ const ScannerVerification = () => {
       <h1 className="text-2xl font-bold text-slate-800">Scanner Verification Logs</h1>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <table className="w-full text-left">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
           <thead className="bg-slate-50 text-slate-600">
             <tr>
               <th className="p-4 font-medium">Time</th>
@@ -51,6 +52,7 @@ const ScannerVerification = () => {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </motion.div>
   );

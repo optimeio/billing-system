@@ -30,9 +30,11 @@ const StaffDashboard = () => {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line
     fetchStaffStats();
 
     const handleUpdate = () => {
+      // eslint-disable-next-line
       fetchStaffStats();
     };
 
@@ -51,7 +53,14 @@ const StaffDashboard = () => {
     };
   }, []);
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+        <p className="text-sm text-slate-500 font-medium">Loading your dashboard...</p>
+      </div>
+    </div>
+  );
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
@@ -71,7 +80,7 @@ const StaffDashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="glass p-6 rounded-2xl border border-slate-200">
           <p className="text-slate-500 text-sm font-medium">My Sales Volume</p>
-          <p className="text-3xl font-bold text-slate-800 mt-2">₹{stats?.totalSales.toLocaleString()}</p>
+          <p className="text-3xl font-bold text-slate-800 mt-2 truncate">₹{stats?.totalSales.toLocaleString()}</p>
         </div>
         <div className="glass p-6 rounded-2xl border border-slate-200">
           <p className="text-slate-500 text-sm font-medium">Invoices Generated</p>
@@ -87,19 +96,19 @@ const StaffDashboard = () => {
         <h2 className="text-xl font-bold text-slate-800 mb-6">My Recent Activity</h2>
         <div className="space-y-4">
           {stats?.recentInvoices.map((inv) => (
-            <div key={inv._id} className="flex items-center justify-between p-4 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
-              <div className="flex items-center space-x-4">
-                <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
-                  <FileText size={20} />
+            <div key={inv._id} className="flex items-center justify-between p-3 md:p-4 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100 gap-2">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="p-2 bg-blue-100 text-blue-600 rounded-lg flex-shrink-0">
+                  <FileText size={18} />
                 </div>
-                <div>
-                  <p className="font-bold text-slate-800">{inv.invoiceNumber}</p>
-                  <p className="text-xs text-slate-500">{inv.customerName} • {new Date(inv.createdAt).toLocaleTimeString()}</p>
+                <div className="min-w-0">
+                  <p className="font-bold text-slate-800 truncate text-sm">{inv.invoiceNumber}</p>
+                  <p className="text-xs text-slate-500 truncate">{inv.customerName} &bull; {new Date(inv.createdAt).toLocaleTimeString()}</p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="font-bold text-slate-800">₹{inv.grandTotal.toLocaleString()}</p>
-                <p className={`text-[10px] font-bold uppercase ${inv.paymentStatus === 'paid' ? 'text-green-500' : 'text-amber-500'}`}>
+              <div className="text-right flex-shrink-0 min-w-0 max-w-[120px]">
+                <p className="font-bold text-slate-800 text-sm truncate">₹{inv.grandTotal?.toLocaleString()}</p>
+                <p className={`text-[10px] font-bold uppercase truncate ${inv.paymentStatus === 'paid' ? 'text-green-500' : 'text-amber-500'}`}>
                   {inv.paymentStatus}
                 </p>
               </div>

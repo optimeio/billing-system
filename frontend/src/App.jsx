@@ -15,21 +15,27 @@ import Landing from './pages/Landing';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import StaffManagement from './pages/admin/StaffManagement';
 import AdminInvoices from './pages/admin/AdminInvoices';
+import QuotationManagement from './pages/admin/QuotationManagement';
 import ProductManagement from './pages/admin/ProductManagement';
 import ExpenseManagement from './pages/admin/ExpenseManagement';
 import PaymentManagement from './pages/admin/PaymentManagement';
 import CategoryManagement from './pages/admin/CategoryManagement';
 import ScannerVerification from './pages/admin/ScannerVerification';
+import PayslipManagement from './pages/admin/PayslipManagement';
+import PayslipHistory from './pages/staff/PayslipHistory';
+import AttendanceManagement from './pages/admin/AttendanceManagement';
 
 // Staff Pages
 import StaffDashboard from './pages/staff/StaffDashboard';
 import CreateInvoice from './pages/staff/CreateInvoice';
 import MyInvoices from './pages/staff/MyInvoices';
+import MyQuotations from './pages/staff/MyQuotations';
 import GenerateQR from './pages/staff/GenerateQR';
 import LeaveRequest from './pages/staff/LeaveRequest';
 import LeaveManagement from './pages/admin/LeaveManagement';
 import AnnouncementManagement from './pages/admin/AnnouncementManagement';
 import Announcements from './pages/staff/Announcements';
+import StaffAttendance from './pages/staff/StaffAttendance';
 
 // Common Pages
 import NotificationList from './pages/common/NotificationList';
@@ -114,6 +120,8 @@ function App() {
           <Route path="staff" element={<StaffManagement />} />
           <Route path="invoices" element={<AdminInvoices />} />
           <Route path="edit-invoice/:id" element={<CreateInvoice />} />
+          <Route path="quotations" element={<QuotationManagement />} />
+          <Route path="edit-quotation/:id" element={<CreateInvoice isQuotation={true} />} />
           <Route path="products" element={<ProductManagement />} />
           <Route path="expenses" element={<ExpenseManagement />} />
           <Route path="payments" element={<PaymentManagement />} />
@@ -122,6 +130,8 @@ function App() {
           <Route path="notifications" element={<NotificationList />} />
           <Route path="leaves" element={<LeaveManagement />} />
           <Route path="announcements" element={<AnnouncementManagement />} />
+          <Route path="payslips" element={<PayslipManagement />} />
+          <Route path="attendance" element={<AttendanceManagement />} />
         </Route>
  
         {/* Staff Routes */}
@@ -134,11 +144,16 @@ function App() {
           <Route path="create-invoice" element={<CreateInvoice />} />
           <Route path="edit-invoice/:id" element={<CreateInvoice />} />
           <Route path="invoices" element={<MyInvoices />} />
+          <Route path="create-quotation" element={<CreateInvoice isQuotation={true} />} />
+          <Route path="edit-quotation/:id" element={<CreateInvoice isQuotation={true} />} />
+          <Route path="quotations" element={<MyQuotations />} />
           <Route path="scanners" element={<GenerateQR />} />
           <Route path="expenses" element={<ExpenseManagement />} />
           <Route path="notifications" element={<NotificationList />} />
           <Route path="leaves" element={<LeaveRequest />} />
           <Route path="announcements" element={<Announcements />} />
+          <Route path="payslips" element={<PayslipHistory />} />
+          <Route path="attendance" element={<StaffAttendance />} />
           <Route path="profile" element={<Profile />} />
         </Route>
 
@@ -151,10 +166,13 @@ function App() {
           <Route index element={<ProductManagement />} />
           <Route path="products" element={<ProductManagement />} />
           <Route path="categories" element={<CategoryManagement />} />
+          <Route path="quotations" element={<MyQuotations />} />
           <Route path="scanners" element={<GenerateQR />} />
           <Route path="notifications" element={<NotificationList />} />
           <Route path="leaves" element={<LeaveRequest />} />
           <Route path="announcements" element={<Announcements />} />
+          <Route path="payslips" element={<PayslipHistory />} />
+          <Route path="attendance" element={<StaffAttendance />} />
           <Route path="profile" element={<Profile />} />
         </Route>
 

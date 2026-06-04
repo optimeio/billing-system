@@ -8,11 +8,11 @@ const invoiceSchema = new mongoose.Schema({
     },
     customerName: { 
         type: String, 
-        required: true 
+        default: "" 
     },
     customerPhone: { 
         type: String, 
-        required: true 
+        default: "" 
     },
     customerAddress: {
         type: String,
@@ -29,13 +29,21 @@ const invoiceSchema = new mongoose.Schema({
         total: { type: Number, required: true }
     }],
     subtotal: { type: Number, required: true },
+    taxableValue: { type: Number, default: 0 },
+    hsnCode: { type: String, default: "99" },
+    taxRate: { type: Number, default: 0 },
     tax: { type: Number, default: 0 },
     discount: { type: Number, default: 0 },
     grandTotal: { type: Number, required: true },
     paymentStatus: { 
         type: String, 
-        enum: ["pending", "paid", "cancelled"], 
+        enum: ["pending", "paid", "cancelled", "approved", "rejected"], 
         default: "pending" 
+    },
+    type: {
+        type: String,
+        enum: ["invoice", "quotation"],
+        default: "invoice"
     },
     createdBy: { 
         type: mongoose.Schema.Types.ObjectId, 

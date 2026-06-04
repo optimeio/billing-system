@@ -8,7 +8,9 @@ const {
     markInvoiceAsPaid,
     downloadInvoice,
     deleteInvoice,
-    updateInvoice
+    updateInvoice,
+    approveQuotation,
+    rejectQuotation
 } = require("../controllers/invoiceController");
 const { protect } = require("../middleware/authMiddleware");
 
@@ -24,6 +26,8 @@ router.put("/:id", updateInvoice);
 router.get("/:id/download", downloadInvoice);
 router.patch("/:id/cancel", cancelInvoice);
 router.patch("/:id/paid", markInvoiceAsPaid);
+router.patch("/:id/approve-quotation", approveQuotation);
+router.patch("/:id/reject-quotation", rejectQuotation);
 router.delete("/:id", deleteInvoice);
 
 module.exports = router;

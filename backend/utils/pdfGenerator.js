@@ -2,9 +2,6 @@ const { PDFDocument, rgb, StandardFonts } = require("pdf-lib");
 const fs = require("fs");
 const path = require("path");
 
-// Page: 612 x 792 pt. All Y values in pdf-lib coords (0=bottom, 792=top).
-// InvoiceNITYA.pdf has correct preprinted data — we ONLY overlay dynamic fields.
-
 const numberToWords = (num) => {
     const a = ['','one ','two ','three ','four ','five ','six ','seven ','eight ','nine ','ten ',
                 'eleven ','twelve ','thirteen ','fourteen ','fifteen ','sixteen ','seventeen ',
@@ -44,9 +41,25 @@ const wrapText = (text, maxLen) => {
     return lines;
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+//  INVOICE PDF  — Template: SM_Groups_Invoice_v3.pdf
+//
+//  Pre-printed label positions (pdf-lib Y = bottom-up):
+//    "INVOICE ON (BILL TO):"      x=30,   y=702  → customer info below at ~y=688
+//    "CONSIGNEE TO (SHIP TO):"    x=355,  y=702  → same customer info on right
+//    "Invoice No:"                x=325,  y=621  → value after label end  x=383
+//    "Date:"                      x=325,  y=603  → value after label end  x=355
+//    Table headers (S.NO / DESCRIPTION / TOTAL AMOUNT)  y=533
+//    Item row 1                   x=55,   y=494
+//    Item row 2                   x=55,   y=441
+//    Item row 3                   x=55,   y=389
+//    Tax table headers            y=317 / y=330 / y=304
+//    "Total" row                  x=55,   y=277
+//    "NOTE:"                      x=30,   y=240
+// ═══════════════════════════════════════════════════════════════════════════════
 exports.generateInvoicePDF = async (invoice, res) => {
     try {
-        const templatePath = path.join(__dirname, "InvoiceNITYA.pdf");
+        const templatePath = path.join(__dirname, "SM_Groups_Invoice_v3.pdf");
         if (!fs.existsSync(templatePath)) throw new Error(`Template not found: ${templatePath}`);
 
         const pdfDoc = await PDFDocument.load(fs.readFileSync(templatePath));
@@ -54,116 +67,253 @@ exports.generateInvoicePDF = async (invoice, res) => {
 
         const fReg  = await pdfDoc.embedFont(StandardFonts.Helvetica);
         const fBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-        const fObl  = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
 
         const BLACK = rgb(0, 0, 0);
-        const MUTED = rgb(0.2, 0.2, 0.2);
-        const WHITE = rgb(1, 1, 1);
-        const GREY  = rgb(0.85, 0.85, 0.85);
+        const MUTED = rgb(0.25, 0.25, 0.25);
 
-        // ══════════════════════════════════════════════════════════
-        // 1. INVOICE NO + DATE
-        //    Template has placeholder text: "GGG" at Y=585, X=438
-        //    and "Fgvvgvgvgggf2" at Y=565, X=406
-        //    These are inside white box areas in the template.
-        //    Erase just those placeholder boxes and write real values.
-        // ══════════════════════════════════════════════════════════
         const invoiceDate = invoice.createdAt
             ? new Date(invoice.createdAt).toLocaleDateString('en-GB')
             : new Date().toLocaleDateString('en-GB');
 
-        // Erase placeholder in "Invoice No" white box (x=397..502, y=584..604)
-        page.drawRectangle({ x: 397, y: 583, width: 108, height: 22, color: WHITE });
-        // Erase placeholder in "Date" white box (x=397..485, y=565..584)
-        page.drawRectangle({ x: 397, y: 563, width: 92,  height: 22, color: WHITE });
+        // ── 1. INVOICE NO + DATE ──────────────────────────────────────────────
+        // Align values vertically at x=396
+        page.drawText(invoice.invoiceNumber || "", { x: 396, y: 621, size: 10, font: fBold, color: BLACK });
+        page.drawText(invoiceDate, { x: 396, y: 603, size: 10, font: fBold, color: BLACK });
 
-        page.drawText(invoice.invoiceNumber || "", { x: 403, y: 591, size: 9, font: fBold, color: BLACK });
-        page.drawText(invoiceDate,                 { x: 403, y: 571, size: 9, font: fBold, color: BLACK });
-
-        // ══════════════════════════════════════════════════════════
-        // 2. CUSTOMER DETAILS — Bill To (left) and Consignee To (right)
-        //    Headers preprinted at ~Y=700. Customer data goes below.
-        //    Erase both customer zones first so template text doesn't bleed.
-        // ══════════════════════════════════════════════════════════
-        const nameUpper = (invoice.customerName || "Walk-in Customer").toUpperCase();
-
-        let phone = invoice.customerPhone || "";
+        // ── 2. CUSTOMER DETAILS ───────────────────────────────────────────────
+        const nameUpper = invoice.customerName ? invoice.customerName.trim().toUpperCase() : "";
+        let phone = invoice.customerPhone ? invoice.customerPhone.trim() : "";
+        if (phone === "0000000000") phone = "";
         if (phone && /^\d{10}$/.test(phone)) phone = `+91 ${phone}`;
 
-        // Erase LEFT customer zone (Bill To): x=14..265, y=620..670
-        page.drawRectangle({ x: 14, y: 618, width: 251, height: 58, color: WHITE });
-
-        // LEFT: Bill To — x=34
-        page.drawText(nameUpper, { x: 34, y: 660, size: 9, font: fBold, color: BLACK });
-        const leftLines = wrapText(invoice.customerAddress || "", 38);
-        if (phone) leftLines.push(phone);
-        let ly = 648;
-        leftLines.forEach(line => {
-            page.drawText(line, { x: 34, y: ly, size: 8, font: fReg, color: MUTED });
+        // LEFT: Bill To — below "INVOICE ON (BILL TO):" label (y=702)
+        if (nameUpper) {
+            page.drawText(nameUpper, { x: 30, y: 688, size: 9, font: fBold, color: BLACK });
+        }
+        const addrLines = wrapText(invoice.customerAddress || "", 40);
+        if (phone) addrLines.push(phone);
+        let ly = nameUpper ? 676 : 688;
+        addrLines.forEach(line => {
+            page.drawText(line, { x: 30, y: ly, size: 8, font: fReg, color: MUTED });
             ly -= 11;
         });
 
-        // Erase RIGHT customer zone (Consignee/Ship To): x=275..590, y=620..670
-        page.drawRectangle({ x: 275, y: 618, width: 315, height: 58, color: WHITE });
-
-        // RIGHT: Consignee To — x=295
-        page.drawText(nameUpper, { x: 295, y: 660, size: 9, font: fBold, color: BLACK });
-        const rightLines = wrapText(invoice.customerAddress || "", 26);
+        // RIGHT: Consignee To — below "CONSIGNEE TO (SHIP TO):" label (y=702)
+        if (nameUpper) {
+            page.drawText(nameUpper, { x: 355, y: 688, size: 9, font: fBold, color: BLACK });
+        }
+        const rightLines = wrapText(invoice.customerAddress || "", 30);
         if (phone) rightLines.push(phone);
-        let ry = 648;
+        let ry = nameUpper ? 676 : 688;
         rightLines.forEach(line => {
-            page.drawText(line, { x: 295, y: ry, size: 8, font: fReg, color: MUTED });
+            page.drawText(line, { x: 355, y: ry, size: 8, font: fReg, color: MUTED });
             ry -= 11;
         });
 
-
-        // ══════════════════════════════════════════════════════════
-        // 3. LINE ITEMS (max 2 rows — template has rows at Y=444, Y=381)
-        //    S.No column x=34, Description x=90, Amount right-aligned x=590
-        // ══════════════════════════════════════════════════════════
-        const items = (invoice.items || []).slice(0, 2);
-        const rowYs = [444, 381];
+        // ── 3. LINE ITEMS ─────────────────────────────────────────────────────
+        // Template has 3 item rows. Table columns: S.NO | DESCRIPTION | TOTAL AMOUNT
+        // No separate QTY or RATE columns in the template.
+        const items = (invoice.items || []).slice(0, 3);
+        const rowYs = [494, 441, 389];
 
         items.forEach((item, idx) => {
             const rowY = rowYs[idx];
-            const name = (item.name || "").toUpperCase();
-            page.drawText(name, { x: 90, y: rowY, size: 8, font: fBold, color: BLACK, maxWidth: 310, lineHeight: 9 });
+            // S.No is already pre-printed (1, 2, 3) in the template — skip drawing it
 
+            // Description — item name only, placed at the description column
+            const name = (item.name || "").toUpperCase();
+            page.drawText(name, { x: 90, y: rowY, size: 9, font: fBold, color: BLACK, maxWidth: 350 });
+
+            // Total Amount (right-aligned near x≈540)
             const amt = formatCurrency(item.total);
             const aw  = fBold.widthOfTextAtSize(amt, 9);
-            page.drawText(amt, { x: 590 - aw, y: rowY, size: 9, font: fBold, color: BLACK });
+            page.drawText(amt, { x: 540 - aw, y: rowY, size: 9, font: fBold, color: BLACK });
         });
 
-        // ══════════════════════════════════════════════════════════
-        // 4. GRAND TOTAL ROW
-        //    Template has preprinted placeholder: "TOTAL (Four Thousand Tive Hundred Only)"
-        //    at Y=344, x=152..327 — erase it and write real total words.
-        //    Amount column: x=483..596
-        // ══════════════════════════════════════════════════════════
+        // ── 4. TAX TABLE & TOTALS ─────────────────────────────────────────────
+        // "Total" row is at y=277. Tax sub-headers at y=317 (HSN, TAXABLE VALUE, TOTAL TAX AMOUNT)
+        // and y=304 (RATE, AMOUNT under CGST/SGST)
 
-        // Erase preprinted placeholder total words (description cell: x=16..483)
-        page.drawRectangle({ x: 16,  y: 337, width: 466, height: 17, color: WHITE });
-        // Erase amount cell and restore grey background
-        page.drawRectangle({ x: 483, y: 337, width: 113, height: 17, color: GREY  });
+        // HSN/SAV value — "Total" label is pre-printed at x≈55,y≈277
+        // so place HSN code next to "Total" on the left if provided
+        if (invoice.hsnCode) {
+            page.drawText(invoice.hsnCode, { x: 36, y: 277, size: 8, font: fReg, color: BLACK });
+        }
 
-        const totalWords = `TOTAL (${numberToWords(invoice.grandTotal).toUpperCase()})`;
-        page.drawText(totalWords, { x: 22, y: 342, size: 7, font: fBold, color: BLACK, maxWidth: 458, lineHeight: 8 });
+        // Taxable Value
+        if (invoice.taxableValue > 0) {
+            const subtotalText = formatCurrency(invoice.taxableValue);
+            const subW = fBold.widthOfTextAtSize(subtotalText, 8);
+            page.drawText(subtotalText, { x: 165 - subW, y: 277, size: 8, font: fBold, color: BLACK });
+        }
 
+        // CGST / SGST
+        if (invoice.tax > 0) {
+            const taxRate = invoice.taxRate > 0 ? invoice.taxRate : (invoice.subtotal > 0 ? (invoice.tax / invoice.subtotal) * 100 : 0);
+            const halfRate = (taxRate / 2).toFixed(1).replace(/\.0$/, "");
+            const halfAmt = invoice.tax / 2;
+
+            // CGST Rate & Amount (under CGST header)
+            page.drawText(`${halfRate}%`, { x: 222, y: 277, size: 8, font: fBold, color: BLACK });
+            const cgstAmtText = formatCurrency(halfAmt);
+            const cgstW = fBold.widthOfTextAtSize(cgstAmtText, 8);
+            page.drawText(cgstAmtText, { x: 298 - cgstW, y: 277, size: 8, font: fBold, color: BLACK });
+
+            // SGST Rate & Amount (under SGST header)
+            page.drawText(`${halfRate}%`, { x: 337, y: 277, size: 8, font: fBold, color: BLACK });
+            const sgstAmtText = formatCurrency(halfAmt);
+            const sgstW = fBold.widthOfTextAtSize(sgstAmtText, 8);
+            page.drawText(sgstAmtText, { x: 413 - sgstW, y: 277, size: 8, font: fBold, color: BLACK });
+
+            // Total Tax Amount
+            const taxVal = formatCurrency(invoice.tax);
+            const taxW = fBold.widthOfTextAtSize(taxVal, 8);
+            page.drawText(taxVal, { x: 510 - taxW, y: 277, size: 8, font: fBold, color: BLACK });
+        }
+
+        // Grand Total below the table
         const totalAmt = formatCurrency(invoice.grandTotal);
-        const taw = fBold.widthOfTextAtSize(totalAmt, 9);
-        page.drawText(totalAmt, { x: 590 - taw, y: 342, size: 9, font: fBold, color: BLACK });
+        const gtText = `GRAND TOTAL: Rs. ${totalAmt}`;
+        const gtW = fBold.widthOfTextAtSize(gtText, 9.5);
+        page.drawText(gtText, { x: 565.3 - gtW, y: 260, size: 9.5, font: fBold, color: BLACK });
 
-        // ══════════════════════════════════════════════════════════
-        // NOTE: Bank details, Authorized Signatory, Managing Director,
-        // contact info, and www footer are ALL preprinted in the
-        // InvoiceNITYA.pdf template — we DO NOT touch them.
-        // ══════════════════════════════════════════════════════════
+        // ── 5. TOTAL IN WORDS ─────────────────────────────────────────────────
+        // Placed between "Total" row (y=277) and "NOTE:" (y=240), so at y=260
+        const totalWords = numberToWords(invoice.grandTotal).toUpperCase();
+        page.drawText(`Rs. ${totalWords}`, { x: 30, y: 260, size: 7.5, font: fBold, color: BLACK, maxWidth: 380, lineHeight: 9 });
 
         const pdfBytes = await pdfDoc.save();
         res.end(Buffer.from(pdfBytes));
 
     } catch (error) {
-        console.error("Error generating PDF:", error);
+        console.error("Error generating Invoice PDF:", error);
+        if (!res.headersSent) res.status(500).json({ message: `PDF generation failed: ${error.message}` });
+    }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  QUOTATION PDF  — Template: SM_Groups_Quotation.pdf
+//
+//  Pre-printed label positions (pdf-lib Y = bottom-up):
+//    "QUOTATION ON (BILL TO):"    x=30,   y=702  → customer info below at ~y=688
+//    "Quotation No:"              x=325,  y=621  → value after label end  x=396
+//    "Date:"                      x=325,  y=603  → value after label end  x=355
+//    Table headers                y=533
+//    Item row 1/2/3               y=494 / y=441 / y=389
+//    Tax table + Total            y=277
+//    "NOTE:"                      x=30,   y=240
+// ═══════════════════════════════════════════════════════════════════════════════
+exports.generateQuotationPDF = async (quotation, res) => {
+    try {
+        const templatePath = path.join(__dirname, "SM_Groups_Quotation.pdf");
+        if (!fs.existsSync(templatePath)) throw new Error(`Template not found: ${templatePath}`);
+
+        const pdfDoc = await PDFDocument.load(fs.readFileSync(templatePath));
+        const page   = pdfDoc.getPages()[0];
+
+        const fReg  = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        const fBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+        const BLACK = rgb(0, 0, 0);
+        const MUTED = rgb(0.25, 0.25, 0.25);
+
+        const quotationDate = quotation.createdAt
+            ? new Date(quotation.createdAt).toLocaleDateString('en-GB')
+            : new Date().toLocaleDateString('en-GB');
+
+        // ── 1. QUOTATION NO + DATE ────────────────────────────────────────────
+        // Align values vertically at x=396
+        page.drawText(quotation.invoiceNumber || "", { x: 396, y: 621, size: 10, font: fBold, color: BLACK });
+        page.drawText(quotationDate, { x: 396, y: 603, size: 10, font: fBold, color: BLACK });
+
+        // ── 2. CUSTOMER DETAILS ───────────────────────────────────────────────
+        const nameUpper = quotation.customerName ? quotation.customerName.trim().toUpperCase() : "";
+        let phone = quotation.customerPhone ? quotation.customerPhone.trim() : "";
+        if (phone === "0000000000") phone = "";
+        if (phone && /^\d{10}$/.test(phone)) phone = `+91 ${phone}`;
+
+        // Below "QUOTATION ON (BILL TO):" label (y=702)
+        if (nameUpper) {
+            page.drawText(nameUpper, { x: 30, y: 688, size: 9, font: fBold, color: BLACK });
+        }
+        const addrLines = wrapText(quotation.customerAddress || "", 40);
+        if (phone) addrLines.push(phone);
+        let ly = nameUpper ? 676 : 688;
+        addrLines.forEach(line => {
+            page.drawText(line, { x: 30, y: ly, size: 8, font: fReg, color: MUTED });
+            ly -= 11;
+        });
+
+        // ── 3. LINE ITEMS ─────────────────────────────────────────────────────
+        const items = (quotation.items || []).slice(0, 3);
+        const rowYs = [494, 441, 389];
+
+        items.forEach((item, idx) => {
+            const rowY = rowYs[idx];
+            // S.No is already pre-printed (1, 2, 3) in the template — skip drawing it
+
+            // Description — item name only
+            const name = (item.name || "").toUpperCase();
+            page.drawText(name, { x: 90, y: rowY, size: 9, font: fBold, color: BLACK, maxWidth: 350 });
+
+            // Total Amount (right-aligned near x≈540)
+            const amt = formatCurrency(item.total);
+            const aw  = fBold.widthOfTextAtSize(amt, 9);
+            page.drawText(amt, { x: 540 - aw, y: rowY, size: 9, font: fBold, color: BLACK });
+        });
+
+        // HSN/SAV value — "Total" label is pre-printed at x≈55,y≈277
+        // so place HSN code next to "Total" on the left if provided
+        if (quotation.hsnCode) {
+            page.drawText(quotation.hsnCode, { x: 36, y: 277, size: 8, font: fReg, color: BLACK });
+        }
+
+        // Taxable Value
+        if (quotation.taxableValue > 0) {
+            const subtotalText = formatCurrency(quotation.taxableValue);
+            const subW = fBold.widthOfTextAtSize(subtotalText, 8);
+            page.drawText(subtotalText, { x: 165 - subW, y: 277, size: 8, font: fBold, color: BLACK });
+        }
+
+        // CGST / SGST
+        if (quotation.tax > 0) {
+            const taxRate = quotation.taxRate > 0 ? quotation.taxRate : (quotation.subtotal > 0 ? (quotation.tax / quotation.subtotal) * 100 : 0);
+            const halfRate = (taxRate / 2).toFixed(1).replace(/\.0$/, "");
+            const halfAmt = quotation.tax / 2;
+
+            // CGST Rate & Amount (under CGST header)
+            page.drawText(`${halfRate}%`, { x: 222, y: 277, size: 8, font: fBold, color: BLACK });
+            const cgstAmtText = formatCurrency(halfAmt);
+            const cgstW = fBold.widthOfTextAtSize(cgstAmtText, 8);
+            page.drawText(cgstAmtText, { x: 298 - cgstW, y: 277, size: 8, font: fBold, color: BLACK });
+
+            // SGST Rate & Amount (under SGST header)
+            page.drawText(`${halfRate}%`, { x: 337, y: 277, size: 8, font: fBold, color: BLACK });
+            const sgstAmtText = formatCurrency(halfAmt);
+            const sgstW = fBold.widthOfTextAtSize(sgstAmtText, 8);
+            page.drawText(sgstAmtText, { x: 413 - sgstW, y: 277, size: 8, font: fBold, color: BLACK });
+
+            // Total Tax Amount
+            const taxVal = formatCurrency(quotation.tax);
+            const taxW = fBold.widthOfTextAtSize(taxVal, 8);
+            page.drawText(taxVal, { x: 510 - taxW, y: 277, size: 8, font: fBold, color: BLACK });
+        }
+
+        // Grand Total below the table
+        const totalAmt = formatCurrency(quotation.grandTotal);
+        const gtText = `GRAND TOTAL: Rs. ${totalAmt}`;
+        const gtW = fBold.widthOfTextAtSize(gtText, 9.5);
+        page.drawText(gtText, { x: 565.3 - gtW, y: 260, size: 9.5, font: fBold, color: BLACK });
+
+        // ── 5. TOTAL IN WORDS ─────────────────────────────────────────────────
+        const totalWords = numberToWords(quotation.grandTotal).toUpperCase();
+        page.drawText(`Rs. ${totalWords}`, { x: 30, y: 260, size: 7.5, font: fBold, color: BLACK, maxWidth: 380, lineHeight: 9 });
+
+        const pdfBytes = await pdfDoc.save();
+        res.end(Buffer.from(pdfBytes));
+
+    } catch (error) {
+        console.error("Error generating Quotation PDF:", error);
         if (!res.headersSent) res.status(500).json({ message: `PDF generation failed: ${error.message}` });
     }
 };

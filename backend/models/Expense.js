@@ -7,7 +7,8 @@ const expenseSchema = new mongoose.Schema({
     vendorName: { type: String },
     category: { type: String },
     paymentMethod: { type: String },
-    billFile: { type: String }, // Path to the uploaded file
+    billFile: { type: String }, // Path to the uploaded bill file
+    scannerFile: { type: String }, // Path to the uploaded scanner/screenshot file
     status: { 
         type: String, 
         enum: ["pending", "approved", "rejected"], 

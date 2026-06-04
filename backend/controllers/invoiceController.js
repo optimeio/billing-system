@@ -1,6 +1,7 @@
 const Invoice = require("../models/Invoice");
 const Product = require("../models/Product");
 const Category = require("../models/Category");
+const User = require("../models/User");
 const { generateInvoicePDF } = require("../utils/pdfGenerator");
 const { findOrCreateCategory, findOrCreateProduct } = require("../utils/autoProductService");
 const Notification = require("../models/Notification");
@@ -13,31 +14,37 @@ const { sendEmail } = require("../utils/emailService");
 // @access  Admin/Staff
 exports.createInvoice = async (req, res) => {
     try {
-        let { invoiceNumber, invoiceDate, customerName, customerPhone, customerAddress, items, tax = 0, discount = 0 } = req.body;
+        let { invoiceNumber, invoiceDate, customerName, customerPhone, customerAddress, items, hsnCode = "", taxRate = 0, tax = 0, discount = 0, taxableValue = 0, type = "invoice" } = req.body;
 
-        customerName = customerName || "Walk-in Customer";
-        customerPhone = customerPhone || "0000000000";
-        customerAddress = customerAddress || "";
+        customerName = customerName ? customerName.trim() : "";
+        customerPhone = customerPhone ? customerPhone.trim() : "";
+        customerAddress = customerAddress ? customerAddress.trim() : "";
+        hsnCode = hsnCode ? hsnCode.trim() : "";
 
         if (!items || items.length === 0) {
-            return res.status(400).json({ message: "Invoice must have at least one item." });
+            return res.status(400).json({ message: "Document must have at least one item." });
         }
 
         // 1. Resolve Invoice Number (custom manual value or auto-generated)
         let finalInvoiceNumber = invoiceNumber ? invoiceNumber.trim() : "";
         if (!finalInvoiceNumber) {
-            const lastInvoice = await Invoice.findOne().sort({ createdAt: -1 });
-            let nextInvoiceNumber = "INV1001";
-            if (lastInvoice && lastInvoice.invoiceNumber) {
-                const lastNum = parseInt(lastInvoice.invoiceNumber.replace("INV", ""));
-                nextInvoiceNumber = `INV${lastNum + 1}`;
+            const prefix = type === "quotation" ? "QT" : "INV";
+            // Search ALL invoices for highest number with this prefix (ignore type field)
+            const allDocs = await Invoice.find({}).select("invoiceNumber").lean();
+
+            let maxNum = 1000;
+            for (const doc of allDocs) {
+                if (doc.invoiceNumber && doc.invoiceNumber.startsWith(prefix)) {
+                    const num = parseInt(doc.invoiceNumber.replace(prefix, ""), 10);
+                    if (!isNaN(num) && num > maxNum) maxNum = num;
+                }
             }
-            finalInvoiceNumber = nextInvoiceNumber;
+            finalInvoiceNumber = `${prefix}${maxNum + 1}`;
         } else {
             // Verify manual entry is unique
             const existing = await Invoice.findOne({ invoiceNumber: finalInvoiceNumber });
             if (existing) {
-                return res.status(400).json({ message: `Invoice number "${finalInvoiceNumber}" is already in use.` });
+                return res.status(400).json({ message: `Number "${finalInvoiceNumber}" is already in use.` });
             }
         }
 
@@ -107,9 +114,13 @@ exports.createInvoice = async (req, res) => {
             customerAddress,
             items: processedItems,
             subtotal,
+            taxableValue: parseFloat(taxableValue) || 0,
+            hsnCode,
+            taxRate,
             tax,
             discount,
             grandTotal,
+            type,
             createdBy: req.user._id,
             createdAt: dateToSet
         });
@@ -119,8 +130,8 @@ exports.createInvoice = async (req, res) => {
             const io = getIO();
             const notification = await Notification.create({
                 userId: null, // Global notification for Admin
-                title: "New Invoice Created",
-                message: `Invoice ${invoice.invoiceNumber} created by ${req.user.name || "Staff"}`,
+                title: type === "quotation" ? "New Quotation Created" : "New Invoice Created",
+                message: `${type === 'quotation' ? 'Quotation' : 'Invoice'} ${invoice.invoiceNumber} created by ${req.user.name || "Staff"}`,
                 type: "invoiceCreated"
             });
             io.emit("invoiceCreated", { invoice, notification });
@@ -129,27 +140,28 @@ exports.createInvoice = async (req, res) => {
         }
 
         // 6. Send Email Notification to Admin
+        const docName = type === "quotation" ? "Quotation" : "Invoice";
         const adminEmailMessage = `
             <div style="font-family: Arial, sans-serif; max-width: 600px; border: 1px solid #ddd; padding: 20px;">
-                <h2 style="color: #2c3e50;">New Invoice Generated</h2>
-                <p>An invoice has been successfully created in the system:</p>
+                <h2 style="color: #2c3e50;">New ${docName} Generated</h2>
+                <p>A new ${type} has been successfully created in the system:</p>
                 <ul>
-                    <li><b>Invoice Number:</b> ${invoice.invoiceNumber}</li>
+                    <li><b>${docName} Number:</b> ${invoice.invoiceNumber}</li>
                     <li><b>Customer Name:</b> ${customerName}</li>
                     <li><b>Grand Total:</b> ₹${grandTotal.toLocaleString()}</li>
                     <li><b>Created By:</b> ${req.user.name || "Staff"}</li>
                 </ul>
-                <p>Please log in to the admin portal to review the invoice details.</p>
+                <p>Please log in to the admin portal to review the details.</p>
             </div>
         `;
 
         // Send Email Notification to Admin in the background (non-blocking)
-        sendEmail(process.env.EMAIL_USER, `New Invoice Created: ${invoice.invoiceNumber}`, "", adminEmailMessage)
-            .catch(emailErr => console.error("Failed to send admin notification email for invoice:", emailErr.message));
+        sendEmail(process.env.EMAIL_USER, `New ${docName} Created: ${invoice.invoiceNumber}`, "", adminEmailMessage)
+            .catch(emailErr => console.error(`Failed to send admin notification email for ${type}:`, emailErr.message));
 
 
         res.status(201).json({
-            message: "Invoice created successfully",
+            message: `${docName} created successfully`,
             autoCreatedProducts,
             autoCreatedCategories,
             invoice
@@ -165,10 +177,11 @@ exports.createInvoice = async (req, res) => {
 // @access  Admin/Staff
 exports.getInvoices = async (req, res) => {
     try {
-        let query = {};
+        const type = req.query.type || "invoice";
+        let query = { type };
         
-        // Staff can only see their own invoices
-        if (req.user.role !== "admin") {
+        // Staff see all quotations, but only their own invoices
+        if (req.user.role !== "admin" && type !== "quotation") {
             query.createdBy = req.user._id;
         }
 
@@ -222,6 +235,50 @@ exports.cancelInvoice = async (req, res) => {
         invoice.paymentStatus = "cancelled";
         await invoice.save();
 
+        // Send Email Notification to Staff Creator
+        try {
+            const creator = await User.findById(invoice.createdBy).select("name email");
+            if (creator && creator.email) {
+                const emailHtml = `
+                    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                      <div style="background: linear-gradient(135deg, #1e293b, #0f172a); color: white; padding: 24px; text-align: center;">
+                        <h2 style="margin: 0; font-size: 22px; font-weight: 600; letter-spacing: 0.5px;">SM GROUPS</h2>
+                        <p style="margin: 4px 0 0 0; font-size: 14px; opacity: 0.85;">Invoice Cancelled</p>
+                      </div>
+                      <div style="padding: 24px; background-color: #ffffff;">
+                        <p style="font-size: 16px; color: #1e293b; margin-top: 0;">Hello <strong>${creator.name}</strong>,</p>
+                        <p style="font-size: 14px; color: #475569; line-height: 1.5;">Your created invoice <strong>${invoice.invoiceNumber}</strong> has been <strong style="color: #dc2626;">CANCELLED</strong> by the administrator. Below are the details:</p>
+                        
+                        <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px;">
+                          <tbody>
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                              <td style="padding: 10px; color: #475569; font-weight: 600;">Invoice Number</td>
+                              <td style="padding: 10px; text-align: right; color: #1e293b;">${invoice.invoiceNumber}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                              <td style="padding: 10px; color: #475569; font-weight: 600;">Customer Name</td>
+                              <td style="padding: 10px; text-align: right; color: #1e293b;">${invoice.customerName}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                              <td style="padding: 10px; color: #475569; font-weight: 600;">Grand Total</td>
+                              <td style="padding: 10px; text-align: right; color: #1e293b; font-weight: bold;">₹${parseFloat(invoice.grandTotal).toLocaleString()}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 10px; color: #475569; font-weight: 600;">Status</td>
+                              <td style="padding: 10px; text-align: right; color: #dc2626; font-weight: bold;">CANCELLED</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                `;
+                sendEmail(creator.email, `Invoice Cancelled: ${invoice.invoiceNumber}`, "", emailHtml)
+                    .catch(emailErr => console.error("Failed to send invoice cancellation email:", emailErr.message));
+            }
+        } catch (fetchErr) {
+            console.error("Failed to fetch creator for email notification:", fetchErr.message);
+        }
+
         try {
             const io = getIO();
             io.emit("invoiceUpdated", invoice);
@@ -252,6 +309,50 @@ exports.markInvoiceAsPaid = async (req, res) => {
         invoice.paymentStatus = "paid";
         await invoice.save();
 
+        // Send Email Notification to Staff Creator
+        try {
+            const creator = await User.findById(invoice.createdBy).select("name email");
+            if (creator && creator.email) {
+                const emailHtml = `
+                    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                      <div style="background: linear-gradient(135deg, #1e293b, #0f172a); color: white; padding: 24px; text-align: center;">
+                        <h2 style="margin: 0; font-size: 22px; font-weight: 600; letter-spacing: 0.5px;">SM GROUPS</h2>
+                        <p style="margin: 4px 0 0 0; font-size: 14px; opacity: 0.85;">Invoice Approved / Paid</p>
+                      </div>
+                      <div style="padding: 24px; background-color: #ffffff;">
+                        <p style="font-size: 16px; color: #1e293b; margin-top: 0;">Hello <strong>${creator.name}</strong>,</p>
+                        <p style="font-size: 14px; color: #475569; line-height: 1.5;">Your created invoice <strong>${invoice.invoiceNumber}</strong> has been <strong>APPROVED</strong> and marked as <strong>PAID</strong> by the administrator. Below are the details:</p>
+                        
+                        <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px;">
+                          <tbody>
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                              <td style="padding: 10px; color: #475569; font-weight: 600;">Invoice Number</td>
+                              <td style="padding: 10px; text-align: right; color: #1e293b;">${invoice.invoiceNumber}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                              <td style="padding: 10px; color: #475569; font-weight: 600;">Customer Name</td>
+                              <td style="padding: 10px; text-align: right; color: #1e293b;">${invoice.customerName}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                              <td style="padding: 10px; color: #475569; font-weight: 600;">Grand Total</td>
+                              <td style="padding: 10px; text-align: right; color: #1e293b; font-weight: bold;">₹${parseFloat(invoice.grandTotal).toLocaleString()}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 10px; color: #475569; font-weight: 600;">Status</td>
+                              <td style="padding: 10px; text-align: right; color: #16a34a; font-weight: bold;">PAID</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                `;
+                sendEmail(creator.email, `Invoice Approved/Paid: ${invoice.invoiceNumber}`, "", emailHtml)
+                    .catch(emailErr => console.error("Failed to send invoice paid email:", emailErr.message));
+            }
+        } catch (fetchErr) {
+            console.error("Failed to fetch creator for email notification:", fetchErr.message);
+        }
+
         try {
             const io = getIO();
             io.emit("invoiceUpdated", invoice);
@@ -272,17 +373,24 @@ exports.downloadInvoice = async (req, res) => {
     try {
         const invoice = await Invoice.findById(req.params.id);
         if (!invoice) {
-            return res.status(404).json({ message: "Invoice not found" });
+            return res.status(404).json({ message: "Document not found" });
         }
+
+        const { generateQuotationPDF } = require("../utils/pdfGenerator");
 
         // Set response headers for PDF download
         res.setHeader("Content-Type", "application/pdf");
+        const filenamePrefix = invoice.type === "quotation" ? "Quotation" : "Invoice";
         res.setHeader(
             "Content-Disposition",
-            `attachment; filename=Invoice_${invoice.invoiceNumber}.pdf`
+            `attachment; filename=${filenamePrefix}_${invoice.invoiceNumber}.pdf`
         );
 
-        await generateInvoicePDF(invoice, res);
+        if (invoice.type === "quotation") {
+            await generateQuotationPDF(invoice, res);
+        } else {
+            await generateInvoicePDF(invoice, res);
+        }
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -321,7 +429,7 @@ exports.deleteInvoice = async (req, res) => {
 // @access  Admin/Staff
 exports.updateInvoice = async (req, res) => {
     try {
-        const { invoiceNumber, invoiceDate, customerName, customerPhone, customerAddress, items, tax = 0, discount = 0, paymentStatus } = req.body;
+        const { invoiceNumber, invoiceDate, customerName, customerPhone, customerAddress, items, hsnCode, taxRate, tax = 0, discount = 0, taxableValue, paymentStatus } = req.body;
         
         const invoice = await Invoice.findById(req.params.id);
         if (!invoice) {
@@ -346,9 +454,9 @@ exports.updateInvoice = async (req, res) => {
             invoice.createdAt = new Date(invoiceDate);
         }
 
-        invoice.customerName = customerName || invoice.customerName;
-        invoice.customerPhone = customerPhone || invoice.customerPhone;
-        invoice.customerAddress = customerAddress !== undefined ? customerAddress : invoice.customerAddress;
+        invoice.customerName = customerName !== undefined ? customerName.trim() : invoice.customerName;
+        invoice.customerPhone = customerPhone !== undefined ? customerPhone.trim() : invoice.customerPhone;
+        invoice.customerAddress = customerAddress !== undefined ? customerAddress.trim() : invoice.customerAddress;
         
         if (paymentStatus) {
             invoice.paymentStatus = paymentStatus;
@@ -391,6 +499,9 @@ exports.updateInvoice = async (req, res) => {
         }
 
         // Recompute totals
+        invoice.hsnCode = hsnCode !== undefined ? hsnCode.trim() : invoice.hsnCode;
+        invoice.taxableValue = taxableValue !== undefined ? parseFloat(taxableValue) : invoice.taxableValue;
+        invoice.taxRate = taxRate !== undefined ? parseFloat(taxRate) : invoice.taxRate;
         invoice.tax = tax !== undefined ? parseFloat(tax) : invoice.tax;
         invoice.discount = discount !== undefined ? parseFloat(discount) : invoice.discount;
         invoice.grandTotal = invoice.subtotal + invoice.tax - invoice.discount;
@@ -408,6 +519,60 @@ exports.updateInvoice = async (req, res) => {
             message: "Invoice updated successfully",
             invoice
         });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Approve Quotation (Admin Only)
+// @route   PATCH /api/invoices/:id/approve-quotation
+exports.approveQuotation = async (req, res) => {
+    try {
+        const invoice = await Invoice.findById(req.params.id);
+        if (!invoice || invoice.type !== "quotation") {
+            return res.status(404).json({ message: "Quotation not found" });
+        }
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ message: "Only administrators can approve quotations" });
+        }
+        invoice.paymentStatus = "approved";
+        await invoice.save();
+
+        try {
+            const io = getIO();
+            io.emit("invoiceUpdated", invoice);
+        } catch (err) {
+            console.error("Socket error on quotation approve:", err);
+        }
+
+        res.json({ message: "Quotation approved successfully", invoice });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Reject Quotation (Admin Only)
+// @route   PATCH /api/invoices/:id/reject-quotation
+exports.rejectQuotation = async (req, res) => {
+    try {
+        const invoice = await Invoice.findById(req.params.id);
+        if (!invoice || invoice.type !== "quotation") {
+            return res.status(404).json({ message: "Quotation not found" });
+        }
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ message: "Only administrators can reject quotations" });
+        }
+        invoice.paymentStatus = "rejected";
+        await invoice.save();
+
+        try {
+            const io = getIO();
+            io.emit("invoiceUpdated", invoice);
+        } catch (err) {
+            console.error("Socket error on quotation reject:", err);
+        }
+
+        res.json({ message: "Quotation rejected successfully", invoice });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

@@ -24,6 +24,15 @@ const seedUsers = async () => {
                 isFirstLogin: false
             },
             {
+                name: "Official Administrator",
+                email: "tsmgmdofficial@gmail.com",
+                phone: "1234567890",
+                staffId: "ADMIN_OFFICIAL",
+                password: "TSMG1997",
+                role: "admin",
+                isFirstLogin: false
+            },
+            {
                 name: "Inventory Manager",
                 email: "theoptime.io@gmail.com",
                 phone: "1234567890",
@@ -68,7 +77,8 @@ const seedUsers = async () => {
         console.log("\n✅ Seeding completed successfully!");
         console.log("\nLogin Credentials:");
         console.log("──────────────────────────────────────────────────────────────────");
-        console.log("Admin:             thesmgroups@gmail.com  /  TSMGPVT@2026");
+        console.log("Main Admin:        thesmgroups@gmail.com  /  TSMGPVT@2026");
+        console.log("Extra Admin:       tsmgmdofficial@gmail.com  /  TSMG1997");
         console.log("Inventory Manager: theoptime.io@gmail.com  /  TSMG1997 (role: inventory_manager)");
         console.log("Staff:             shreenithya111@gmail.com  /  StaffPassword123");
         console.log("──────────────────────────────────────────────────────────────────");

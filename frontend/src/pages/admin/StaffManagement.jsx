@@ -125,7 +125,7 @@ const StaffManagement = () => {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <h1 className="text-2xl font-bold text-slate-800">Staff Management</h1>
         <button 
           onClick={() => {
@@ -133,7 +133,7 @@ const StaffManagement = () => {
             setFormData({ name: '', email: '', phone: '', staffId: '', password: '', role: '' });
             setShowAddForm(true);
           }}
-          className="bg-primary hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center shadow-sm transition-all"
+          className="bg-primary hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center shadow-sm transition-all self-start sm:self-auto"
         >
           <Plus size={18} className="mr-2" />
           Add Staff

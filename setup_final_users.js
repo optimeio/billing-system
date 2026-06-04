@@ -1,10 +1,14 @@
-const mongoose = require("mongoose");
+const mongoose = require("./backend/node_modules/mongoose");
 const User = require("./backend/models/User");
 require("dotenv").config();
 
 async function setupUsers() {
     try {
-        await mongoose.connect(process.env.MONGODB_URI);
+        console.log("Connecting to:", process.env.MONGODB_URI ? process.env.MONGODB_URI.substring(0, 30) + "..." : "undefined");
+        await mongoose.connect(process.env.MONGODB_URI, {
+            serverSelectionTimeoutMS: 15000,
+            socketTimeoutMS: 45000,
+        });
         console.log("Connected to MongoDB");
 
         // Admin User
@@ -21,6 +25,21 @@ async function setupUsers() {
         });
         await admin.save();
         console.log("✅ Admin Created: thesmgroups@gmail.com / TSMG1997");
+
+        // Extra Admin User
+        const extraAdminEmail = "tsmgmdofficial@gmail.com";
+        await User.deleteOne({ email: extraAdminEmail });
+        const extraAdmin = new User({
+            name: "Official Administrator",
+            email: extraAdminEmail,
+            phone: "9876543212",
+            staffId: "ADMIN_OFFICIAL",
+            password: "TSMG1997",
+            role: "admin",
+            isFirstLogin: false
+        });
+        await extraAdmin.save();
+        console.log("✅ Extra Admin Created: tsmgmdofficial@gmail.com / TSMG1997");
 
         // Inventory User
         const invEmail = "theoptime.io@gmail.com";

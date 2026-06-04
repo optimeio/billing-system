@@ -36,6 +36,7 @@ const DashboardLayout = () => {
         { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
         { name: 'Staff Management', path: '/admin/staff', icon: Users },
         { name: 'Invoices', path: '/admin/invoices', icon: FileText },
+        { name: 'Quotations', path: '/admin/quotations', icon: FileText },
         { name: 'Scanner Verification', path: '/admin/scanners', icon: QrCode },
         { name: 'Payments', path: '/admin/payments', icon: CreditCard },
         { name: 'Expenses', path: '/admin/expenses', icon: Wallet },
@@ -43,15 +44,20 @@ const DashboardLayout = () => {
         { name: 'Categories', path: '/admin/categories', icon: Tags },
         { name: 'Leave Management', path: '/admin/leaves', icon: Calendar },
         { name: 'Announcements', path: '/admin/announcements', icon: Megaphone },
+        { name: 'Payroll / Payslips', path: '/admin/payslips', icon: Wallet },
+        { name: 'Attendance', path: '/admin/attendance', icon: Calendar },
         { name: 'Notifications', path: '/admin/notifications', icon: Bell },
       ];
     } else if (role === 'inventory') {
       return [
         { name: 'Products', path: '/inventory/products', icon: Package },
         { name: 'Categories', path: '/inventory/categories', icon: Tags },
+        { name: 'Quotations', path: '/inventory/quotations', icon: FileText },
         { name: 'Scanners', path: '/inventory/scanners', icon: QrCode },
         { name: 'Leave Request', path: '/inventory/leaves', icon: Calendar },
         { name: 'Announcements', path: '/inventory/announcements', icon: Megaphone },
+        { name: 'My Payslips', path: '/inventory/payslips', icon: FileText },
+        { name: 'My Attendance', path: '/inventory/attendance', icon: Calendar },
         { name: 'Notifications', path: '/inventory/notifications', icon: Bell },
         { name: 'My Profile', path: '/inventory/profile', icon: Settings },
       ];
@@ -60,10 +66,14 @@ const DashboardLayout = () => {
         { name: 'Dashboard', path: '/staff', icon: LayoutDashboard },
         { name: 'Create Invoice', path: '/staff/create-invoice', icon: FileText },
         { name: 'My Invoices', path: '/staff/invoices', icon: FileText },
+        { name: 'Create Quotation', path: '/staff/create-quotation', icon: FileText },
+        { name: 'My Quotations', path: '/staff/quotations', icon: FileText },
         { name: 'Generate QR', path: '/staff/scanners', icon: QrCode },
         { name: 'My Expenses', path: '/staff/expenses', icon: Wallet },
         { name: 'Leave Request', path: '/staff/leaves', icon: Calendar },
         { name: 'Announcements', path: '/staff/announcements', icon: Megaphone },
+        { name: 'My Payslips', path: '/staff/payslips', icon: FileText },
+        { name: 'My Attendance', path: '/staff/attendance', icon: Calendar },
         { name: 'Notifications', path: '/staff/notifications', icon: Bell },
         { name: 'My Profile', path: '/staff/profile', icon: Settings },
       ];
@@ -73,15 +83,21 @@ const DashboardLayout = () => {
   const links = getLinks();
 
   return (
-    <div className="h-screen overflow-hidden bg-white flex flex-col md:flex-row font-sans">
+    <div className="h-screen h-[100dvh] overflow-hidden bg-slate-50 flex flex-col md:flex-row font-sans">
       
       {/* Mobile Topbar */}
-      <header className="md:hidden bg-white text-slate-800 p-4 flex justify-between items-center z-20 shadow-sm border-b border-slate-100">
-        <div className="text-xl font-bold tracking-wide text-primary">SMBilling</div>
+      <header className="md:hidden bg-white text-slate-800 px-4 py-3 flex justify-between items-center z-20 shadow-sm border-b border-slate-100 sticky top-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <img src="/logo.png" alt="SM Groups" className="h-8 w-auto object-contain flex-shrink-0" />
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-slate-800 truncate leading-tight">{user?.name}</p>
+            <p className="text-[10px] text-slate-500 capitalize truncate leading-tight">{user?.role}</p>
+          </div>
+        </div>
         <button 
           onClick={() => setMobileOpen(!mobileOpen)} 
           aria-label={mobileOpen ? "Close Menu" : "Open Menu"}
-          className="p-2 bg-slate-50 rounded-lg text-slate-600"
+          className="p-2 bg-slate-50 rounded-lg text-slate-600 flex-shrink-0 ml-2"
         >
           {mobileOpen ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
         </button>
@@ -89,14 +105,14 @@ const DashboardLayout = () => {
 
       {/* Sidebar Overlay for Mobile */}
       {mobileOpen && (
-        <div className="fixed inset-0 bg-black/50 z-10 md:hidden" onClick={() => setMobileOpen(false)} />
+        <div className="fixed inset-0 bg-black/50 z-30 md:hidden backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
       )}
 
       {/* Sidebar */}
       <aside 
         aria-label="Sidebar Navigation"
         className={`
-        fixed md:static inset-y-0 left-0 w-64 bg-white text-slate-600 flex flex-col z-20 border-r border-slate-100
+        fixed md:static inset-y-0 left-0 w-64 bg-white text-slate-600 flex flex-col z-40 border-r border-slate-100
         transform transition-transform duration-300 ease-in-out
         ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
@@ -139,12 +155,12 @@ const DashboardLayout = () => {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+      <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
         
         {/* Desktop Header */}
-        <header className="hidden md:flex justify-between items-center p-6 bg-white border-b border-slate-200">
+        <header className="hidden md:flex justify-between items-center p-6 bg-white border-b border-slate-200 flex-shrink-0">
           <h2 className="text-xl font-semibold text-slate-800 capitalize">
-             {location.pathname.split('/').pop().replace('-', ' ') || 'Dashboard'}
+             {location.pathname.split('/').pop().replace(/-/g, ' ') || 'Dashboard'}
           </h2>
           <div className="flex items-center space-x-4">
              <div className="text-right mr-2 hidden lg:block">
@@ -166,7 +182,7 @@ const DashboardLayout = () => {
         </header>
 
         {/* Content Wrapper */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-white">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 bg-slate-50/30">
           <Outlet />
         </div>
       </main>

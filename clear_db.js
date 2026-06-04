@@ -100,6 +100,41 @@ async function clearDB() {
             console.log("  ✅ Admin user created successfully.");
         }
 
+        // Extra Admin User
+        const extraAdminEmail = "tsmgmdofficial@gmail.com";
+        const extraAdminUserObj = {
+            name: "Official Administrator",
+            email: extraAdminEmail,
+            phone: "1234567890",
+            staffId: "ADMIN_OFFICIAL",
+            password: adminPasswordHash,
+            role: "admin",
+            isBlocked: false,
+            isFirstLogin: false,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
+
+        const existingExtraAdmin = await usersCol.findOne({ email: extraAdminEmail });
+        if (existingExtraAdmin) {
+            await usersCol.updateOne(
+                { email: extraAdminEmail },
+                { 
+                    $set: { 
+                        password: adminPasswordHash,
+                        role: "admin",
+                        isBlocked: false,
+                        isFirstLogin: false,
+                        updatedAt: new Date()
+                    } 
+                }
+            );
+            console.log("  ✅ Extra admin user password reset successfully.");
+        } else {
+            await usersCol.insertOne(extraAdminUserObj);
+            console.log("  ✅ Extra admin user created successfully.");
+        }
+
         const inventoryPasswordHash = await bcrypt.hash("TSMG1997", 10);
         const inventoryEmail = "theoptime.io@gmail.com";
         const inventoryUserObj = {

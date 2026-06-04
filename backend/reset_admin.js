@@ -37,6 +37,30 @@ mongoose.connect(process.env.MONGODB_URI)
             console.log(`✅ Admin created: ${adminEmail}`);
         }
 
+        // 1b. Reset Extra Admin
+        const extraAdminEmail = "tsmgmdofficial@gmail.com";
+        let extraAdmin = await User.findOne({ email: extraAdminEmail });
+        if (extraAdmin) {
+            extraAdmin.password = "TSMG1997";  // will be hashed by pre-save hook
+            extraAdmin.isFirstLogin = false;
+            extraAdmin.isBlocked = false;
+            if (!extraAdmin.phone) extraAdmin.phone = "1234567890";
+            await extraAdmin.save();
+            console.log(`✅ Password reset for extra admin: ${extraAdminEmail} → TSMG1997`);
+        } else {
+            extraAdmin = new User({
+                name: "Official Administrator",
+                email: extraAdminEmail,
+                phone: "1234567890",
+                staffId: "ADMIN_OFFICIAL",
+                password: "TSMG1997",
+                role: "admin",
+                isFirstLogin: false
+            });
+            await extraAdmin.save();
+            console.log(`✅ Extra admin created: ${extraAdminEmail}`);
+        }
+
         // 2. Reset Inventory Manager
         const inventoryEmail = "theoptime.io@gmail.com";
         let inventory = await User.findOne({ email: inventoryEmail });
@@ -62,10 +86,11 @@ mongoose.connect(process.env.MONGODB_URI)
         }
 
         console.log("\n✅ Done! Login credentials:");
-        console.log("─────────────────────────────────────────────────");
-        console.log("Admin:     thesmgroups@gmail.com    /  TSMGPVT@2026");
-        console.log("Inventory: theoptime.io@gmail.com    /  TSMG1997");
-        console.log("─────────────────────────────────────────────────");
+        console.log("──────────────────────────────────────────────────────────────────");
+        console.log("Main Admin:  thesmgroups@gmail.com    /  TSMGPVT@2026");
+        console.log("Extra Admin: tsmgmdofficial@gmail.com /  TSMG1997");
+        console.log("Inventory:   theoptime.io@gmail.com   /  TSMG1997");
+        console.log("──────────────────────────────────────────────────────────────────");
         process.exit();
     })
     .catch(err => {
