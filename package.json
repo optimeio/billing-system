@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Premium Billing Software System",
   "scripts": {
+    "mail-prompt": "node backend/utils/mailPrompt.js",
     "backend": "npm run dev --prefix backend",
     "frontend": "npm run dev --prefix frontend",
     "dev": "concurrently -k -s first \"npm run backend\" \"npm run frontend\"",
