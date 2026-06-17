@@ -16,7 +16,7 @@ router.use(protect);
 
 // Staff check-in/out endpoints
 router.post("/check-in", upload.single("photo"), checkIn);
-router.post("/check-out", checkOut);
+router.post("/check-out", upload.single("photo"), checkOut);
 router.get("/today", getTodayStatus);
 router.get("/my-history", getMyHistory);
 

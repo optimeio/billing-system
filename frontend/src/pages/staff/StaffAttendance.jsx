@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Clock, Camera, CheckCircle2, LogOut, History, Eye, Calendar } from "lucide-react";
+import { Clock, Camera, CheckCircle2, LogOut, History, Eye, Calendar, AlertTriangle } from "lucide-react";
 import api from "../../services/api";
 import toast from "react-hot-toast";
 import Modal from "../../components/common/Modal";
@@ -19,8 +19,7 @@ const StaffAttendance = () => {
   // Photo viewer modal
   const [isPhotoOpen, setIsPhotoOpen] = useState(false);
   const [photoUrl, setPhotoUrl] = useState("");
-
-
+  const [photoTitle, setPhotoTitle] = useState("Photo Viewer");
 
   const fetchTodayRecord = async () => {
     try {
@@ -59,10 +58,83 @@ const StaffAttendance = () => {
     }
   };
 
-  const handleCheckIn = async (e) => {
+  // Helper to determine check-in state, session labels, and deadlines
+  const getAttendanceState = () => {
+    const nowHour = time.getHours();
+    const nowMinutes = time.getMinutes();
+    const isPast10AM = nowHour > 10 || (nowHour === 10 && nowMinutes > 0);
+
+    if (!todayRecord) {
+      if (isPast10AM) {
+        return {
+          session: 2,
+          type: "check-in",
+          label: "Check In (Session 2)",
+          description: "Morning check-in deadline (10:00 AM) passed. Session 1 is marked as missed.",
+          alert: "Morning Session Missed (Closed 10:00 AM)"
+        };
+      } else {
+        return {
+          session: 1,
+          type: "check-in",
+          label: "Check In (Session 1)",
+          description: "Record your morning presence before the 10:00 AM deadline.",
+          alert: null
+        };
+      }
+    }
+
+    // Session 1 checked in, but not checked out
+    if (todayRecord.checkIn && !todayRecord.checkOut) {
+      return {
+        session: 1,
+        type: "check-out",
+        label: "Check Out (Session 1)",
+        description: "Complete your first work session. Selfie photo is required.",
+        alert: null
+      };
+    }
+
+    // Session 1 checked out, but Session 2 not checked in
+    if (todayRecord.checkOut && !todayRecord.checkIn2) {
+      return {
+        session: 2,
+        type: "check-in",
+        label: "Check In (Session 2)",
+        description: "Record check-in for your second work session. Selfie photo is required.",
+        alert: null
+      };
+    }
+
+    // Session 2 checked in, but not checked out
+    if (todayRecord.checkIn2 && !todayRecord.checkOut2) {
+      return {
+        session: 2,
+        type: "check-out",
+        label: "Check Out (Session 2)",
+        description: "Complete your second work session and finish for the day.",
+        alert: null
+      };
+    }
+
+    // Both sessions completed
+    return {
+      session: null,
+      type: "completed",
+      label: "Attendance Completed",
+      description: "You have completed your attendance check-ins and check-outs for today.",
+      alert: null
+    };
+  };
+
+  const activeState = getAttendanceState();
+
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
+    if (activeState.type === "completed") return;
+
     if (!selectedFile) {
-      toast.error("Selfie photo is required for visual check-in verification!");
+      toast.error(`Selfie photo is required for ${activeState.label}!`);
       return;
     }
 
@@ -71,42 +143,27 @@ const StaffAttendance = () => {
     formData.append("photo", selectedFile);
 
     try {
-      const res = await api.post("/attendance/check-in", formData, {
+      const endpoint = activeState.type === "check-in" ? "/attendance/check-in" : "/attendance/check-out";
+      const res = await api.post(endpoint, formData, {
         headers: { "Content-Type": "multipart/form-data" }
       });
-      toast.success(res.data.message || "Checked in successfully!");
+      toast.success(res.data.message || "Attendance recorded successfully!");
       setSelectedFile(null);
       setPreviewUrl("");
       fetchTodayRecord();
       fetchHistory();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Check-in failed. Please try again.");
+      toast.error(err.response?.data?.message || "Operation failed. Please try again.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleCheckOut = async () => {
-    if (!window.confirm("Are you sure you want to check out for today?")) {
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const res = await api.post("/attendance/check-out");
-      toast.success(res.data.message || "Checked out successfully!");
-      fetchTodayRecord();
-      fetchHistory();
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Check-out failed.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleViewPhoto = (photoPath) => {
+  const handleViewPhoto = (photoPath, title = "Visual Verification") => {
     const backendUrl = import.meta.env.VITE_API_URL || "";
     const cleanUrl = photoPath.startsWith("http") ? photoPath : `${backendUrl.replace("/api", "")}${photoPath}`;
     setPhotoUrl(cleanUrl);
+    setPhotoTitle(title);
     setIsPhotoOpen(true);
   };
 
@@ -120,7 +177,6 @@ const StaffAttendance = () => {
     return `${day} ${monthNames[parseInt(month, 10) - 1]} ${year}`;
   };
 
-  // eslint-disable-next-line no-unused-vars
   const formatTime = (timeStr) => {
     if (!timeStr) return "-";
     const d = new Date(timeStr);
@@ -131,13 +187,13 @@ const StaffAttendance = () => {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8 pb-12">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Attendance & Check-in</h1>
-        <p className="text-sm text-slate-500 mt-1">Record your daily presence using visual check-in verification and view your hours.</p>
+        <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Attendance Dashboard</h1>
+        <p className="text-sm text-slate-500 mt-1">Record check-ins and check-outs for two sessions per day. All steps require selfie verification.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
         {/* Check-in Widget Card */}
-        <div className="lg:col-span-1 space-y-6">
+        <div className="xl:col-span-1 space-y-6">
           <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center text-center space-y-6">
             {/* Live Clock Ticker */}
             <div className="space-y-1">
@@ -152,17 +208,52 @@ const StaffAttendance = () => {
             </div>
 
             <div className="w-full border-t border-slate-100 pt-6">
-              {!todayRecord ? (
-                // ── Check-In Flow ───────────────────────────────────────────
-                <form onSubmit={handleCheckIn} className="space-y-5">
+              {activeState.type === "completed" ? (
+                <div className="space-y-6">
+                  <div className="flex flex-col items-center justify-center gap-2">
+                    <div className="w-14 h-14 bg-green-50 text-green-600 rounded-full flex items-center justify-center shadow border border-green-100">
+                      <CheckCircle2 size={30} />
+                    </div>
+                    <span className="text-sm font-bold text-green-600 uppercase tracking-wider mt-1">Done for Today</span>
+                  </div>
+                  <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-100 text-left space-y-2">
+                    <p className="font-semibold text-slate-700">Today's Summary:</p>
+                    {todayRecord?.checkIn && (
+                      <p>• Session 1 In: {formatTime(todayRecord.checkIn)}</p>
+                    )}
+                    {todayRecord?.checkOut && (
+                      <p>• Session 1 Out: {formatTime(todayRecord.checkOut)}</p>
+                    )}
+                    {todayRecord?.checkIn2 && (
+                      <p>• Session 2 In: {formatTime(todayRecord.checkIn2)}</p>
+                    )}
+                    {todayRecord?.checkOut2 && (
+                      <p>• Session 2 Out: {formatTime(todayRecord.checkOut2)}</p>
+                    )}
+                    <p className="font-bold border-t pt-1.5 mt-1">Total Hours: {todayRecord?.workHours || 0} hrs</p>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleFormSubmit} className="space-y-5">
+                  <div className="text-left bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-1">
+                    <span className="text-xs font-bold text-slate-700 block">{activeState.label}</span>
+                    <span className="text-[11px] text-slate-500 block leading-snug">{activeState.description}</span>
+                    {activeState.alert && (
+                      <div className="flex items-center gap-1.5 mt-2 text-amber-600 bg-amber-50 p-2 rounded-lg border border-amber-100 text-[10px] font-bold">
+                        <AlertTriangle size={12} className="shrink-0" />
+                        {activeState.alert}
+                      </div>
+                    )}
+                  </div>
+
                   <div className="text-left space-y-1.5">
-                    <span className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">Visual Verification</span>
+                    <span className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">Selfie Upload</span>
                     
                     <div className="relative border-2 border-dashed border-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center gap-3 bg-slate-50/50 hover:bg-slate-50 transition-colors group cursor-pointer">
                       <input
                         type="file"
                         accept="image/*"
-                        capture="user" // Force front-facing camera on mobile phones
+                        capture="user" // Force front camera on mobile
                         required
                         onChange={handleFileChange}
                         className="absolute inset-0 opacity-0 cursor-pointer z-10"
@@ -186,8 +277,8 @@ const StaffAttendance = () => {
                             <Camera size={20} />
                           </div>
                           <div className="text-center space-y-1">
-                            <span className="block text-xs font-bold text-slate-700">Take Check-In Selfie</span>
-                            <span className="block text-[10px] text-slate-400 font-medium uppercase tracking-wide">Supports camera or image upload</span>
+                            <span className="block text-xs font-bold text-slate-700">Take Session Selfie</span>
+                            <span className="block text-[10px] text-slate-400 font-medium uppercase tracking-wide">Supports camera or file upload</span>
                           </div>
                         </>
                       )}
@@ -202,42 +293,24 @@ const StaffAttendance = () => {
                     {submitting ? (
                       <>
                         <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Checking In...
+                        Recording...
                       </>
                     ) : (
-                      "Check In"
+                      activeState.label
                     )}
                   </button>
                 </form>
-              ) : (
-                // ── Present Flow ──────────────────────────────────
-                <div className="space-y-6">
-                  <div className="flex flex-col items-center justify-center gap-2">
-                    <div className="w-14 h-14 bg-green-50 text-green-600 rounded-full flex items-center justify-center shadow border border-green-100">
-                      <CheckCircle2 size={30} />
-                    </div>
-                    <span className="text-sm font-bold text-green-600 uppercase tracking-wider mt-1">Checked In Today</span>
-                  </div>
-                  <button
-                    onClick={handleCheckOut}
-                    disabled={submitting}
-                    className="w-full bg-slate-800 text-white py-3.5 rounded-xl font-bold shadow-lg hover:bg-slate-900 transition-all disabled:opacity-50 flex justify-center items-center gap-2 mt-4"
-                  >
-                    <LogOut size={18} />
-                    Check Out
-                  </button>
-                </div>
               )}
             </div>
           </div>
         </div>
 
         {/* History Table Column */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="xl:col-span-3 space-y-6">
           <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
             <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
               <History className="text-primary" size={20} />
-              Recent Attendance Log
+              Recent Attendance Log (Double Shift)
             </h2>
 
             {loading ? (
@@ -252,11 +325,13 @@ const StaffAttendance = () => {
               </div>
             ) : (
               <div className="overflow-x-auto border border-slate-100 rounded-xl">
-                <table className="w-full text-left border-collapse" aria-label="Personal Attendance Log">
+                <table className="w-full text-left border-collapse min-w-[700px]" aria-label="Personal Attendance Log">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       <th className="p-4">Date</th>
-                      <th className="p-4 text-center">Selfie Photo</th>
+                      <th className="p-4 text-center">Session 1 (Morning)</th>
+                      <th className="p-4 text-center">Session 2 (Afternoon)</th>
+                      <th className="p-4 text-center">Work Hours</th>
                       <th className="p-4 text-center">Status</th>
                     </tr>
                   </thead>
@@ -266,28 +341,127 @@ const StaffAttendance = () => {
                         <td className="p-4 font-bold text-slate-800">
                           {getMonthName(rec.date)}
                         </td>
-                        <td className="p-4 text-center">
-                          {rec.photo ? (
-                            <button
-                              onClick={() => handleViewPhoto(rec.photo)}
-                              className="group relative inline-block focus:outline-none"
-                            >
-                              <img
-                                src={rec.photo.startsWith("http") ? rec.photo : `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${rec.photo}`}
-                                alt="Selfie"
-                                className="w-10 h-10 object-cover rounded-lg border border-slate-200 shadow-sm"
-                                onError={(e) => {
-                                  e.target.src = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&h=100&q=80";
-                                }}
-                              />
-                              <span className="absolute -bottom-1 -right-1 bg-primary text-white p-0.5 rounded-full shadow border border-white">
-                                <Eye size={8} />
-                              </span>
-                            </button>
-                          ) : (
-                            <span className="text-xs text-slate-400 italic font-medium">None</span>
-                          )}
+                        
+                        {/* Session 1 Check-In / Out Details */}
+                        <td className="p-4">
+                          <div className="flex items-center justify-center gap-3">
+                            <div className="text-right">
+                              <span className="block text-[10px] text-slate-400 uppercase font-semibold">In</span>
+                              <span className="font-semibold text-slate-700">{formatTime(rec.checkIn)}</span>
+                            </div>
+                            {rec.photo ? (
+                              <button
+                                onClick={() => handleViewPhoto(rec.photo, `Session 1 Check-In: ${getMonthName(rec.date)}`)}
+                                className="group relative inline-block focus:outline-none shrink-0"
+                                title="View Check-In selfie"
+                              >
+                                <img
+                                  src={rec.photo.startsWith("http") ? rec.photo : `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${rec.photo}`}
+                                  alt="Check In"
+                                  className="w-8 h-8 object-cover rounded-lg border border-slate-200 shadow-sm"
+                                  onError={(e) => {
+                                    e.target.src = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&h=100&q=80";
+                                  }}
+                                />
+                                <span className="absolute -bottom-1 -right-1 bg-primary text-white p-0.5 rounded-full shadow border border-white">
+                                  <Eye size={6} />
+                                </span>
+                              </button>
+                            ) : (
+                              <span className="text-xs text-slate-300 italic">No Selfie</span>
+                            )}
+
+                            <div className="text-left ml-2 border-l border-slate-100 pl-3">
+                              <span className="block text-[10px] text-slate-400 uppercase font-semibold">Out</span>
+                              <span className="font-semibold text-slate-700">{formatTime(rec.checkOut)}</span>
+                            </div>
+                            {rec.photoOut1 ? (
+                              <button
+                                onClick={() => handleViewPhoto(rec.photoOut1, `Session 1 Check-Out: ${getMonthName(rec.date)}`)}
+                                className="group relative inline-block focus:outline-none shrink-0"
+                                title="View Check-Out selfie"
+                              >
+                                <img
+                                  src={rec.photoOut1.startsWith("http") ? rec.photoOut1 : `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${rec.photoOut1}`}
+                                  alt="Check Out"
+                                  className="w-8 h-8 object-cover rounded-lg border border-slate-200 shadow-sm"
+                                  onError={(e) => {
+                                    e.target.src = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&h=100&q=80";
+                                  }}
+                                />
+                                <span className="absolute -bottom-1 -right-1 bg-primary text-white p-0.5 rounded-full shadow border border-white">
+                                  <Eye size={6} />
+                                </span>
+                              </button>
+                            ) : (
+                              <span className="text-xs text-slate-300 italic">No Selfie</span>
+                            )}
+                          </div>
                         </td>
+
+                        {/* Session 2 Check-In / Out Details */}
+                        <td className="p-4">
+                          <div className="flex items-center justify-center gap-3">
+                            <div className="text-right">
+                              <span className="block text-[10px] text-slate-400 uppercase font-semibold">In</span>
+                              <span className="font-semibold text-slate-700">{formatTime(rec.checkIn2)}</span>
+                            </div>
+                            {rec.photoIn2 ? (
+                              <button
+                                onClick={() => handleViewPhoto(rec.photoIn2, `Session 2 Check-In: ${getMonthName(rec.date)}`)}
+                                className="group relative inline-block focus:outline-none shrink-0"
+                                title="View Check-In selfie"
+                              >
+                                <img
+                                  src={rec.photoIn2.startsWith("http") ? rec.photoIn2 : `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${rec.photoIn2}`}
+                                  alt="Check In 2"
+                                  className="w-8 h-8 object-cover rounded-lg border border-slate-200 shadow-sm"
+                                  onError={(e) => {
+                                    e.target.src = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&h=100&q=80";
+                                  }}
+                                />
+                                <span className="absolute -bottom-1 -right-1 bg-primary text-white p-0.5 rounded-full shadow border border-white">
+                                  <Eye size={6} />
+                                </span>
+                              </button>
+                            ) : (
+                              <span className="text-xs text-slate-300 italic">No Selfie</span>
+                            )}
+
+                            <div className="text-left ml-2 border-l border-slate-100 pl-3">
+                              <span className="block text-[10px] text-slate-400 uppercase font-semibold">Out</span>
+                              <span className="font-semibold text-slate-700">{formatTime(rec.checkOut2)}</span>
+                            </div>
+                            {rec.photoOut2 ? (
+                              <button
+                                onClick={() => handleViewPhoto(rec.photoOut2, `Session 2 Check-Out: ${getMonthName(rec.date)}`)}
+                                className="group relative inline-block focus:outline-none shrink-0"
+                                title="View Check-Out selfie"
+                              >
+                                <img
+                                  src={rec.photoOut2.startsWith("http") ? rec.photoOut2 : `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${rec.photoOut2}`}
+                                  alt="Check Out 2"
+                                  className="w-8 h-8 object-cover rounded-lg border border-slate-200 shadow-sm"
+                                  onError={(e) => {
+                                    e.target.src = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&h=100&q=80";
+                                  }}
+                                />
+                                <span className="absolute -bottom-1 -right-1 bg-primary text-white p-0.5 rounded-full shadow border border-white">
+                                  <Eye size={6} />
+                                </span>
+                              </button>
+                            ) : (
+                              <span className="text-xs text-slate-300 italic">No Selfie</span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Total Hours */}
+                        <td className="p-4 text-center font-bold text-slate-800">
+                          {rec.workHours !== undefined ? `${rec.workHours} hrs` : "-"}
+                        </td>
+
+                        {/* Status badge */}
                         <td className="p-4 text-center">
                           <span
                             className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
@@ -312,11 +486,11 @@ const StaffAttendance = () => {
       </div>
 
       {/* Selfie Photo Zoom Modal */}
-      <Modal isOpen={isPhotoOpen} onClose={() => setIsPhotoOpen(false)} title="My Check-In Selfie">
+      <Modal isOpen={isPhotoOpen} onClose={() => setIsPhotoOpen(false)} title={photoTitle}>
         <div className="p-4 flex flex-col items-center justify-center gap-4">
           <img
             src={photoUrl}
-            alt="Check-In Selfie"
+            alt={photoTitle}
             className="max-w-full max-h-[70dvh] object-contain rounded-2xl shadow-lg border border-slate-150"
             onError={(e) => {
               e.target.src = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&h=400&q=80";

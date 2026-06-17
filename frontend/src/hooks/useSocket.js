@@ -19,7 +19,7 @@ const useSocket = () => {
     }
 
     const handleConnect = () => {
-      console.log('Connected to realtime server');
+      // Connected to realtime server
     };
 
     // Admin Events

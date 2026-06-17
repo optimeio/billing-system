@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, FileText, QrCode, CreditCard, 
-  Wallet, Package, Tags, Bell, Settings, LogOut, Menu, X, Calendar, Megaphone 
+  Wallet, Package, Tags, Bell, Settings, LogOut, Menu, X, Calendar, Megaphone, AlertCircle 
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import useSocket from '../hooks/useSocket';
@@ -46,6 +46,7 @@ const DashboardLayout = () => {
         { name: 'Announcements', path: '/admin/announcements', icon: Megaphone },
         { name: 'Payroll / Payslips', path: '/admin/payslips', icon: Wallet },
         { name: 'Attendance', path: '/admin/attendance', icon: Calendar },
+        { name: 'Complaints', path: '/admin/complaints', icon: AlertCircle },
         { name: 'Notifications', path: '/admin/notifications', icon: Bell },
       ];
     } else if (role === 'inventory') {
@@ -58,6 +59,7 @@ const DashboardLayout = () => {
         { name: 'Announcements', path: '/inventory/announcements', icon: Megaphone },
         { name: 'My Payslips', path: '/inventory/payslips', icon: FileText },
         { name: 'My Attendance', path: '/inventory/attendance', icon: Calendar },
+        { name: 'Submit Complaint', path: '/inventory/complaints', icon: AlertCircle },
         { name: 'Notifications', path: '/inventory/notifications', icon: Bell },
         { name: 'My Profile', path: '/inventory/profile', icon: Settings },
       ];
@@ -74,6 +76,7 @@ const DashboardLayout = () => {
         { name: 'Announcements', path: '/staff/announcements', icon: Megaphone },
         { name: 'My Payslips', path: '/staff/payslips', icon: FileText },
         { name: 'My Attendance', path: '/staff/attendance', icon: Calendar },
+        { name: 'Submit Complaint', path: '/staff/complaints', icon: AlertCircle },
         { name: 'Notifications', path: '/staff/notifications', icon: Bell },
         { name: 'My Profile', path: '/staff/profile', icon: Settings },
       ];

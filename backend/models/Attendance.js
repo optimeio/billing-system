@@ -25,7 +25,25 @@ const attendanceSchema = new mongoose.Schema({
         type: Number 
     },
     photo: { 
-        type: String, // Selfie image file path (e.g. /uploads/xxx.jpg)
+        type: String, // Selfie image file path for Check-in 1
+        default: null
+    },
+    photoOut1: {
+        type: String, // Selfie image file path for Check-out 1
+        default: null
+    },
+    checkIn2: {
+        type: Date
+    },
+    photoIn2: {
+        type: String, // Selfie image file path for Check-in 2
+        default: null
+    },
+    checkOut2: {
+        type: Date
+    },
+    photoOut2: {
+        type: String, // Selfie image file path for Check-out 2
         default: null
     },
     notes: { 

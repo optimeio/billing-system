@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Download, FileText, CheckCircle, Clock, XCircle, Loader2, Trash2, Pencil } from 'lucide-react';
+import { Plus, Download, FileText, CheckCircle, Clock, XCircle, Loader2, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
@@ -121,13 +121,7 @@ const MyInvoices = () => {
                     >
                       <FileText size={18} />
                     </button>
-                    <Link 
-                      to={`/staff/edit-invoice/${inv._id}`}
-                      className="p-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors inline-block"
-                      title="Edit Invoice"
-                    >
-                      <Pencil size={18} />
-                    </Link>
+
                     <button 
                       onClick={() => handleDelete(inv._id)}
                       className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"

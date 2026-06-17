@@ -213,11 +213,13 @@ const AttendanceManagement = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse" aria-label="Staff Attendance List">
+            <table className="w-full text-left border-collapse min-w-[950px]" aria-label="Staff Attendance List">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   <th className="p-4">Staff Member</th>
-                  <th className="p-4 text-center">Verification Photo</th>
+                  <th className="p-4 text-center">Session 1 (Morning)</th>
+                  <th className="p-4 text-center">Session 2 (Afternoon)</th>
+                  <th className="p-4 text-center">Work Hours</th>
                   <th className="p-4 text-center">Status</th>
                   <th className="p-4">Notes</th>
                   <th className="p-4 text-center">Actions</th>
@@ -230,28 +232,126 @@ const AttendanceManagement = () => {
                       <div className="font-bold text-slate-800">{log.user.name}</div>
                       <div className="text-xs text-slate-400">{log.user.staffId} • {log.user.role.toUpperCase()}</div>
                     </td>
-                    <td className="p-4 text-center">
-                      {log.photo ? (
-                        <button
-                          onClick={() => handleViewPhoto(log.photo, log.user.name)}
-                          className="group relative inline-block focus:outline-none"
-                        >
-                          <img
-                            src={log.photo.startsWith("http") ? log.photo : `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${log.photo}`}
-                            alt="Selfie"
-                            className="w-12 h-12 object-cover rounded-lg border border-slate-200 shadow-sm transition-transform group-hover:scale-105"
-                            onError={(e) => {
-                              e.target.src = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&h=100&q=80";
-                            }}
-                          />
-                          <span className="absolute -bottom-1 -right-1 bg-primary text-white p-0.5 rounded-full shadow border border-white">
-                            <Eye size={10} />
-                          </span>
-                        </button>
-                      ) : (
-                        <span className="text-xs text-slate-400 font-medium italic">No Photo</span>
-                      )}
+
+                    {/* Session 1 Check-In / Out Details */}
+                    <td className="p-4">
+                      <div className="flex items-center justify-center gap-3">
+                        <div className="text-right">
+                          <span className="block text-[10px] text-slate-400 uppercase font-semibold">In</span>
+                          <span className="font-semibold text-slate-700">{formatTime(log.checkIn)}</span>
+                        </div>
+                        {log.photo ? (
+                          <button
+                            onClick={() => handleViewPhoto(log.photo, `Session 1 Check-In: ${log.user.name}`)}
+                            className="group relative inline-block focus:outline-none shrink-0"
+                            title="View Check-In selfie"
+                          >
+                            <img
+                              src={log.photo.startsWith("http") ? log.photo : `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${log.photo}`}
+                              alt="Check In"
+                              className="w-10 h-10 object-cover rounded-lg border border-slate-200 shadow-sm transition-transform group-hover:scale-105"
+                              onError={(e) => {
+                                e.target.src = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&h=100&q=80";
+                              }}
+                            />
+                            <span className="absolute -bottom-1 -right-1 bg-primary text-white p-0.5 rounded-full shadow border border-white">
+                              <Eye size={8} />
+                            </span>
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-300 italic">No Selfie</span>
+                        )}
+
+                        <div className="text-left ml-2 border-l border-slate-100 pl-3">
+                          <span className="block text-[10px] text-slate-400 uppercase font-semibold">Out</span>
+                          <span className="font-semibold text-slate-700">{formatTime(log.checkOut)}</span>
+                        </div>
+                        {log.photoOut1 ? (
+                          <button
+                            onClick={() => handleViewPhoto(log.photoOut1, `Session 1 Check-Out: ${log.user.name}`)}
+                            className="group relative inline-block focus:outline-none shrink-0"
+                            title="View Check-Out selfie"
+                          >
+                            <img
+                              src={log.photoOut1.startsWith("http") ? log.photoOut1 : `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${log.photoOut1}`}
+                              alt="Check Out"
+                              className="w-10 h-10 object-cover rounded-lg border border-slate-200 shadow-sm transition-transform group-hover:scale-105"
+                              onError={(e) => {
+                                e.target.src = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&h=100&q=80";
+                              }}
+                            />
+                            <span className="absolute -bottom-1 -right-1 bg-primary text-white p-0.5 rounded-full shadow border border-white">
+                              <Eye size={8} />
+                            </span>
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-300 italic">No Selfie</span>
+                        )}
+                      </div>
                     </td>
+
+                    {/* Session 2 Check-In / Out Details */}
+                    <td className="p-4">
+                      <div className="flex items-center justify-center gap-3">
+                        <div className="text-right">
+                          <span className="block text-[10px] text-slate-400 uppercase font-semibold">In</span>
+                          <span className="font-semibold text-slate-700">{formatTime(log.checkIn2)}</span>
+                        </div>
+                        {log.photoIn2 ? (
+                          <button
+                            onClick={() => handleViewPhoto(log.photoIn2, `Session 2 Check-In: ${log.user.name}`)}
+                            className="group relative inline-block focus:outline-none shrink-0"
+                            title="View Check-In selfie"
+                          >
+                            <img
+                              src={log.photoIn2.startsWith("http") ? log.photoIn2 : `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${log.photoIn2}`}
+                              alt="Check In 2"
+                              className="w-10 h-10 object-cover rounded-lg border border-slate-200 shadow-sm transition-transform group-hover:scale-105"
+                              onError={(e) => {
+                                e.target.src = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&h=100&q=80";
+                              }}
+                            />
+                            <span className="absolute -bottom-1 -right-1 bg-primary text-white p-0.5 rounded-full shadow border border-white">
+                              <Eye size={8} />
+                            </span>
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-300 italic">No Selfie</span>
+                        )}
+
+                        <div className="text-left ml-2 border-l border-slate-100 pl-3">
+                          <span className="block text-[10px] text-slate-400 uppercase font-semibold">Out</span>
+                          <span className="font-semibold text-slate-700">{formatTime(log.checkOut2)}</span>
+                        </div>
+                        {log.photoOut2 ? (
+                          <button
+                            onClick={() => handleViewPhoto(log.photoOut2, `Session 2 Check-Out: ${log.user.name}`)}
+                            className="group relative inline-block focus:outline-none shrink-0"
+                            title="View Check-Out selfie"
+                          >
+                            <img
+                              src={log.photoOut2.startsWith("http") ? log.photoOut2 : `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${log.photoOut2}`}
+                              alt="Check Out 2"
+                              className="w-10 h-10 object-cover rounded-lg border border-slate-200 shadow-sm transition-transform group-hover:scale-105"
+                              onError={(e) => {
+                                e.target.src = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&h=100&q=80";
+                              }}
+                            />
+                            <span className="absolute -bottom-1 -right-1 bg-primary text-white p-0.5 rounded-full shadow border border-white">
+                              <Eye size={8} />
+                            </span>
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-300 italic">No Selfie</span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Total Hours */}
+                    <td className="p-4 text-center font-bold text-slate-800">
+                      {log.workHours !== undefined ? `${log.workHours} hrs` : "0 hrs"}
+                    </td>
+
                     <td className="p-4 text-center">
                       <span
                         className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
@@ -271,7 +371,7 @@ const AttendanceManagement = () => {
                     <td className="p-4 text-center">
                       <button
                         onClick={() => handleOpenOverride(log)}
-                        className="bg-slate-100 hover:bg-primary hover:text-white text-slate-600 p-2 rounded-xl transition-all"
+                        className="bg-slate-100 hover:bg-primary hover:text-white text-slate-600 p-2 rounded-xl transition-all animate-none"
                         title="Override Attendance"
                       >
                         <Edit2 size={14} />

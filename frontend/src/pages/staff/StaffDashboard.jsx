@@ -23,7 +23,7 @@ const StaffDashboard = () => {
         recentInvoices: invoices.slice(0, 5)
       });
     } catch {
-      console.error('Failed to load stats');
+      // Silently handle stats loading failure
     } finally {
       setLoading(false);
     }

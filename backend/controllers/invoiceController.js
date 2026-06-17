@@ -207,9 +207,13 @@ exports.getInvoiceById = async (req, res) => {
             return res.status(404).json({ message: "Invoice not found" });
         }
 
-        // Check permission: Admin or Creator
-        if (req.user.role !== "admin" && invoice.createdBy._id.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ message: "Not authorized to view this invoice" });
+        // Permission: Admin can view all. Staff can view all quotations + their own invoices.
+        if (req.user.role !== "admin") {
+            const isCreator = invoice.createdBy && invoice.createdBy._id.toString() === req.user._id.toString();
+            const isQuotation = invoice.type === "quotation";
+            if (!isCreator && !isQuotation) {
+                return res.status(403).json({ message: "Not authorized to view this invoice" });
+            }
         }
 
         res.json(invoice);
@@ -428,100 +432,7 @@ exports.deleteInvoice = async (req, res) => {
 // @route   PUT /api/invoices/:id
 // @access  Admin/Staff
 exports.updateInvoice = async (req, res) => {
-    try {
-        const { invoiceNumber, invoiceDate, customerName, customerPhone, customerAddress, items, hsnCode, taxRate, tax = 0, discount = 0, taxableValue, paymentStatus } = req.body;
-        
-        const invoice = await Invoice.findById(req.params.id);
-        if (!invoice) {
-            return res.status(404).json({ message: "Invoice not found" });
-        }
-
-        // Check permission: Admin or Creator
-        if (req.user.role !== "admin" && invoice.createdBy.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ message: "Not authorized to edit this invoice" });
-        }
-
-        if (invoiceNumber && invoiceNumber !== invoice.invoiceNumber) {
-            // Verify uniqueness
-            const existing = await Invoice.findOne({ invoiceNumber });
-            if (existing) {
-                return res.status(400).json({ message: `Invoice number "${invoiceNumber}" is already in use.` });
-            }
-            invoice.invoiceNumber = invoiceNumber;
-        }
-
-        if (invoiceDate) {
-            invoice.createdAt = new Date(invoiceDate);
-        }
-
-        invoice.customerName = customerName !== undefined ? customerName.trim() : invoice.customerName;
-        invoice.customerPhone = customerPhone !== undefined ? customerPhone.trim() : invoice.customerPhone;
-        invoice.customerAddress = customerAddress !== undefined ? customerAddress.trim() : invoice.customerAddress;
-        
-        if (paymentStatus) {
-            invoice.paymentStatus = paymentStatus;
-        }
-
-        if (items && items.length > 0) {
-            let processedItems = [];
-            let subtotal = 0;
-
-            for (let item of items) {
-                let product;
-                if (item.productId) {
-                    product = await Product.findById(item.productId);
-                } else if (item.productName) {
-                    const productResult = await findOrCreateProduct(item.productName, null, item.price, req.user._id);
-                    product = productResult.product;
-                }
-
-                if (!product) {
-                    return res.status(400).json({ message: `Product not found or created for: ${item.productName || item.productId}` });
-                }
-
-                const itemPrice = item.price || product.price;
-                const itemQty = item.qty || 1;
-                const itemTotal = itemPrice * itemQty;
-
-                processedItems.push({
-                    productId: product._id,
-                    name: product.name,
-                    price: itemPrice,
-                    qty: itemQty,
-                    total: itemTotal
-                });
-
-                subtotal += itemTotal;
-            }
-
-            invoice.items = processedItems;
-            invoice.subtotal = subtotal;
-        }
-
-        // Recompute totals
-        invoice.hsnCode = hsnCode !== undefined ? hsnCode.trim() : invoice.hsnCode;
-        invoice.taxableValue = taxableValue !== undefined ? parseFloat(taxableValue) : invoice.taxableValue;
-        invoice.taxRate = taxRate !== undefined ? parseFloat(taxRate) : invoice.taxRate;
-        invoice.tax = tax !== undefined ? parseFloat(tax) : invoice.tax;
-        invoice.discount = discount !== undefined ? parseFloat(discount) : invoice.discount;
-        invoice.grandTotal = invoice.subtotal + invoice.tax - invoice.discount;
-
-        await invoice.save();
-
-        try {
-            const io = getIO();
-            io.emit("invoiceUpdated", invoice);
-        } catch (err) {
-            console.error("Socket error on invoice update:", err);
-        }
-
-        res.json({
-            message: "Invoice updated successfully",
-            invoice
-        });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
+    return res.status(400).json({ message: "Invoices and quotations are non-editable once created." });
 };
 
 // @desc    Approve Quotation (Admin Only)

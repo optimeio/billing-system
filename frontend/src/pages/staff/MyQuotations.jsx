@@ -120,13 +120,6 @@ const MyQuotations = () => {
                     >
                       <FileText size={18} />
                     </button>
-                    <Link 
-                      to={`/staff/edit-quotation/${q._id}`}
-                      className="p-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors inline-block"
-                      title="Edit Quotation"
-                    >
-                      <Pencil size={18} />
-                    </Link>
                     <button 
                       onClick={() => handleDelete(q._id)}
                       className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"

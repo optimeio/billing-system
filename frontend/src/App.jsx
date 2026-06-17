@@ -24,6 +24,7 @@ import ScannerVerification from './pages/admin/ScannerVerification';
 import PayslipManagement from './pages/admin/PayslipManagement';
 import PayslipHistory from './pages/staff/PayslipHistory';
 import AttendanceManagement from './pages/admin/AttendanceManagement';
+import ComplaintManagement from './pages/admin/ComplaintManagement';
 
 // Staff Pages
 import StaffDashboard from './pages/staff/StaffDashboard';
@@ -36,6 +37,7 @@ import LeaveManagement from './pages/admin/LeaveManagement';
 import AnnouncementManagement from './pages/admin/AnnouncementManagement';
 import Announcements from './pages/staff/Announcements';
 import StaffAttendance from './pages/staff/StaffAttendance';
+import SubmitComplaint from './pages/staff/SubmitComplaint';
 
 // Common Pages
 import NotificationList from './pages/common/NotificationList';
@@ -119,9 +121,7 @@ function App() {
           <Route index element={<AdminDashboard />} />
           <Route path="staff" element={<StaffManagement />} />
           <Route path="invoices" element={<AdminInvoices />} />
-          <Route path="edit-invoice/:id" element={<CreateInvoice />} />
           <Route path="quotations" element={<QuotationManagement />} />
-          <Route path="edit-quotation/:id" element={<CreateInvoice isQuotation={true} />} />
           <Route path="products" element={<ProductManagement />} />
           <Route path="expenses" element={<ExpenseManagement />} />
           <Route path="payments" element={<PaymentManagement />} />
@@ -132,6 +132,7 @@ function App() {
           <Route path="announcements" element={<AnnouncementManagement />} />
           <Route path="payslips" element={<PayslipManagement />} />
           <Route path="attendance" element={<AttendanceManagement />} />
+          <Route path="complaints" element={<ComplaintManagement />} />
         </Route>
  
         {/* Staff Routes */}
@@ -142,10 +143,8 @@ function App() {
         }>
           <Route index element={<StaffDashboard />} />
           <Route path="create-invoice" element={<CreateInvoice />} />
-          <Route path="edit-invoice/:id" element={<CreateInvoice />} />
           <Route path="invoices" element={<MyInvoices />} />
           <Route path="create-quotation" element={<CreateInvoice isQuotation={true} />} />
-          <Route path="edit-quotation/:id" element={<CreateInvoice isQuotation={true} />} />
           <Route path="quotations" element={<MyQuotations />} />
           <Route path="scanners" element={<GenerateQR />} />
           <Route path="expenses" element={<ExpenseManagement />} />
@@ -154,6 +153,7 @@ function App() {
           <Route path="announcements" element={<Announcements />} />
           <Route path="payslips" element={<PayslipHistory />} />
           <Route path="attendance" element={<StaffAttendance />} />
+          <Route path="complaints" element={<SubmitComplaint />} />
           <Route path="profile" element={<Profile />} />
         </Route>
 
@@ -173,6 +173,7 @@ function App() {
           <Route path="announcements" element={<Announcements />} />
           <Route path="payslips" element={<PayslipHistory />} />
           <Route path="attendance" element={<StaffAttendance />} />
+          <Route path="complaints" element={<SubmitComplaint />} />
           <Route path="profile" element={<Profile />} />
         </Route>
 
