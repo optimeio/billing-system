@@ -6,9 +6,11 @@ import {
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import useSocket from '../hooks/useSocket';
+import { useCompany } from '../store/CompanyContext';
 
 const DashboardLayout = () => {
   const { logout, user } = useAuthStore();
+  const { selectedCompany, companies, changeCompany } = useCompany();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -98,13 +100,26 @@ const DashboardLayout = () => {
             <p className="text-[10px] text-slate-500 capitalize truncate leading-tight">{user?.role}</p>
           </div>
         </div>
-        <button 
-          onClick={() => setMobileOpen(!mobileOpen)} 
-          aria-label={mobileOpen ? "Close Menu" : "Open Menu"}
-          className="p-2 bg-slate-50 rounded-lg text-slate-600 flex-shrink-0 ml-2"
-        >
-          {mobileOpen ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
-        </button>
+        <div className="flex items-center space-x-2">
+          {companies && companies.length > 0 && (
+            <select
+              value={selectedCompany?._id || ''}
+              onChange={(e) => changeCompany(e.target.value)}
+              className="bg-slate-50 border border-slate-200 text-slate-700 text-[10px] font-bold rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-primary/20 max-w-[120px] truncate"
+            >
+              {companies.map(comp => (
+                <option key={comp._id} value={comp._id}>{comp.name}</option>
+              ))}
+            </select>
+          )}
+          <button 
+            onClick={() => setMobileOpen(!mobileOpen)} 
+            aria-label={mobileOpen ? "Close Menu" : "Open Menu"}
+            className="p-2 bg-slate-50 rounded-lg text-slate-600 flex-shrink-0"
+          >
+            {mobileOpen ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
+          </button>
+        </div>
       </header>
 
       {/* Sidebar Overlay for Mobile */}
@@ -163,9 +178,22 @@ const DashboardLayout = () => {
         
         {/* Desktop Header */}
         <header className="hidden md:flex justify-between items-center p-6 bg-white border-b border-slate-200 flex-shrink-0">
-          <h2 className="text-xl font-semibold text-slate-800 capitalize">
-             {location.pathname.split('/').pop().replace(/-/g, ' ') || 'Dashboard'}
-          </h2>
+          <div className="flex items-center space-x-4">
+            <h2 className="text-xl font-semibold text-slate-800 capitalize">
+               {location.pathname.split('/').pop().replace(/-/g, ' ') || 'Dashboard'}
+            </h2>
+            {companies && companies.length > 0 && (
+              <select
+                value={selectedCompany?._id || ''}
+                onChange={(e) => changeCompany(e.target.value)}
+                className="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer shadow-sm transition-all hover:bg-slate-100 ml-4"
+              >
+                {companies.map(comp => (
+                  <option key={comp._id} value={comp._id}>{comp.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
           <div className="flex items-center space-x-4">
              <div className="text-right mr-2 hidden lg:block">
                 <p className="text-sm font-bold text-slate-800">{user?.name}</p>

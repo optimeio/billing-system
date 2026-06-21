@@ -6,11 +6,13 @@ import toast from 'react-hot-toast';
 import Modal from '../../components/common/Modal';
 import { socket } from '../../services/socket';
 import useAuthStore from '../../store/authStore';
+import { useCompany } from '../../store/CompanyContext';
 
 const backendUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5002';
 
 const ProductManagement = () => {
   const { user } = useAuthStore();
+  const { selectedCompany } = useCompany();
   const isAdmin = user?.role?.toLowerCase() === 'admin';
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -25,7 +27,8 @@ const ProductManagement = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/products');
+      const url = selectedCompany?._id ? `/products?companyId=${selectedCompany._id}` : '/products';
+      const res = await api.get(url);
       setProducts(res.data);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to load products');
@@ -36,7 +39,8 @@ const ProductManagement = () => {
 
   const fetchCategories = async () => {
     try {
-      const res = await api.get('/categories');
+      const url = selectedCompany?._id ? `/categories?companyId=${selectedCompany._id}` : '/categories';
+      const res = await api.get(url);
       setCategories(res.data);
     } catch {
       console.error('Failed to load categories');
@@ -76,17 +80,21 @@ const ProductManagement = () => {
       socket.off('categoryUpdated', handleCategoryUpdate);
       socket.off('categoryDeleted', handleCategoryUpdate);
     };
-  }, []);
+  }, [selectedCompany]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
+      const payload = {
+        ...formData,
+        companyId: selectedCompany?._id
+      };
       if (isEditing) {
-        await api.put(`/products/${currentId}`, formData);
+        await api.put(`/products/${currentId}`, payload);
         toast.success('Product updated successfully');
       } else {
-        await api.post('/products', formData);
+        await api.post('/products', payload);
         toast.success('Product added successfully');
       }
       setShowAddForm(false);

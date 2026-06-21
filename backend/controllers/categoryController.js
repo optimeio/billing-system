@@ -6,14 +6,16 @@ const { getIO } = require("../utils/socketService");
 // @access  Admin/Staff
 exports.createCategory = async (req, res) => {
     try {
-        const { name, description, type } = req.body;
+        const { name, description, type, companyId } = req.body;
 
-        const categoryExists = await Category.findOne({ name });
+        const query = { name };
+        if (companyId) query.companyId = companyId;
+        const categoryExists = await Category.findOne(query);
         if (categoryExists) {
-            return res.status(400).json({ message: "Category already exists" });
+            return res.status(400).json({ message: "Category already exists for this company" });
         }
 
-        const category = await Category.create({ name, description, type });
+        const category = await Category.create({ name, description, type, companyId });
 
         try {
             const io = getIO();
@@ -33,7 +35,11 @@ exports.createCategory = async (req, res) => {
 // @access  Public (or Protected)
 exports.getCategories = async (req, res) => {
     try {
-        const categories = await Category.find({});
+        const filter = {};
+        if (req.query.companyId) {
+            filter.companyId = req.query.companyId;
+        }
+        const categories = await Category.find(filter);
         res.json(categories);
     } catch (error) {
         res.status(500).json({ message: error.message });

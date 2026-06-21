@@ -5,9 +5,11 @@ import api from '../../services/api';
 import toast from 'react-hot-toast';
 import Modal from '../../components/common/Modal';
 import useAuthStore from '../../store/authStore';
+import { useCompany } from '../../store/CompanyContext';
 
 const CategoryManagement = () => {
   const { user } = useAuthStore();
+  const { selectedCompany } = useCompany();
   const isAdmin = user?.role?.toLowerCase() === 'admin';
   const [categories, setCategories] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -19,7 +21,8 @@ const CategoryManagement = () => {
 
   const fetchCategories = async () => {
     try {
-      const res = await api.get('/categories');
+      const url = selectedCompany?._id ? `/categories?companyId=${selectedCompany._id}` : '/categories';
+      const res = await api.get(url);
       setCategories(res.data);
     } catch {
       console.error('Failed to load categories');
@@ -28,17 +31,22 @@ const CategoryManagement = () => {
 
   useEffect(() => {
     fetchCategories();
-  }, []);
+  }, [selectedCompany]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
+      const payload = {
+        name,
+        type,
+        companyId: selectedCompany?._id
+      };
       if (isEditing) {
-        await api.put(`/categories/${currentId}`, { name, type });
+        await api.put(`/categories/${currentId}`, payload);
         toast.success('Category updated successfully');
       } else {
-        await api.post('/categories', { name, type });
+        await api.post('/categories', payload);
         toast.success('Category added successfully');
       }
       setIsModalOpen(false);

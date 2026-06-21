@@ -9,6 +9,7 @@ const productSchema = new mongoose.Schema({
     unit: { type: String, default: "pcs" },
     description: { type: String },
     image: { type: String },
+    companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company" },
     isAutoCreated: { type: Boolean, default: false },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
 }, { timestamps: true });

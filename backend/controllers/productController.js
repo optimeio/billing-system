@@ -6,7 +6,7 @@ const { getIO } = require("../utils/socketService");
 // @access  Admin/Staff
 exports.createProduct = async (req, res) => {
     try {
-        const { name, barcode, category, price, stock, unit, description, image } = req.body;
+        const { name, barcode, category, price, stock, unit, description, image, companyId } = req.body;
 
         if (barcode) {
             const productExists = await Product.findOne({ barcode });
@@ -23,7 +23,8 @@ exports.createProduct = async (req, res) => {
             stock,
             unit,
             description,
-            image
+            image,
+            companyId
         });
 
         try {
@@ -44,7 +45,11 @@ exports.createProduct = async (req, res) => {
 // @access  Public (Protected)
 exports.getProducts = async (req, res) => {
     try {
-        const products = await Product.find({}).populate("category", "name");
+        const filter = {};
+        if (req.query.companyId) {
+            filter.companyId = req.query.companyId;
+        }
+        const products = await Product.find(filter).populate("category", "name");
         res.json(products);
     } catch (error) {
         res.status(500).json({ message: error.message });
