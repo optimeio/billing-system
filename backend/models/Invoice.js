@@ -45,10 +45,26 @@ const invoiceSchema = new mongoose.Schema({
         enum: ["invoice", "quotation"],
         default: "invoice"
     },
+    companyId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Company"
+    },
     createdBy: { 
         type: mongoose.Schema.Types.ObjectId, 
         ref: "User", 
         required: true 
+    },
+    qtyLabel: {
+        type: String,
+        default: "Qty"
+    },
+    approvalPhoto: {
+        type: String,
+        default: ""
+    },
+    invoiceDate: {
+        type: Date,
+        default: Date.now
     }
 }, { timestamps: true });
 

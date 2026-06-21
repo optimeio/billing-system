@@ -34,6 +34,7 @@ const healthRoutes = require("./routes/healthRoutes");
 const payslipRoutes = require("./routes/payslipRoutes");
 const attendanceRoutes = require("./routes/attendanceRoutes");
 const complaintRoutes = require("./routes/complaintRoutes");
+const companyRoutes = require("./routes/companyRoutes");
 const http = require("http");
 const path = require("path");
 const { init } = require("./utils/socketService");
@@ -110,6 +111,7 @@ app.use("/api/health", healthRoutes);
 app.use("/api/payslips", payslipRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/complaints", complaintRoutes);
+app.use("/api/companies", companyRoutes);
 
 // Static file serving for uploads
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

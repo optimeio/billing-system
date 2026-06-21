@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { useEffect } from 'react';
 import useAuthStore from './store/authStore';
 import api from './services/api';
+import { CompanyProvider } from './store/CompanyContext';
 
 // Layouts
 import AuthLayout from './layouts/AuthLayout';
@@ -25,10 +26,12 @@ import PayslipManagement from './pages/admin/PayslipManagement';
 import PayslipHistory from './pages/staff/PayslipHistory';
 import AttendanceManagement from './pages/admin/AttendanceManagement';
 import ComplaintManagement from './pages/admin/ComplaintManagement';
+import CompanyManagement from './pages/admin/CompanyManagement';
 
 // Staff Pages
 import StaffDashboard from './pages/staff/StaffDashboard';
 import CreateInvoice from './pages/staff/CreateInvoice';
+import InvoiceTemplateEditor from './pages/staff/InvoiceTemplateEditor';
 import MyInvoices from './pages/staff/MyInvoices';
 import MyQuotations from './pages/staff/MyQuotations';
 import GenerateQR from './pages/staff/GenerateQR';
@@ -103,8 +106,9 @@ function App() {
   }, [isAuthenticated]);
 
   return (
-    <Router>
-      <Routes>
+    <CompanyProvider>
+      <Router>
+        <Routes>
         <Route path="/" element={<RootRedirect />} />
 
         {/* Auth Routes */}
@@ -133,6 +137,7 @@ function App() {
           <Route path="payslips" element={<PayslipManagement />} />
           <Route path="attendance" element={<AttendanceManagement />} />
           <Route path="complaints" element={<ComplaintManagement />} />
+          <Route path="companies" element={<CompanyManagement />} />
         </Route>
  
         {/* Staff Routes */}
@@ -142,9 +147,9 @@ function App() {
           </ProtectedRoute>
         }>
           <Route index element={<StaffDashboard />} />
-          <Route path="create-invoice" element={<CreateInvoice />} />
+          <Route path="create-invoice" element={<InvoiceTemplateEditor />} />
           <Route path="invoices" element={<MyInvoices />} />
-          <Route path="create-quotation" element={<CreateInvoice isQuotation={true} />} />
+          <Route path="create-quotation" element={<InvoiceTemplateEditor isQuotation={true} />} />
           <Route path="quotations" element={<MyQuotations />} />
           <Route path="scanners" element={<GenerateQR />} />
           <Route path="expenses" element={<ExpenseManagement />} />
@@ -185,6 +190,7 @@ function App() {
         } />
       </Routes>
     </Router>
+    </CompanyProvider>
   );
 }
 

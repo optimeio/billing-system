@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, FileText, QrCode, CreditCard, 
-  Wallet, Package, Tags, Bell, Settings, LogOut, Menu, X, Calendar, Megaphone, AlertCircle 
+  Wallet, Package, Tags, Bell, Settings, LogOut, Menu, X, Calendar, Megaphone, AlertCircle, Building 
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import useSocket from '../hooks/useSocket';
@@ -44,6 +44,7 @@ const DashboardLayout = () => {
         { name: 'Categories', path: '/admin/categories', icon: Tags },
         { name: 'Leave Management', path: '/admin/leaves', icon: Calendar },
         { name: 'Announcements', path: '/admin/announcements', icon: Megaphone },
+        { name: 'Company Master', path: '/admin/companies', icon: Building },
         { name: 'Payroll / Payslips', path: '/admin/payslips', icon: Wallet },
         { name: 'Attendance', path: '/admin/attendance', icon: Calendar },
         { name: 'Complaints', path: '/admin/complaints', icon: AlertCircle },

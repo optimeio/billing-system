@@ -1,0 +1,601 @@
+/* ═══════════════════════════════════════════════════════════════
+   INVOICE TEMPLATE EDITOR — Pixel-positioned overlay on template
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Editor Layout ─────────────────────────────────────────────── */
+.invoice-editor-container {
+  display: flex;
+  gap: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+/* ── Form Panel (Centered Full-Width) ───────────────────────────── */
+.invoice-form-panel {
+  width: 100%;
+  max-width: 768px;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+  padding: 32px;
+}
+
+.invoice-preview-scale-wrapper {
+  position: relative;
+  transition: height 0.15s ease-out;
+}
+
+.invoice-form-panel::-webkit-scrollbar {
+  width: 4px;
+}
+.invoice-form-panel::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.form-section {
+  margin-bottom: 20px;
+}
+
+.form-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #f1f5f9;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.form-row.full {
+  grid-template-columns: 1fr;
+}
+
+.form-field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #1e293b;
+  background: #f8fafc;
+  transition: border-color .2s, box-shadow .2s;
+  font-family: inherit;
+}
+
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+  outline: none;
+  border-color: #b91c1c;
+  box-shadow: 0 0 0 3px rgba(185,28,28,.08);
+  background: #fff;
+}
+
+.form-field textarea {
+  resize: vertical;
+  min-height: 50px;
+}
+
+/* ── Product Items ─────────────────────────────────────────────── */
+.product-item-row {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 8px;
+  position: relative;
+}
+
+.product-item-row .form-row {
+  margin-bottom: 6px;
+}
+
+.product-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.product-item-number {
+  font-size: 11px;
+  font-weight: 700;
+  color: #b91c1c;
+  background: #fef2f2;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.btn-remove-item {
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: background .2s;
+}
+.btn-remove-item:hover {
+  background: #fef2f2;
+}
+.btn-remove-item:disabled {
+  opacity: .3;
+  cursor: not-allowed;
+}
+
+.btn-add-item {
+  width: 100%;
+  padding: 8px;
+  border: 2px dashed #e2e8f0;
+  border-radius: 10px;
+  background: transparent;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.btn-add-item:hover {
+  border-color: #b91c1c;
+  color: #b91c1c;
+  background: #fef2f2;
+}
+
+/* ── Action Buttons ────────────────────────────────────────────── */
+.form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.btn-preview,
+.btn-save,
+.btn-generate-pdf {
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all .2s;
+  border: none;
+}
+
+.btn-preview {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+.btn-preview:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.btn-save {
+  background: #b91c1c;
+  color: #fff;
+}
+.btn-save:hover {
+  background: #991b1b;
+  box-shadow: 0 4px 12px rgba(185,28,28,.3);
+}
+.btn-save:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.btn-generate-pdf {
+  background: #1e293b;
+  color: #fff;
+}
+.btn-generate-pdf:hover {
+  background: #0f172a;
+  box-shadow: 0 4px 12px rgba(15,23,42,.3);
+}
+.btn-generate-pdf:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TEMPLATE PREVIEW (Right Side)
+   ═══════════════════════════════════════════════════════════════ */
+.invoice-preview-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.preview-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+}
+
+.invoice-template {
+  position: relative;
+  width: 794px;
+  height: 1123px;
+  background: #fff;
+  box-shadow: 0 4px 24px rgba(0,0,0,.12);
+  overflow: hidden;
+  font-family: 'Segoe UI', 'Arial', sans-serif;
+}
+
+.invoice-template img.template-bg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ── Overlay Text Spans (Absolute Positioned) ──────────────────── */
+.invoice-template span,
+.invoice-template .overlay-text {
+  position: absolute;
+  font-size: 12px;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+  pointer-events: none;
+}
+
+/* Document Type (TAX INVOICE / QUOTATION INVOICE) */
+.doc-type-overlay {
+  top: 68px;
+  left: 555px;
+  width: 220px;
+  font-size: 21px;
+  font-weight: 900;
+  color: #fff;
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+/* Invoice Number */
+.invoice-no-overlay {
+  top: 130px;
+  left: 580px;
+  width: 125px;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Invoice Date */
+.invoice-date-overlay {
+  top: 130px;
+  left: 710px;
+  width: 70px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Challan Number */
+.challan-no-overlay {
+  top: 172px;
+  left: 580px;
+  width: 125px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Challan Date */
+.challan-date-overlay {
+  top: 172px;
+  left: 710px;
+  width: 70px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* ── Bill To Section ─────────────────────────────────────────── */
+.bill-name-overlay {
+  top: 258px;
+  left: 245px;
+  width: 215px;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.bill-address-overlay {
+  top: 291px;
+  left: 245px;
+  width: 215px;
+  font-size: 11px;
+  white-space: normal;
+  max-height: 36px;
+  overflow: hidden;
+}
+
+.bill-phone-overlay {
+  top: 340px;
+  left: 245px;
+  width: 215px;
+  font-size: 12px;
+}
+
+.bill-place-overlay {
+  top: 373px;
+  left: 245px;
+  width: 215px;
+  font-size: 12px;
+}
+
+/* ── Ship To Section ─────────────────────────────────────────── */
+.ship-name-overlay {
+  top: 258px;
+  left: 630px;
+  width: 145px;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.ship-address-overlay {
+  top: 291px;
+  left: 630px;
+  width: 145px;
+  font-size: 11px;
+  white-space: normal;
+  max-height: 36px;
+  overflow: hidden;
+}
+
+.ship-phone-overlay {
+  top: 340px;
+  left: 630px;
+  width: 145px;
+  font-size: 12px;
+}
+
+.ship-place-overlay {
+  top: 373px;
+  left: 630px;
+  width: 145px;
+  font-size: 12px;
+}
+
+/* ── Product Table Rows ──────────────────────────────────────── */
+/* Each row is ~34px tall starting from ~455px */
+.product-row {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 34px;
+  display: flex;
+  align-items: center;
+}
+
+.product-row .col-sno     { position: absolute; left: 178px; width: 40px;  text-align: center; font-size: 11px; }
+.product-row .col-name    { position: absolute; left: 228px; width: 115px; font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
+.product-row .col-hsn     { position: absolute; left: 348px; width: 65px;  text-align: center; font-size: 11px; }
+.product-row .col-qty     { position: absolute; left: 418px; width: 50px;  text-align: center; font-size: 11px; }
+.product-row .col-rate    { position: absolute; left: 470px; width: 58px;  text-align: right; font-size: 11px; }
+.product-row .col-taxval  { position: absolute; left: 535px; width: 60px;  text-align: right; font-size: 11px; }
+.product-row .col-gstpct  { position: absolute; left: 600px; width: 40px;  text-align: center; font-size: 11px; }
+.product-row .col-gstamt  { position: absolute; left: 645px; width: 55px;  text-align: right; font-size: 11px; }
+.product-row .col-total   { position: absolute; left: 710px; width: 65px;  text-align: right; font-size: 11px; font-weight: 700; }
+
+/* ── Amount In Words ─────────────────────────────────────────── */
+.amount-words-overlay {
+  top: 800px;
+  left: 510px;
+  width: 270px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: normal;
+  max-height: 28px;
+  overflow: hidden;
+}
+
+/* ── Summary Section ─────────────────────────────────────────── */
+.summary-taxable-overlay {
+  top: 843px;
+  left: 710px;
+  width: 65px;
+  font-size: 11px;
+  text-align: right;
+  font-weight: 600;
+}
+
+.summary-cgst-overlay {
+  top: 870px;
+  left: 710px;
+  width: 65px;
+  font-size: 11px;
+  text-align: right;
+}
+
+.summary-sgst-overlay {
+  top: 897px;
+  left: 710px;
+  width: 65px;
+  font-size: 11px;
+  text-align: right;
+}
+
+.summary-totaltax-overlay {
+  top: 924px;
+  left: 710px;
+  width: 65px;
+  font-size: 11px;
+  text-align: right;
+  font-weight: 600;
+}
+
+.summary-grandtotal-overlay {
+  top: 951px;
+  left: 710px;
+  width: 65px;
+  font-size: 13px;
+  text-align: right;
+  font-weight: 900;
+  color: #b91c1c;
+}
+
+/* ── Bank Details ────────────────────────────────────────────── */
+.bank-accname-overlay {
+  top: 843px;
+  left: 290px;
+  width: 180px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.bank-bankname-overlay {
+  top: 870px;
+  left: 290px;
+  width: 180px;
+  font-size: 11px;
+}
+
+.bank-accno-overlay {
+  top: 897px;
+  left: 290px;
+  width: 180px;
+  font-size: 11px;
+}
+
+.bank-ifsc-overlay {
+  top: 924px;
+  left: 290px;
+  width: 180px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ── Print / PDF Tweaks ──────────────────────────────────────── */
+@media print {
+  .invoice-form-panel,
+  .preview-label,
+  .form-actions {
+    display: none !important;
+  }
+  .invoice-template {
+    box-shadow: none;
+    margin: 0;
+  }
+}
+
+/* ── Page Header ─────────────────────────────────────────────── */
+.editor-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.editor-page-header h1 {
+  font-size: 22px;
+  font-weight: 800;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.editor-page-header .doc-type-switcher {
+  display: flex;
+  gap: 4px;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 10px;
+}
+
+.doc-type-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .2s;
+  background: transparent;
+  color: #64748b;
+}
+
+.doc-type-btn.active {
+  background: #b91c1c;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(185,28,28,.25);
+}
+
+.doc-type-btn:not(.active):hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+/* ── Loading Spinner ─────────────────────────────────────────── */
+.pdf-loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15,23,42,.6);
+  backdrop-filter: blur(4px);
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.pdf-loading-overlay .spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid #e2e8f0;
+  border-top-color: #b91c1c;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.pdf-loading-overlay p {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

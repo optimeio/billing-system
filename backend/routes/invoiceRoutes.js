@@ -17,6 +17,15 @@ const { protect } = require("../middleware/authMiddleware");
 // All routes are protected
 router.use(protect);
 
+const upload = require("../middleware/uploadMiddleware");
+
+router.post("/upload-approval-photo", upload.single("photo"), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ message: "Please upload a photo" });
+    }
+    res.json({ photoPath: `/uploads/${req.file.filename}` });
+});
+
 router.route("/")
     .post(createInvoice)
     .get(getInvoices);

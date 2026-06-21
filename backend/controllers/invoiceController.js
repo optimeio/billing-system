@@ -14,7 +14,7 @@ const { sendEmail } = require("../utils/emailService");
 // @access  Admin/Staff
 exports.createInvoice = async (req, res) => {
     try {
-        let { invoiceNumber, invoiceDate, customerName, customerPhone, customerAddress, items, hsnCode = "", taxRate = 0, tax = 0, discount = 0, taxableValue = 0, type = "invoice" } = req.body;
+        let { invoiceNumber, invoiceDate, customerName, customerPhone, customerAddress, items, hsnCode = "", taxRate = 0, tax = 0, discount = 0, taxableValue = 0, type = "invoice", companyId } = req.body;
 
         customerName = customerName ? customerName.trim() : "";
         customerPhone = customerPhone ? customerPhone.trim() : "";
@@ -122,7 +122,10 @@ exports.createInvoice = async (req, res) => {
             grandTotal,
             type,
             createdBy: req.user._id,
-            createdAt: dateToSet
+            invoiceDate: dateToSet,
+            qtyLabel: req.body.qtyLabel || "Qty",
+            approvalPhoto: req.body.approvalPhoto || "",
+            companyId: companyId || undefined
         });
 
         // 5. Emit socket event and create notification
@@ -187,6 +190,7 @@ exports.getInvoices = async (req, res) => {
 
         const invoices = await Invoice.find(query)
             .populate("createdBy", "name email staffId")
+            .populate("companyId")
             .sort({ createdAt: -1 });
 
         res.json(invoices);
@@ -197,10 +201,12 @@ exports.getInvoices = async (req, res) => {
 
 // @desc    Get single invoice
 // @route   GET /api/invoices/:id
+// @access  Admin/Staff
 exports.getInvoiceById = async (req, res) => {
     try {
         const invoice = await Invoice.findById(req.params.id)
             .populate("createdBy", "name email staffId")
+            .populate("companyId")
             .populate("items.productId", "name barcode category");
 
         if (!invoice) {
@@ -431,9 +437,112 @@ exports.deleteInvoice = async (req, res) => {
 // @desc    Update/Edit existing invoice
 // @route   PUT /api/invoices/:id
 // @access  Admin/Staff
+// @desc    Update/Edit existing invoice
+// @route   PUT /api/invoices/:id
+// @access  Admin/Staff
 exports.updateInvoice = async (req, res) => {
-    return res.status(400).json({ message: "Invoices and quotations are non-editable once created." });
+    try {
+        let { invoiceNumber, invoiceDate, customerName, customerPhone, customerAddress, items, hsnCode = "", taxRate = 0, tax = 0, discount = 0, taxableValue = 0, type = "invoice", qtyLabel, approvalPhoto, companyId } = req.body;
+
+        customerName = customerName ? customerName.trim() : "";
+        customerPhone = customerPhone ? customerPhone.trim() : "";
+        customerAddress = customerAddress ? customerAddress.trim() : "";
+        hsnCode = hsnCode ? hsnCode.trim() : "";
+
+        if (!items || items.length === 0) {
+            return res.status(400).json({ message: "Document must have at least one item." });
+        }
+
+        const invoice = await Invoice.findById(req.params.id);
+        if (!invoice) {
+            return res.status(404).json({ message: "Invoice/Quotation not found" });
+        }
+
+        // Check authorization: Admin or Creator
+        if (req.user.role !== "admin" && invoice.createdBy.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: "Not authorized to update this document." });
+        }
+
+        // If invoice number is changed, check uniqueness
+        if (invoiceNumber && invoiceNumber.trim() !== invoice.invoiceNumber) {
+            const existing = await Invoice.findOne({ invoiceNumber: invoiceNumber.trim() });
+            if (existing) {
+                return res.status(400).json({ message: `Number "${invoiceNumber}" is already in use.` });
+            }
+            invoice.invoiceNumber = invoiceNumber.trim();
+        }
+
+        let processedItems = [];
+        let subtotal = 0;
+
+        for (let item of items) {
+            let product;
+            if (item.productId) {
+                product = await Product.findById(item.productId);
+            } else if (item.productName) {
+                let categoryId = null;
+                if (item.category) {
+                    const categoryResult = await findOrCreateCategory(item.category);
+                    if (categoryResult.category) {
+                        categoryId = categoryResult.category._id;
+                    }
+                }
+                const productResult = await findOrCreateProduct(item.productName, categoryId, item.price, req.user._id);
+                product = productResult.product;
+            }
+
+            if (!product) {
+                return res.status(400).json({ message: `Product could not be found or created for item: ${item.productName || item.productId}` });
+            }
+
+            const itemPrice = item.price || product.price;
+            const itemQty = item.qty || 1;
+            const itemTotal = itemPrice * itemQty;
+
+            processedItems.push({
+                productId: product._id,
+                name: product.name,
+                price: itemPrice,
+                qty: itemQty,
+                total: itemTotal
+            });
+
+            subtotal += itemTotal;
+        }
+
+        const grandTotal = subtotal + parseFloat(tax) - parseFloat(discount);
+
+        invoice.customerName = customerName;
+        invoice.customerPhone = customerPhone;
+        invoice.customerAddress = customerAddress;
+        invoice.items = processedItems;
+        invoice.subtotal = subtotal;
+        invoice.taxableValue = parseFloat(taxableValue) || 0;
+        invoice.hsnCode = hsnCode;
+        invoice.taxRate = Number(taxRate) || 0;
+        invoice.tax = Number(tax) || 0;
+        invoice.discount = Number(discount) || 0;
+        invoice.grandTotal = grandTotal;
+        invoice.invoiceDate = invoiceDate ? new Date(invoiceDate) : invoice.invoiceDate;
+        if (qtyLabel) invoice.qtyLabel = qtyLabel;
+        if (approvalPhoto !== undefined) invoice.approvalPhoto = approvalPhoto;
+        if (companyId) invoice.companyId = companyId;
+
+        await invoice.save();
+
+        try {
+            const io = getIO();
+            io.emit("invoiceUpdated", invoice);
+        } catch (err) {
+            console.error("Socket error on invoice update:", err);
+        }
+
+        res.json({ message: `${type === 'quotation' ? 'Quotation' : 'Invoice'} updated successfully`, invoice });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
 };
+
 
 // @desc    Approve Quotation (Admin Only)
 // @route   PATCH /api/invoices/:id/approve-quotation

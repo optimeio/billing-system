@@ -71,8 +71,8 @@ exports.generateInvoicePDF = async (invoice, res) => {
         const BLACK = rgb(0, 0, 0);
         const MUTED = rgb(0.25, 0.25, 0.25);
 
-        const invoiceDate = invoice.createdAt
-            ? new Date(invoice.createdAt).toLocaleDateString('en-GB')
+        const invoiceDate = invoice.invoiceDate || invoice.createdAt
+            ? new Date(invoice.invoiceDate || invoice.createdAt).toLocaleDateString('en-GB')
             : new Date().toLocaleDateString('en-GB');
 
         // ── 1. INVOICE NO + DATE ──────────────────────────────────────────────
@@ -217,8 +217,8 @@ exports.generateQuotationPDF = async (quotation, res) => {
         const BLACK = rgb(0, 0, 0);
         const MUTED = rgb(0.25, 0.25, 0.25);
 
-        const quotationDate = quotation.createdAt
-            ? new Date(quotation.createdAt).toLocaleDateString('en-GB')
+        const quotationDate = quotation.invoiceDate || quotation.createdAt
+            ? new Date(quotation.invoiceDate || quotation.createdAt).toLocaleDateString('en-GB')
             : new Date().toLocaleDateString('en-GB');
 
         // ── 1. QUOTATION NO + DATE ────────────────────────────────────────────
