@@ -6,14 +6,14 @@ const { getIO } = require("../utils/socketService");
 // @access  Admin/Staff
 exports.createCategory = async (req, res) => {
     try {
-        const { name, description } = req.body;
+        const { name, description, type } = req.body;
 
         const categoryExists = await Category.findOne({ name });
         if (categoryExists) {
             return res.status(400).json({ message: "Category already exists" });
         }
 
-        const category = await Category.create({ name, description });
+        const category = await Category.create({ name, description, type });
 
         try {
             const io = getIO();
@@ -45,7 +45,7 @@ exports.getCategories = async (req, res) => {
 // @access  Admin/Staff
 exports.updateCategory = async (req, res) => {
     try {
-        const { name, description } = req.body;
+        const { name, description, type } = req.body;
         const category = await Category.findById(req.params.id);
 
         if (!category) {
@@ -54,6 +54,7 @@ exports.updateCategory = async (req, res) => {
 
         category.name = name || category.name;
         category.description = description || category.description;
+        category.type = type || category.type;
 
         const updatedCategory = await category.save();
 

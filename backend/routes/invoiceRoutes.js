@@ -10,7 +10,8 @@ const {
     deleteInvoice,
     updateInvoice,
     approveQuotation,
-    rejectQuotation
+    rejectQuotation,
+    updateApprovalPhoto
 } = require("../controllers/invoiceController");
 const { protect } = require("../middleware/authMiddleware");
 
@@ -32,6 +33,7 @@ router.route("/")
 
 router.get("/:id", getInvoiceById);
 router.put("/:id", updateInvoice);
+router.patch("/:id/approval-photo", updateApprovalPhoto);
 router.get("/:id/download", downloadInvoice);
 router.patch("/:id/cancel", cancelInvoice);
 router.patch("/:id/paid", markInvoiceAsPaid);

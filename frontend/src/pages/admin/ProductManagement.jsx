@@ -5,14 +5,20 @@ import api from '../../services/api';
 import toast from 'react-hot-toast';
 import Modal from '../../components/common/Modal';
 import { socket } from '../../services/socket';
+import useAuthStore from '../../store/authStore';
+
+const backendUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5002';
 
 const ProductManagement = () => {
+  const { user } = useAuthStore();
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [formData, setFormData] = useState({ name: '', barcode: '', price: '', stock: '', category: '' });
+  const [formData, setFormData] = useState({ name: '', barcode: '', price: '', stock: '', category: '', image: '' });
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentId, setCurrentId] = useState(null);
 
@@ -84,7 +90,7 @@ const ProductManagement = () => {
         toast.success('Product added successfully');
       }
       setShowAddForm(false);
-      setFormData({ name: '', barcode: '', price: '', stock: '', category: '' });
+      setFormData({ name: '', barcode: '', price: '', stock: '', category: '', image: '' });
       setIsEditing(false);
       setCurrentId(null);
       fetchProducts();
@@ -101,11 +107,39 @@ const ProductManagement = () => {
       barcode: product.barcode || '',
       price: product.price,
       stock: product.stock,
-      category: product.category?._id || ''
+      category: product.category?._id || '',
+      image: product.image || ''
     });
     setCurrentId(product._id);
     setIsEditing(true);
     setShowAddForm(true);
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const data = new FormData();
+    data.append('image', file);
+
+    setUploadingImage(true);
+    try {
+      const res = await api.post('/products/upload-image', data, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      setFormData(prev => ({ ...prev, image: res.data.imagePath }));
+      toast.success('Product image uploaded successfully');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to upload product image');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setFormData(prev => ({ ...prev, image: '' }));
   };
 
   const handleDelete = async (id) => {
@@ -126,7 +160,7 @@ const ProductManagement = () => {
         <button 
           onClick={() => {
             setIsEditing(false);
-            setFormData({ name: '', barcode: '', price: '', stock: '', category: '' });
+            setFormData({ name: '', barcode: '', price: '', stock: '', category: '', image: '' });
             setShowAddForm(true);
           }}
           className="bg-primary hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center shadow-sm transition-all self-start sm:self-auto"
@@ -174,6 +208,50 @@ const ProductManagement = () => {
               </select>
             </div>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Product Image (Optional)</label>
+            {uploadingImage ? (
+              <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50">
+                <Loader2 size={24} className="animate-spin text-primary mb-2" />
+                <p className="text-xs text-slate-500">Uploading product image...</p>
+              </div>
+            ) : formData.image ? (
+              <div className="relative border border-slate-200 rounded-xl p-2 bg-slate-50 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <img
+                    src={formData.image.startsWith('/uploads') ? `${backendUrl}${formData.image}` : formData.image}
+                    alt="Preview"
+                    className="w-16 h-16 object-cover rounded-lg"
+                  />
+                  <div className="text-xs">
+                    <p className="font-semibold text-slate-700">Image uploaded</p>
+                    <p className="text-slate-400">Ready to save</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRemoveImage}
+                  className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors text-xs font-semibold"
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-primary/50 hover:bg-slate-50/50 transition-all">
+                <div className="flex flex-col items-center space-y-1">
+                  <Plus size={20} className="text-slate-400" />
+                  <span className="text-xs font-medium text-slate-600">Upload Product Image</span>
+                  <span className="text-[10px] text-slate-400">JPG, JPEG, PNG up to 5MB</span>
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </label>
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Price (₹)</label>
@@ -206,15 +284,24 @@ const ProductManagement = () => {
         </form>
       </Modal>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {products.slice(0, 4).map((p, i) => (
-           <div key={i} className="glass p-4 rounded-xl border border-slate-200">
-             <div className="flex items-center space-x-3">
-               <div className="p-2 bg-blue-100 text-blue-600 rounded-lg"><Package size={20}/></div>
-               <div>
-                 <p className="text-xs text-slate-500 font-medium">In Stock</p>
-                 <p className="text-lg font-bold text-slate-800">{p.stock}</p>
-               </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        {products.slice(0, 4).map((p) => (
+           <div key={p._id} className="glass p-4 rounded-xl border border-slate-200 flex items-center space-x-3">
+             <div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-100 bg-slate-50 flex items-center justify-center flex-shrink-0">
+               {p.image ? (
+                 <img
+                   src={p.image.startsWith('/uploads') ? `${backendUrl}${p.image}` : p.image}
+                   alt={p.name}
+                   className="w-full h-full object-cover"
+                 />
+               ) : (
+                 <Package className="text-slate-400" size={20} />
+               )}
+             </div>
+             <div className="flex-1 min-w-0">
+               <p className="text-xs font-semibold text-slate-800 truncate">{p.name}</p>
+               <p className="text-[10px] text-slate-400 truncate">{p.category?.name || 'Uncategorized'}</p>
+               <p className="text-sm font-bold text-slate-700 mt-0.5">{p.stock} units</p>
              </div>
            </div>
         ))}
@@ -238,7 +325,22 @@ const ProductManagement = () => {
                 <tr><td colSpan="6" className="p-12 text-center"><Loader2 size={32} className="animate-spin text-primary inline" /></td></tr>
               ) : products.map((product) => (
                 <tr key={product._id} className="hover:bg-slate-50">
-                  <td className="p-4 font-medium">{product.name}</td>
+                  <td className="p-4 font-medium">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center flex-shrink-0">
+                        {product.image ? (
+                          <img
+                            src={product.image.startsWith('/uploads') ? `${backendUrl}${product.image}` : product.image}
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Package className="text-slate-400" size={18} />
+                        )}
+                      </div>
+                      <span className="text-slate-800 font-semibold">{product.name}</span>
+                    </div>
+                  </td>
                   <td className="p-4 text-sm text-slate-500">{product.barcode || 'N/A'}</td>
                   <td className="p-4 text-sm capitalize">{product.category?.name || 'Uncategorized'}</td>
                   <td className="p-4 font-bold text-slate-800">₹{product.price}</td>
@@ -254,12 +356,14 @@ const ProductManagement = () => {
                     >
                       <Edit2 size={16}/>
                     </button>
-                    <button 
-                      onClick={() => handleDelete(product._id)}
-                      className="p-2 text-slate-400 hover:text-red-500 transition-colors"
-                    >
-                      <Trash2 size={16}/>
-                    </button>
+                    {isAdmin && (
+                      <button 
+                        onClick={() => handleDelete(product._id)}
+                        className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                      >
+                        <Trash2 size={16}/>
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

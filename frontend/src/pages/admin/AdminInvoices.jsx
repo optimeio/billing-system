@@ -152,14 +152,14 @@ const AdminInvoices = () => {
           logging: false,
           backgroundColor: '#ffffff'
         });
-        const imgData = canvas.toDataURL('image/png');
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
         const pdf = new jsPDF({
           orientation: 'portrait',
           unit: 'mm',
           format: 'a4',
         });
         const pdfWidth = pdf.internal.pageSize.getWidth();
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdf.internal.pageSize.getHeight());
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdf.internal.pageSize.getHeight());
         pdf.save(`Invoice_${invoiceForPdf.invoiceNumber || 'Draft'}.pdf`);
         toast.success('PDF downloaded successfully!');
       } catch (err) {

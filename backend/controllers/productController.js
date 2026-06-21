@@ -6,7 +6,7 @@ const { getIO } = require("../utils/socketService");
 // @access  Admin/Staff
 exports.createProduct = async (req, res) => {
     try {
-        const { name, barcode, category, price, stock, unit, description } = req.body;
+        const { name, barcode, category, price, stock, unit, description, image } = req.body;
 
         if (barcode) {
             const productExists = await Product.findOne({ barcode });
@@ -22,7 +22,8 @@ exports.createProduct = async (req, res) => {
             price,
             stock,
             unit,
-            description
+            description,
+            image
         });
 
         try {

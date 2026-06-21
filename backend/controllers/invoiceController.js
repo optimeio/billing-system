@@ -597,3 +597,35 @@ exports.rejectQuotation = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+// @desc    Update invoice approval photo
+// @route   PATCH /api/invoices/:id/approval-photo
+exports.updateApprovalPhoto = async (req, res) => {
+    try {
+        const { approvalPhoto } = req.body;
+        const invoice = await Invoice.findById(req.params.id);
+        if (!invoice) {
+            return res.status(404).json({ message: "Invoice not found" });
+        }
+
+        // Authorization: Admin or Creator
+        if (req.user.role !== "admin" && invoice.createdBy.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: "Not authorized to update this document." });
+        }
+
+        invoice.approvalPhoto = approvalPhoto || "";
+        await invoice.save();
+
+        try {
+            const io = getIO();
+            io.emit("invoiceUpdated", invoice);
+        } catch (err) {
+            console.error("Socket error on approval photo update:", err);
+        }
+
+        res.json({ message: "Approval photo updated successfully", invoice });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+

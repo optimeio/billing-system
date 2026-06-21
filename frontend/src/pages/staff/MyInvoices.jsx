@@ -47,11 +47,56 @@ const MyInvoices = () => {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [modalScale, setModalScale] = useState(1);
   const modalPreviewWrapperRef = useRef(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Client PDF Generation States
   const [invoiceForPdf, setInvoiceForPdf] = useState(null);
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const pdfTemplateRef = useRef(null);
+
+  const handleUploadApprovalPhoto = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('photo', file);
+
+    setUploadingPhoto(true);
+    try {
+      const res = await api.post('/invoices/upload-approval-photo', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      const photoPath = res.data.photoPath;
+
+      await api.patch(`/invoices/${selectedInvoice._id}/approval-photo`, { approvalPhoto: photoPath });
+      
+      setSelectedInvoice(prev => ({ ...prev, approvalPhoto: photoPath }));
+      toast.success('Approval photo proof uploaded successfully!');
+      fetchMyInvoices();
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.message || 'Failed to upload proof photo');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleRemoveApprovalPhoto = async () => {
+    if (!window.confirm('Are you sure you want to remove the approval photo proof?')) return;
+    
+    setUploadingPhoto(true);
+    try {
+      await api.patch(`/invoices/${selectedInvoice._id}/approval-photo`, { approvalPhoto: '' });
+      setSelectedInvoice(prev => ({ ...prev, approvalPhoto: '' }));
+      toast.success('Approval photo proof removed successfully');
+      fetchMyInvoices();
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.message || 'Failed to remove proof photo');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
 
   const fetchMyInvoices = async () => {
     try {
@@ -119,14 +164,14 @@ const MyInvoices = () => {
           logging: false,
           backgroundColor: '#ffffff'
         });
-        const imgData = canvas.toDataURL('image/png');
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
         const pdf = new jsPDF({
           orientation: 'portrait',
           unit: 'mm',
           format: 'a4',
         });
         const pdfWidth = pdf.internal.pageSize.getWidth();
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdf.internal.pageSize.getHeight());
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdf.internal.pageSize.getHeight());
         pdf.save(`Invoice_${invoiceForPdf.invoiceNumber || 'Draft'}.pdf`);
         toast.success('PDF downloaded successfully!');
       } catch (err) {
@@ -297,7 +342,7 @@ const MyInvoices = () => {
             <motion.div 
               initial={{ scale: 0.95, opacity: 0 }} 
               animate={{ scale: 1, opacity: 1 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-4xl overflow-hidden border border-slate-100 flex flex-col max-h-[95vh]"
+              className="bg-white rounded-2xl shadow-xl w-full max-w-7xl overflow-hidden border border-slate-100 flex flex-col max-h-[95vh]"
             >
               <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
                 <div>
@@ -312,210 +357,313 @@ const MyInvoices = () => {
                 </button>
               </div>
 
-              {/* Modal Body with viewport fit scaling */}
-              <div className="p-4 overflow-y-auto flex-1 flex justify-center items-start bg-slate-100" ref={modalPreviewWrapperRef}>
+              {/* Modal Body: Split-Panel Layout */}
+              <div className="flex flex-col lg:flex-row flex-1 overflow-hidden min-h-0 bg-slate-100">
+                {/* Left Panel: Invoice Template Preview */}
                 <div 
-                  style={{
-                    height: modalScale < 1 ? `${1123 * modalScale}px` : 'auto',
-                    minHeight: modalScale < 1 ? `${1123 * modalScale}px` : '1123px',
-                    width: '100%',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'flex-start'
-                  }}
+                  className="w-full lg:w-[60%] p-6 overflow-y-auto flex justify-center items-start border-b lg:border-b-0 lg:border-r border-slate-200" 
+                  ref={modalPreviewWrapperRef}
                 >
-                  <div
-                    className="w-[794px] min-h-[1123px] bg-white border border-black p-4 text-sm flex flex-col relative"
+                  <div 
                     style={{
-                      transform: `scale(${modalScale})`,
-                      transformOrigin: 'top center',
-                      flexShrink: 0,
-                      margin: '0 auto',
-                      boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-                      fontFamily: 'Segoe UI, Arial, sans-serif'
+                      height: modalScale < 1 ? `${1123 * modalScale}px` : 'auto',
+                      minHeight: modalScale < 1 ? `${1123 * modalScale}px` : '1123px',
+                      width: '100%',
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'flex-start'
                     }}
                   >
-                    <DynamicInvoiceHeader company={company} />
-
-                    <div 
-                      className="border border-black text-center py-2 mb-4 text-white"
-                      style={
-                        company.name === 'THE SRI TECH ENGINEERING'
-                          ? { background: 'linear-gradient(to right, #dc2626, #000000)' }
-                          : company.name === 'MBK TECHNOLOGY'
-                          ? { background: 'linear-gradient(to right, #f97316, #dc2626)' }
-                          : company.name === 'OPTIME'
-                          ? { background: 'linear-gradient(to right, #1e3a8a, #3b82f6)' }
-                          : company.name === 'WINKBENCH'
-                          ? { background: 'linear-gradient(to right, #1e3a8a, #6b7280)' }
-                          : company.name === 'PAVECH'
-                          ? { background: 'linear-gradient(to right, #0d9488, #16a34a)' }
-                          : { backgroundColor: company.themeColor || '#d60000' }
-                      }
+                    <div
+                      className="w-[794px] min-h-[1123px] bg-white border border-black p-4 text-sm flex flex-col relative"
+                      style={{
+                        transform: `scale(${modalScale})`,
+                        transformOrigin: 'top center',
+                        flexShrink: 0,
+                        margin: '0 auto',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                        fontFamily: 'Segoe UI, Arial, sans-serif'
+                      }}
                     >
-                      <h2 className="text-2xl font-bold tracking-widest">TAX INVOICE</h2>
-                    </div>
+                      <DynamicInvoiceHeader company={company} />
 
-                    <div className="grid grid-cols-2 border border-black mb-4">
-                      <div className="border-r border-black">
-                        <div className="bg-slate-100 p-2 font-bold border-b border-black">
-                          Invoice On (Bill To):
-                        </div>
-                        <div className="p-2 space-y-1">
-                          <p><span className="font-semibold">Name:</span> {selectedInvoice.customerName}</p>
-                          <p><span className="font-semibold">Address:</span> {selectedInvoice.customerAddress || 'No Address Provided'}</p>
-                          <p><span className="font-semibold">Phone:</span> {selectedInvoice.customerPhone}</p>
-                        </div>
+                      <div 
+                        className="border border-black text-center py-2 mb-4 text-white"
+                        style={
+                          company.name === 'THE SRI TECH ENGINEERING'
+                            ? { background: 'linear-gradient(to right, #dc2626, #000000)' }
+                            : company.name === 'MBK TECHNOLOGY'
+                            ? { background: 'linear-gradient(to right, #f97316, #dc2626)' }
+                            : company.name === 'OPTIME'
+                            ? { background: 'linear-gradient(to right, #1e3a8a, #3b82f6)' }
+                            : company.name === 'WINKBENCH'
+                            ? { background: 'linear-gradient(to right, #1e3a8a, #6b7280)' }
+                            : company.name === 'PAVECH'
+                            ? { background: 'linear-gradient(to right, #0d9488, #16a34a)' }
+                            : { backgroundColor: company.themeColor || '#d60000' }
+                        }
+                      >
+                        <h2 className="text-2xl font-bold tracking-widest">TAX INVOICE</h2>
                       </div>
 
-                      <div>
-                        <div className="bg-slate-100 p-2 font-bold border-b border-black">
-                          Invoice Details:
+                      <div className="grid grid-cols-2 border border-black mb-4">
+                        <div className="border-r border-black">
+                          <div className="bg-slate-100 p-2 font-bold border-b border-black">
+                            Invoice On (Bill To):
+                          </div>
+                          <div className="p-2 space-y-1">
+                            <p><span className="font-semibold">Name:</span> {selectedInvoice.customerName}</p>
+                            <p><span className="font-semibold">Address:</span> {selectedInvoice.customerAddress || 'No Address Provided'}</p>
+                            <p><span className="font-semibold">Phone:</span> {selectedInvoice.customerPhone}</p>
+                          </div>
                         </div>
-                        <div className="grid grid-cols-2 p-2 gap-y-2">
-                          <p className="font-semibold">Invoice No:</p>
-                          <p>{selectedInvoice.invoiceNumber || '—'}</p>
 
-                          <p className="font-semibold">Date:</p>
-                          <p>{formatDate(selectedInvoice.invoiceDate || selectedInvoice.createdAt)}</p>
-
-                          <p className="font-semibold">Time:</p>
-                          <p>{new Date(selectedInvoice.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <table className="w-full border-collapse border border-black mb-4">
-                      <thead>
-                        <tr 
-                          className="text-white"
-                          style={
-                            company.name === 'THE SRI TECH ENGINEERING'
-                              ? { background: 'linear-gradient(to right, #dc2626, #000000)' }
-                              : company.name === 'MBK TECHNOLOGY'
-                              ? { background: 'linear-gradient(to right, #f97316, #dc2626)' }
-                              : company.name === 'OPTIME'
-                              ? { background: 'linear-gradient(to right, #1e3a8a, #3b82f6)' }
-                              : company.name === 'WINKBENCH'
-                              ? { background: 'linear-gradient(to right, #1e3a8a, #6b7280)' }
-                              : company.name === 'PAVECH'
-                              ? { background: 'linear-gradient(to right, #0d9488, #16a34a)' }
-                              : { backgroundColor: company.themeColor || '#991b1b' }
-                          }
-                        >
-                          <th className="border border-black p-2 text-center w-10">S.No</th>
-                          <th className="border border-black p-2 text-left">Product Name</th>
-                          <th className="border border-black p-2 text-center w-16">HSN/SAC</th>
-                          <th className="border border-black p-2 text-center w-10">{qtyLabel}</th>
-                          <th className="border border-black p-2 text-center w-14">Rate</th>
-                          <th className="border border-black p-2 text-center w-16">Taxable</th>
-                          <th className="border border-black p-2 text-center w-12">GST %</th>
-                          <th className="border border-black p-2 text-center w-16">GST Amt</th>
-                          <th className="border border-black p-2 text-center w-20">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {selectedInvoice.items?.map((item, index) => {
-                          const rate = item.price || 0;
-                          const qty = item.qty || 1;
-                          const taxable = rate * qty;
-                          const gstRate = selectedInvoice.taxRate || 0;
-                          const gstAmt = taxable * (gstRate / 100);
-                          const total = item.total || (taxable + gstAmt);
-
-                          return (
-                            <tr key={index} className="h-10">
-                              <td className="border-l border-r border-black p-2 text-center">{index + 1}</td>
-                              <td className="border-l border-r border-black p-2">{item.name}</td>
-                              <td className="border-l border-r border-black p-2 text-center">{selectedInvoice.hsnCode || '99'}</td>
-                              <td className="border-l border-r border-black p-2 text-center">{qty}</td>
-                              <td className="border-l border-r border-black p-2 text-center">{rate}</td>
-                              <td className="border-l border-r border-black p-2 text-center">{taxable.toFixed(2)}</td>
-                              <td className="border-l border-r border-black p-2 text-center">{gstRate}</td>
-                              <td className="border-l border-r border-black p-2 text-center">{gstAmt.toFixed(2)}</td>
-                              <td className="border-l border-r border-black p-2 text-center font-medium">{total.toFixed(2)}</td>
-                            </tr>
-                          );
-                        })}
-                        {Array.from({ length: Math.max(0, 10 - (selectedInvoice.items?.length || 0)) }).map((_, idx) => (
-                          <tr key={`empty-${idx}`} className="h-10">
-                            <td className="border-l border-r border-black p-2"></td>
-                            <td className="border-l border-r border-black p-2"></td>
-                            <td className="border-l border-r border-black p-2"></td>
-                            <td className="border-l border-r border-black p-2"></td>
-                            <td className="border-l border-r border-black p-2"></td>
-                            <td className="border-l border-r border-black p-2"></td>
-                            <td className="border-l border-r border-black p-2"></td>
-                            <td className="border-l border-r border-black p-2"></td>
-                            <td className="border-l border-r border-black p-2"></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-
-                    <div className="grid grid-cols-2 border border-black mb-4 flex-grow-0">
-                      <div className="border-r border-black p-4 flex flex-col justify-between">
                         <div>
-                          <h3 className="font-bold text-gray-700">Amount In Words</h3>
-                          <p className="font-semibold text-xs">{grandTotal > 0 ? numberToWords(grandTotal).toUpperCase() : ''}</p>
-                        </div>
-                        <div className="mt-6">
-                          <h3 className="text-sm font-bold text-gray-700 mb-2">Bank Details</h3>
-                          <table className="text-[10px]" style={{ borderCollapse: 'collapse' }}>
-                            <tbody>
-                              <tr>
-                                <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Account Name</td>
-                                <td className="pr-2 py-0.5 align-top">:</td>
-                                <td className="py-0.5 align-top">THE SM GROUPS</td>
-                              </tr>
-                              <tr>
-                                <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Bank Name</td>
-                                <td className="pr-2 py-0.5 align-top">:</td>
-                                <td className="py-0.5 align-top">CITY UNION BANK</td>
-                              </tr>
-                              <tr>
-                                <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Account Number</td>
-                                <td className="pr-2 py-0.5 align-top">:</td>
-                                <td className="py-0.5 align-top">510909010317651</td>
-                              </tr>
-                              <tr>
-                                <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">IFSC Code</td>
-                                <td className="pr-2 py-0.5 align-top">:</td>
-                                <td className="py-0.5 align-top">CIUB0000188</td>
-                              </tr>
-                            </tbody>
-                          </table>
+                          <div className="bg-slate-100 p-2 font-bold border-b border-black">
+                            Invoice Details:
+                          </div>
+                          <div className="grid grid-cols-2 p-2 gap-y-2">
+                            <p className="font-semibold">Invoice No:</p>
+                            <p>{selectedInvoice.invoiceNumber || '—'}</p>
+
+                            <p className="font-semibold">Date:</p>
+                            <p>{formatDate(selectedInvoice.invoiceDate || selectedInvoice.createdAt)}</p>
+
+                            <p className="font-semibold">Time:</p>
+                            <p>{new Date(selectedInvoice.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</p>
+                          </div>
                         </div>
                       </div>
 
-                      <div className="p-0 text-xs">
-                        <div className="flex justify-between p-2 border-b border-black">
-                          <span className="font-semibold">Taxable Amount</span>
-                          <span>{selectedInvoice.taxableValue > 0 ? selectedInvoice.taxableValue.toFixed(2) : subtotal.toFixed(2)}</span>
+                      <table className="w-full border-collapse border border-black mb-4">
+                        <thead>
+                          <tr 
+                            className="text-white"
+                            style={
+                              company.name === 'THE SRI TECH ENGINEERING'
+                                ? { background: 'linear-gradient(to right, #dc2626, #000000)' }
+                                : company.name === 'MBK TECHNOLOGY'
+                                ? { background: 'linear-gradient(to right, #f97316, #dc2626)' }
+                                : company.name === 'OPTIME'
+                                ? { background: 'linear-gradient(to right, #1e3a8a, #3b82f6)' }
+                                : company.name === 'WINKBENCH'
+                                ? { background: 'linear-gradient(to right, #1e3a8a, #6b7280)' }
+                                : company.name === 'PAVECH'
+                                ? { background: 'linear-gradient(to right, #0d9488, #16a34a)' }
+                                : { backgroundColor: company.themeColor || '#991b1b' }
+                            }
+                          >
+                            <th className="border border-black p-2 text-center w-10">S.No</th>
+                            <th className="border border-black p-2 text-left">Product Name</th>
+                            <th className="border border-black p-2 text-center w-16">HSN/SAC</th>
+                            <th className="border border-black p-2 text-center w-10">{qtyLabel}</th>
+                            <th className="border border-black p-2 text-center w-14">Rate</th>
+                            <th className="border border-black p-2 text-center w-16">Taxable</th>
+                            <th className="border border-black p-2 text-center w-12">GST %</th>
+                            <th className="border border-black p-2 text-center w-16">GST Amt</th>
+                            <th className="border border-black p-2 text-center w-20">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedInvoice.items?.map((item, index) => {
+                            const rate = item.price || 0;
+                            const qty = item.qty || 1;
+                            const taxable = rate * qty;
+                            const gstRate = selectedInvoice.taxRate || 0;
+                            const gstAmt = taxable * (gstRate / 100);
+                            const total = item.total || (taxable + gstAmt);
+
+                            return (
+                              <tr key={index} className="h-10">
+                                <td className="border-l border-r border-black p-2 text-center">{index + 1}</td>
+                                <td className="border-l border-r border-black p-2">{item.name}</td>
+                                <td className="border-l border-r border-black p-2 text-center">{selectedInvoice.hsnCode || '99'}</td>
+                                <td className="border-l border-r border-black p-2 text-center">{qty}</td>
+                                <td className="border-l border-r border-black p-2 text-center">{rate}</td>
+                                <td className="border-l border-r border-black p-2 text-center">{taxable.toFixed(2)}</td>
+                                <td className="border-l border-r border-black p-2 text-center">{gstRate}</td>
+                                <td className="border-l border-r border-black p-2 text-center">{gstAmt.toFixed(2)}</td>
+                                <td className="border-l border-r border-black p-2 text-center font-medium">{total.toFixed(2)}</td>
+                              </tr>
+                            );
+                          })}
+                          {Array.from({ length: Math.max(0, 10 - (selectedInvoice.items?.length || 0)) }).map((_, idx) => (
+                            <tr key={`empty-${idx}`} className="h-10">
+                              <td className="border-l border-r border-black p-2"></td>
+                              <td className="border-l border-r border-black p-2"></td>
+                              <td className="border-l border-r border-black p-2"></td>
+                              <td className="border-l border-r border-black p-2"></td>
+                              <td className="border-l border-r border-black p-2"></td>
+                              <td className="border-l border-r border-black p-2"></td>
+                              <td className="border-l border-r border-black p-2"></td>
+                              <td className="border-l border-r border-black p-2"></td>
+                              <td className="border-l border-r border-black p-2"></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+
+                      <div className="grid grid-cols-2 border border-black mb-4 flex-grow-0">
+                        <div className="border-r border-black p-4 flex flex-col justify-between">
+                          <div>
+                            <h3 className="font-bold text-gray-700">Amount In Words</h3>
+                            <p className="font-semibold text-xs">{grandTotal > 0 ? numberToWords(grandTotal).toUpperCase() : ''}</p>
+                          </div>
+                          <div className="mt-6">
+                            <h3 className="text-sm font-bold text-gray-700 mb-2">Bank Details</h3>
+                            <table className="text-[10px]" style={{ borderCollapse: 'collapse' }}>
+                              <tbody>
+                                <tr>
+                                  <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Account Name</td>
+                                  <td className="pr-2 py-0.5 align-top">:</td>
+                                  <td className="py-0.5 align-top">THE SM GROUPS</td>
+                                </tr>
+                                <tr>
+                                  <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Bank Name</td>
+                                  <td className="pr-2 py-0.5 align-top">:</td>
+                                  <td className="py-0.5 align-top">CITY UNION BANK</td>
+                                </tr>
+                                <tr>
+                                  <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Account Number</td>
+                                  <td className="pr-2 py-0.5 align-top">:</td>
+                                  <td className="py-0.5 align-top">510909010317651</td>
+                                </tr>
+                                <tr>
+                                  <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">IFSC Code</td>
+                                  <td className="pr-2 py-0.5 align-top">:</td>
+                                  <td className="py-0.5 align-top">CIUB0000188</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
-                        <div className="flex justify-between p-2 border-b border-black">
-                          <span className="font-semibold">GST</span>
-                          <span>{tax > 0 ? (tax / 2).toFixed(2) : '0.00'}</span>
+
+                        <div className="p-0 text-xs">
+                          <div className="flex justify-between p-2 border-b border-black">
+                            <span className="font-semibold">Taxable Amount</span>
+                            <span>{selectedInvoice.taxableValue > 0 ? selectedInvoice.taxableValue.toFixed(2) : subtotal.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between p-2 border-b border-black">
+                            <span className="font-semibold">GST</span>
+                            <span>{tax > 0 ? (tax / 2).toFixed(2) : '0.00'}</span>
+                          </div>
+                          <div className="flex justify-between p-2 border-b border-black">
+                            <span className="font-semibold">Total Tax</span>
+                            <span>{tax > 0 ? tax.toFixed(2) : '0.00'}</span>
+                          </div>
+                          <div className="flex justify-between p-3 bg-slate-100 font-bold text-sm">
+                            <span>Grand Total</span>
+                            <span className="text-red-700">₹ {grandTotal.toFixed(2)}</span>
+                          </div>
                         </div>
-                        <div className="flex justify-between p-2 border-b border-black">
-                          <span className="font-semibold">Total Tax</span>
-                          <span>{tax > 0 ? tax.toFixed(2) : '0.00'}</span>
-                        </div>
-                        <div className="flex justify-between p-3 bg-slate-100 font-bold text-sm">
-                          <span>Grand Total</span>
-                          <span className="text-red-700">₹ {grandTotal.toFixed(2)}</span>
+                      </div>
+
+                      <div className="flex-grow"></div>
+
+                      <div className="flex justify-between items-end mt-8 pt-4">
+                        <div className="font-bold border-t-2 border-black pt-2 w-48 text-center text-xs">Customer Signature</div>
+                        <div className="font-bold border-t-2 border-black pt-2 w-48 text-center relative flex flex-col items-center text-xs">
+                          Authorized Signature
                         </div>
                       </div>
                     </div>
+                  </div>
+                </div>
 
-                    <div className="flex-grow"></div>
-
-                    <div className="flex justify-between items-end mt-8 pt-4">
-                      <div className="font-bold border-t-2 border-black pt-2 w-48 text-center text-xs">Customer Signature</div>
-                      <div className="font-bold border-t-2 border-black pt-2 w-48 text-center relative flex flex-col items-center text-xs">
-                        Authorized Signature
+                {/* Right Panel: Actions, Upload, and Details */}
+                <div className="w-full lg:w-[40%] p-6 overflow-y-auto bg-white flex flex-col space-y-6">
+                  {/* Document Information */}
+                  <div>
+                    <h4 className="text-xs uppercase font-bold text-slate-400 tracking-wider mb-3">Document Information</h4>
+                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-3">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-slate-500 font-medium">Invoice Number</span>
+                        <span className="text-slate-800 font-bold font-mono">{selectedInvoice.invoiceNumber}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-slate-500 font-medium">Issue Date</span>
+                        <span className="text-slate-800 font-semibold">{formatDate(selectedInvoice.invoiceDate || selectedInvoice.createdAt)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-slate-500 font-medium">Creator</span>
+                        <div className="text-right">
+                          <span className="text-slate-800 font-semibold block">{selectedInvoice.createdBy?.name || 'System'}</span>
+                          <span className="text-[10px] text-slate-400 font-mono capitalize">({selectedInvoice.createdBy?.staffId || 'Staff'})</span>
+                        </div>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Payment Status Card */}
+                  <div>
+                    <h4 className="text-xs uppercase font-bold text-slate-400 tracking-wider mb-3">Payment Status</h4>
+                    <div className={`rounded-xl p-4 border flex items-center justify-between ${
+                      selectedInvoice.paymentStatus === 'paid' ? 'bg-emerald-50 border-emerald-100 text-emerald-800' : 
+                      selectedInvoice.paymentStatus === 'pending' ? 'bg-amber-50 border-amber-100 text-amber-800' : 
+                      'bg-rose-50 border-rose-100 text-rose-800'
+                    }`}>
+                      <div className="flex items-center space-x-2.5">
+                        {selectedInvoice.paymentStatus === 'paid' ? <CheckCircle size={20} className="text-emerald-500" /> : 
+                         selectedInvoice.paymentStatus === 'pending' ? <Clock size={20} className="text-amber-500" /> : 
+                         <XCircle size={20} className="text-rose-500" />}
+                        <div>
+                          <span className="text-xs text-slate-400 block font-normal capitalize">Current Status</span>
+                          <span className="text-base font-bold capitalize">{selectedInvoice.paymentStatus}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Photo Proof Upload Interface */}
+                  <div>
+                    <h4 className="text-xs uppercase font-bold text-slate-400 tracking-wider mb-3">Approval Request Proof</h4>
+                    {uploadingPhoto ? (
+                      <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 flex flex-col items-center justify-center bg-slate-50 min-h-[160px]">
+                        <Loader2 size={32} className="animate-spin text-primary mb-2" />
+                        <p className="text-sm text-slate-500 font-medium">Processing photo upload...</p>
+                      </div>
+                    ) : selectedInvoice.approvalPhoto ? (
+                      <div className="border border-slate-100 rounded-xl p-4 bg-slate-50 space-y-4">
+                        <div className="relative aspect-[4/3] rounded-lg overflow-hidden border border-slate-200 bg-black flex items-center justify-center">
+                          <img 
+                            src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5002'}${selectedInvoice.approvalPhoto}`} 
+                            alt="Approval Proof" 
+                            className="max-h-full max-w-full object-contain"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <button
+                            type="button"
+                            onClick={() => window.open(`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5002'}${selectedInvoice.approvalPhoto}`, '_blank')}
+                            className="flex-1 py-2 px-3 border border-slate-200 rounded-lg text-slate-600 text-xs font-semibold hover:bg-slate-100 transition-colors flex items-center justify-center"
+                          >
+                            View Fullscreen
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleRemoveApprovalPhoto}
+                            className="p-2 border border-rose-200 rounded-lg text-rose-500 hover:bg-rose-50 hover:border-rose-300 transition-colors"
+                            title="Delete proof photo"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <label className="border-2 border-dashed border-slate-200 hover:border-primary/50 hover:bg-blue-50/10 cursor-pointer rounded-xl p-8 flex flex-col items-center justify-center bg-white min-h-[160px] transition-all group">
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={handleUploadApprovalPhoto} 
+                          className="hidden" 
+                        />
+                        <div className="bg-slate-50 group-hover:bg-primary/10 p-3 rounded-full mb-3 text-slate-400 group-hover:text-primary transition-colors">
+                          <Plus size={24} />
+                        </div>
+                        <p className="text-sm font-semibold text-slate-700 group-hover:text-primary transition-colors">Upload Proof Image</p>
+                        <p className="text-xs text-slate-400 mt-1">PNG, JPG or JPEG (max 5MB)</p>
+                      </label>
+                    )}
                   </div>
                 </div>
               </div>

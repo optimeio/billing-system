@@ -8,6 +8,7 @@ const productSchema = new mongoose.Schema({
     stock: { type: Number, default: 0 },
     unit: { type: String, default: "pcs" },
     description: { type: String },
+    image: { type: String },
     isAutoCreated: { type: Boolean, default: false },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
 }, { timestamps: true });

@@ -113,8 +113,12 @@ app.use("/api/attendance", attendanceRoutes);
 app.use("/api/complaints", complaintRoutes);
 app.use("/api/companies", companyRoutes);
 
-// Static file serving for uploads
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// Static file serving for uploads with explicit CORS headers for client-side HTML canvas rendering
+app.use("/uploads", express.static(path.join(__dirname, "uploads"), {
+    setHeaders: (res) => {
+        res.set("Access-Control-Allow-Origin", "*");
+    }
+}));
 
 // Database Connection
 const MONGODB_URI = process.env.MONGODB_URI;

@@ -309,14 +309,14 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
         logging: false,
         backgroundColor: '#ffffff'
       });
-      const imgData = canvas.toDataURL('image/png');
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4',
       });
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdf.internal.pageSize.getHeight());
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdf.internal.pageSize.getHeight());
       pdf.save(`${documentType === 'quotation' ? 'Quotation' : 'Invoice'}_${invoiceNumber || 'Draft'}.pdf`);
       toast.success('PDF downloaded successfully!');
     } catch (err) {
@@ -613,38 +613,6 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
             </div>
           </div>
 
-          {/* Approval Photo Upload */}
-          <div className="form-section">
-            <div className="form-section-title">Approval Request Proof</div>
-            <div className="form-field">
-              <label>Upload screenshot / photo proof</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handlePhotoUpload}
-                disabled={uploadingPhoto}
-                className="w-full text-xs text-slate-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-white hover:file:bg-red-700 file:cursor-pointer"
-              />
-              {uploadingPhoto && <p className="text-xs text-slate-500 mt-1">Uploading image...</p>}
-              {approvalPhoto && (
-                <div className="mt-2 relative inline-block">
-                  <img 
-                    src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5002'}${approvalPhoto}`} 
-                    alt="Approval Proof" 
-                    className="max-h-24 object-contain rounded border border-slate-200" 
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setApprovalPhoto('')}
-                    className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] hover:bg-red-600 shadow-md font-bold"
-                    title="Remove Photo"
-                  >
-                    &times;
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
 
           {/* Summary (read-only) */}
           <div className="form-section">

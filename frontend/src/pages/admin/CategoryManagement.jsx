@@ -4,12 +4,16 @@ import { Plus, Folder, Trash2, Edit2 } from 'lucide-react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import Modal from '../../components/common/Modal';
+import useAuthStore from '../../store/authStore';
 
 const CategoryManagement = () => {
+  const { user } = useAuthStore();
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
   const [categories, setCategories] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [name, setName] = useState('');
+  const [type, setType] = useState('Product');
   const [isEditing, setIsEditing] = useState(false);
   const [currentId, setCurrentId] = useState(null);
 
@@ -31,14 +35,15 @@ const CategoryManagement = () => {
     setSubmitting(true);
     try {
       if (isEditing) {
-        await api.put(`/categories/${currentId}`, { name });
+        await api.put(`/categories/${currentId}`, { name, type });
         toast.success('Category updated successfully');
       } else {
-        await api.post('/categories', { name });
+        await api.post('/categories', { name, type });
         toast.success('Category added successfully');
       }
       setIsModalOpen(false);
       setName('');
+      setType('Product');
       setIsEditing(false);
       setCurrentId(null);
       fetchCategories();
@@ -51,6 +56,7 @@ const CategoryManagement = () => {
 
   const handleEdit = (cat) => {
     setName(cat.name);
+    setType(cat.type || 'Product');
     setCurrentId(cat._id);
     setIsEditing(true);
     setIsModalOpen(true);
@@ -75,9 +81,10 @@ const CategoryManagement = () => {
           onClick={() => {
             setIsEditing(false);
             setName('');
+            setType('Product');
             setIsModalOpen(true);
           }}
-          className="bg-primary hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center shadow-sm transition-all self-start sm:self-auto"
+          className="bg-primary hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center shadow-sm transition-all self-start sm:self-auto"
         >
           <Plus size={18} className="mr-2" /> Add Category
         </button>
@@ -94,6 +101,17 @@ const CategoryManagement = () => {
               onChange={(e) => setName(e.target.value)}
               className="w-full p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
               placeholder="e.g. Beverages"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Category Type (Manual)</label>
+            <input
+              type="text"
+              required
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+              className="w-full p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
+              placeholder="e.g. Product, Service, Expense"
             />
           </div>
           <button
@@ -115,12 +133,21 @@ const CategoryManagement = () => {
               </div>
               <div>
                 <h3 className="font-bold text-slate-800">{cat.name}</h3>
-                <p className="text-sm text-slate-500">{cat.productCount || 0} Products</p>
+                <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                  {cat.type && (
+                    <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 uppercase tracking-wider">
+                      {cat.type}
+                    </span>
+                  )}
+                  <p className="text-xs text-slate-500 font-medium">{cat.productCount || 0} Products</p>
+                </div>
               </div>
             </div>
             <div className="flex space-x-1">
               <button onClick={() => handleEdit(cat)} aria-label="Edit Category" className="text-slate-400 hover:text-primary p-2 transition-colors" title="Edit"><Edit2 size={18} /></button>
-              <button onClick={() => handleDelete(cat._id)} aria-label="Delete Category" className="text-slate-400 hover:text-red-500 p-2 transition-colors" title="Delete"><Trash2 size={18} /></button>
+              {isAdmin && (
+                <button onClick={() => handleDelete(cat._id)} aria-label="Delete Category" className="text-slate-400 hover:text-red-500 p-2 transition-colors" title="Delete"><Trash2 size={18} /></button>
+              )}
             </div>
           </div>
         ))}
