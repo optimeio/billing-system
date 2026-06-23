@@ -1,10 +1,15 @@
 require("dotenv").config();
-const mongoose = require("mongoose");
+const mongoose = require("./backend/node_modules/mongoose");
 const User = require("./backend/models/User");
 
 const checkAllUsers = async () => {
     try {
-        await mongoose.connect(process.env.MONGODB_URI);
+        console.log("Connecting to MongoDB...");
+        await mongoose.connect(process.env.MONGODB_URI, {
+            serverSelectionTimeoutMS: 15000,
+            socketTimeoutMS: 20000
+        });
+        console.log("Connected to MongoDB successfully!");
         const users = await User.find({});
         console.log("All Registered Users in Database:");
         users.forEach(u => {
@@ -12,7 +17,7 @@ const checkAllUsers = async () => {
         });
         process.exit();
     } catch (err) {
-        console.error(err);
+        console.error("Connection/Query Error:", err);
         process.exit(1);
     }
 };

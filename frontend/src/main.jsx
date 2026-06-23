@@ -1,3 +1,4 @@
+// Build v2.1.0 - 2026-06-21T18:33 - Multi-company, product images, category types
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'

@@ -13,6 +13,7 @@ const CreateInvoice = ({ isQuotation = false }) => {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
+  const [customerIdNumber, setCustomerIdNumber] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceDate, setInvoiceDate] = useState('');
   
@@ -37,6 +38,7 @@ const CreateInvoice = ({ isQuotation = false }) => {
         setCustomerName(inv.customerName || '');
         setCustomerPhone(inv.customerPhone || '');
         setCustomerAddress(inv.customerAddress || '');
+        setCustomerIdNumber(inv.customerIdNumber || '');
         setInvoiceNumber(inv.invoiceNumber || '');
         
         // Format ISO date to YYYY-MM-DD for date input
@@ -124,6 +126,7 @@ const CreateInvoice = ({ isQuotation = false }) => {
         customerName,
         customerPhone,
         customerAddress,
+        customerIdNumber,
         invoiceNumber: invoiceNumber ? invoiceNumber.trim() : undefined,
         invoiceDate: invoiceDate ? new Date(invoiceDate).toISOString() : undefined,
         type: isQuotation ? 'quotation' : 'invoice',
@@ -153,6 +156,7 @@ const CreateInvoice = ({ isQuotation = false }) => {
         setCustomerName('');
         setCustomerPhone('');
         setCustomerAddress('');
+        setCustomerIdNumber('');
         setInvoiceNumber('');
         setInvoiceDate('');
         setItems([{ productName: '', category: '', price: '', qty: 1 }]);
@@ -258,6 +262,17 @@ const CreateInvoice = ({ isQuotation = false }) => {
                 onChange={(e) => setCustomerAddress(e.target.value)} 
                 className="w-full border border-slate-300 p-2.5 rounded-lg focus:ring-primary focus:border-primary"
                 placeholder="Address Details..."
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-slate-600 mb-1">Aadhar Number / GST Number / PAN Number (Optional)</label>
+              <input 
+                type="text" 
+                value={customerIdNumber} 
+                onChange={(e) => setCustomerIdNumber(e.target.value)} 
+                className="w-full border border-slate-300 p-2.5 rounded-lg focus:ring-primary focus:border-primary"
+                placeholder="e.g. XXXX-XXXX-XXXX or 22AAAAA0000A1Z5 or ABCDE1234F"
               />
             </div>
           </div>

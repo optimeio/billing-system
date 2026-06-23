@@ -14,11 +14,12 @@ const { sendEmail } = require("../utils/emailService");
 // @access  Admin/Staff
 exports.createInvoice = async (req, res) => {
     try {
-        let { invoiceNumber, invoiceDate, customerName, customerPhone, customerAddress, items, hsnCode = "", taxRate = 0, tax = 0, discount = 0, taxableValue = 0, type = "invoice", companyId } = req.body;
+        let { invoiceNumber, invoiceDate, customerName, customerPhone, customerAddress, customerIdNumber, items, hsnCode = "", taxRate = 0, tax = 0, discount = 0, taxableValue = 0, type = "invoice", companyId } = req.body;
 
         customerName = customerName ? customerName.trim() : "";
         customerPhone = customerPhone ? customerPhone.trim() : "";
         customerAddress = customerAddress ? customerAddress.trim() : "";
+        customerIdNumber = customerIdNumber ? customerIdNumber.trim() : "";
         hsnCode = hsnCode ? hsnCode.trim() : "";
 
         if (!items || items.length === 0) {
@@ -112,6 +113,7 @@ exports.createInvoice = async (req, res) => {
             customerName,
             customerPhone,
             customerAddress,
+            customerIdNumber,
             items: processedItems,
             subtotal,
             taxableValue: parseFloat(taxableValue) || 0,
@@ -442,11 +444,12 @@ exports.deleteInvoice = async (req, res) => {
 // @access  Admin/Staff
 exports.updateInvoice = async (req, res) => {
     try {
-        let { invoiceNumber, invoiceDate, customerName, customerPhone, customerAddress, items, hsnCode = "", taxRate = 0, tax = 0, discount = 0, taxableValue = 0, type = "invoice", qtyLabel, approvalPhoto, companyId } = req.body;
+        let { invoiceNumber, invoiceDate, customerName, customerPhone, customerAddress, customerIdNumber, items, hsnCode = "", taxRate = 0, tax = 0, discount = 0, taxableValue = 0, type = "invoice", qtyLabel, approvalPhoto, companyId } = req.body;
 
         customerName = customerName ? customerName.trim() : "";
         customerPhone = customerPhone ? customerPhone.trim() : "";
         customerAddress = customerAddress ? customerAddress.trim() : "";
+        customerIdNumber = customerIdNumber ? customerIdNumber.trim() : "";
         hsnCode = hsnCode ? hsnCode.trim() : "";
 
         if (!items || items.length === 0) {
@@ -515,6 +518,7 @@ exports.updateInvoice = async (req, res) => {
         invoice.customerName = customerName;
         invoice.customerPhone = customerPhone;
         invoice.customerAddress = customerAddress;
+        invoice.customerIdNumber = customerIdNumber;
         invoice.items = processedItems;
         invoice.subtotal = subtotal;
         invoice.taxableValue = parseFloat(taxableValue) || 0;

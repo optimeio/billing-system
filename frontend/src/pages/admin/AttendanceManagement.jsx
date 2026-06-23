@@ -217,8 +217,8 @@ const AttendanceManagement = () => {
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   <th className="p-4">Staff Member</th>
-                  <th className="p-4 text-center">Session 1 (Morning)</th>
-                  <th className="p-4 text-center">Session 2 (Afternoon)</th>
+                  <th className="p-4 text-center">Check In</th>
+                  <th className="p-4 text-center">Check Out</th>
                   <th className="p-4 text-center">Work Hours</th>
                   <th className="p-4 text-center">Status</th>
                   <th className="p-4">Notes</th>
@@ -233,16 +233,13 @@ const AttendanceManagement = () => {
                       <div className="text-xs text-slate-400">{log.user.staffId} • {log.user.role.toUpperCase()}</div>
                     </td>
 
-                    {/* Session 1 Check-In / Out Details */}
+                    {/* Check-In Details */}
                     <td className="p-4">
-                      <div className="flex items-center justify-center gap-3">
-                        <div className="text-right">
-                          <span className="block text-[10px] text-slate-400 uppercase font-semibold">In</span>
-                          <span className="font-semibold text-slate-700">{formatTime(log.checkIn)}</span>
-                        </div>
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="font-semibold text-slate-700">{formatTime(log.checkIn)}</span>
                         {log.photo ? (
                           <button
-                            onClick={() => handleViewPhoto(log.photo, `Session 1 Check-In: ${log.user.name}`)}
+                            onClick={() => handleViewPhoto(log.photo, `Check-In Selfie: ${log.user.name}`)}
                             className="group relative inline-block focus:outline-none shrink-0"
                             title="View Check-In selfie"
                           >
@@ -259,16 +256,18 @@ const AttendanceManagement = () => {
                             </span>
                           </button>
                         ) : (
-                          <span className="text-xs text-slate-300 italic">No Selfie</span>
+                          log.checkIn && <span className="text-xs text-slate-300 italic">No Selfie</span>
                         )}
+                      </div>
+                    </td>
 
-                        <div className="text-left ml-2 border-l border-slate-100 pl-3">
-                          <span className="block text-[10px] text-slate-400 uppercase font-semibold">Out</span>
-                          <span className="font-semibold text-slate-700">{formatTime(log.checkOut)}</span>
-                        </div>
+                    {/* Check-Out Details */}
+                    <td className="p-4">
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="font-semibold text-slate-700">{formatTime(log.checkOut)}</span>
                         {log.photoOut1 ? (
                           <button
-                            onClick={() => handleViewPhoto(log.photoOut1, `Session 1 Check-Out: ${log.user.name}`)}
+                            onClick={() => handleViewPhoto(log.photoOut1, `Check-Out Selfie: ${log.user.name}`)}
                             className="group relative inline-block focus:outline-none shrink-0"
                             title="View Check-Out selfie"
                           >
@@ -285,64 +284,7 @@ const AttendanceManagement = () => {
                             </span>
                           </button>
                         ) : (
-                          <span className="text-xs text-slate-300 italic">No Selfie</span>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Session 2 Check-In / Out Details */}
-                    <td className="p-4">
-                      <div className="flex items-center justify-center gap-3">
-                        <div className="text-right">
-                          <span className="block text-[10px] text-slate-400 uppercase font-semibold">In</span>
-                          <span className="font-semibold text-slate-700">{formatTime(log.checkIn2)}</span>
-                        </div>
-                        {log.photoIn2 ? (
-                          <button
-                            onClick={() => handleViewPhoto(log.photoIn2, `Session 2 Check-In: ${log.user.name}`)}
-                            className="group relative inline-block focus:outline-none shrink-0"
-                            title="View Check-In selfie"
-                          >
-                            <img
-                              src={log.photoIn2.startsWith("http") ? log.photoIn2 : `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${log.photoIn2}`}
-                              alt="Check In 2"
-                              className="w-10 h-10 object-cover rounded-lg border border-slate-200 shadow-sm transition-transform group-hover:scale-105"
-                              onError={(e) => {
-                                e.target.src = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&h=100&q=80";
-                              }}
-                            />
-                            <span className="absolute -bottom-1 -right-1 bg-primary text-white p-0.5 rounded-full shadow border border-white">
-                              <Eye size={8} />
-                            </span>
-                          </button>
-                        ) : (
-                          <span className="text-xs text-slate-300 italic">No Selfie</span>
-                        )}
-
-                        <div className="text-left ml-2 border-l border-slate-100 pl-3">
-                          <span className="block text-[10px] text-slate-400 uppercase font-semibold">Out</span>
-                          <span className="font-semibold text-slate-700">{formatTime(log.checkOut2)}</span>
-                        </div>
-                        {log.photoOut2 ? (
-                          <button
-                            onClick={() => handleViewPhoto(log.photoOut2, `Session 2 Check-Out: ${log.user.name}`)}
-                            className="group relative inline-block focus:outline-none shrink-0"
-                            title="View Check-Out selfie"
-                          >
-                            <img
-                              src={log.photoOut2.startsWith("http") ? log.photoOut2 : `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${log.photoOut2}`}
-                              alt="Check Out 2"
-                              className="w-10 h-10 object-cover rounded-lg border border-slate-200 shadow-sm transition-transform group-hover:scale-105"
-                              onError={(e) => {
-                                e.target.src = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&h=100&q=80";
-                              }}
-                            />
-                            <span className="absolute -bottom-1 -right-1 bg-primary text-white p-0.5 rounded-full shadow border border-white">
-                              <Eye size={8} />
-                            </span>
-                          </button>
-                        ) : (
-                          <span className="text-xs text-slate-300 italic">No Selfie</span>
+                          log.checkOut && <span className="text-xs text-slate-300 italic">No Selfie</span>
                         )}
                       </div>
                     </td>

@@ -58,71 +58,36 @@ const StaffAttendance = () => {
     }
   };
 
-  // Helper to determine check-in state, session labels, and deadlines
+  // Helper to determine check-in state, labels, and deadlines
   const getAttendanceState = () => {
     const nowHour = time.getHours();
     const nowMinutes = time.getMinutes();
     const isPast10AM = nowHour > 10 || (nowHour === 10 && nowMinutes > 0);
 
     if (!todayRecord) {
-      if (isPast10AM) {
-        return {
-          session: 2,
-          type: "check-in",
-          label: "Check In (Session 2)",
-          description: "Morning check-in deadline (10:00 AM) passed. Session 1 is marked as missed.",
-          alert: "Morning Session Missed (Closed 10:00 AM)"
-        };
-      } else {
-        return {
-          session: 1,
-          type: "check-in",
-          label: "Check In (Session 1)",
-          description: "Record your morning presence before the 10:00 AM deadline.",
-          alert: null
-        };
-      }
+      return {
+        type: "check-in",
+        label: "Check In",
+        description: "Record your daily presence. Selfie photo is required.",
+        alert: isPast10AM ? "Late Check In (Deadline 10:00 AM)" : null
+      };
     }
 
-    // Session 1 checked in, but not checked out
+    // Checked in, but not checked out
     if (todayRecord.checkIn && !todayRecord.checkOut) {
       return {
-        session: 1,
         type: "check-out",
-        label: "Check Out (Session 1)",
-        description: "Complete your first work session. Selfie photo is required.",
+        label: "Check Out",
+        description: "Record check-out and complete your workday. Selfie photo is required.",
         alert: null
       };
     }
 
-    // Session 1 checked out, but Session 2 not checked in
-    if (todayRecord.checkOut && !todayRecord.checkIn2) {
-      return {
-        session: 2,
-        type: "check-in",
-        label: "Check In (Session 2)",
-        description: "Record check-in for your second work session. Selfie photo is required.",
-        alert: null
-      };
-    }
-
-    // Session 2 checked in, but not checked out
-    if (todayRecord.checkIn2 && !todayRecord.checkOut2) {
-      return {
-        session: 2,
-        type: "check-out",
-        label: "Check Out (Session 2)",
-        description: "Complete your second work session and finish for the day.",
-        alert: null
-      };
-    }
-
-    // Both sessions completed
+    // Checked in and checked out
     return {
-      session: null,
       type: "completed",
       label: "Attendance Completed",
-      description: "You have completed your attendance check-ins and check-outs for today.",
+      description: "You have completed your check-in and check-out for today.",
       alert: null
     };
   };
@@ -188,7 +153,7 @@ const StaffAttendance = () => {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Attendance Dashboard</h1>
-        <p className="text-sm text-slate-500 mt-1">Record check-ins and check-outs for two sessions per day. All steps require selfie verification.</p>
+        <p className="text-sm text-slate-500 mt-1">Record your check-in and check-out for today. All steps require selfie verification.</p>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
@@ -219,16 +184,10 @@ const StaffAttendance = () => {
                   <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-100 text-left space-y-2">
                     <p className="font-semibold text-slate-700">Today's Summary:</p>
                     {todayRecord?.checkIn && (
-                      <p>• Session 1 In: {formatTime(todayRecord.checkIn)}</p>
+                      <p>• Check In: {formatTime(todayRecord.checkIn)}</p>
                     )}
                     {todayRecord?.checkOut && (
-                      <p>• Session 1 Out: {formatTime(todayRecord.checkOut)}</p>
-                    )}
-                    {todayRecord?.checkIn2 && (
-                      <p>• Session 2 In: {formatTime(todayRecord.checkIn2)}</p>
-                    )}
-                    {todayRecord?.checkOut2 && (
-                      <p>• Session 2 Out: {formatTime(todayRecord.checkOut2)}</p>
+                      <p>• Check Out: {formatTime(todayRecord.checkOut)}</p>
                     )}
                     <p className="font-bold border-t pt-1.5 mt-1">Total Hours: {todayRecord?.workHours || 0} hrs</p>
                   </div>
@@ -310,7 +269,7 @@ const StaffAttendance = () => {
           <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
             <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
               <History className="text-primary" size={20} />
-              Recent Attendance Log (Double Shift)
+              Recent Attendance Log
             </h2>
 
             {loading ? (
@@ -329,8 +288,8 @@ const StaffAttendance = () => {
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       <th className="p-4">Date</th>
-                      <th className="p-4 text-center">Session 1 (Morning)</th>
-                      <th className="p-4 text-center">Session 2 (Afternoon)</th>
+                      <th className="p-4 text-center">Check In</th>
+                      <th className="p-4 text-center">Check Out</th>
                       <th className="p-4 text-center">Work Hours</th>
                       <th className="p-4 text-center">Status</th>
                     </tr>
@@ -342,16 +301,13 @@ const StaffAttendance = () => {
                           {getMonthName(rec.date)}
                         </td>
                         
-                        {/* Session 1 Check-In / Out Details */}
+                        {/* Check-In Details */}
                         <td className="p-4">
-                          <div className="flex items-center justify-center gap-3">
-                            <div className="text-right">
-                              <span className="block text-[10px] text-slate-400 uppercase font-semibold">In</span>
-                              <span className="font-semibold text-slate-700">{formatTime(rec.checkIn)}</span>
-                            </div>
+                          <div className="flex items-center justify-center gap-2">
+                            <span className="font-semibold text-slate-700">{formatTime(rec.checkIn)}</span>
                             {rec.photo ? (
                               <button
-                                onClick={() => handleViewPhoto(rec.photo, `Session 1 Check-In: ${getMonthName(rec.date)}`)}
+                                onClick={() => handleViewPhoto(rec.photo, `Check-In Selfie: ${getMonthName(rec.date)}`)}
                                 className="group relative inline-block focus:outline-none shrink-0"
                                 title="View Check-In selfie"
                               >
@@ -368,16 +324,18 @@ const StaffAttendance = () => {
                                 </span>
                               </button>
                             ) : (
-                              <span className="text-xs text-slate-300 italic">No Selfie</span>
+                              rec.checkIn && <span className="text-xs text-slate-300 italic">No Selfie</span>
                             )}
+                          </div>
+                        </td>
 
-                            <div className="text-left ml-2 border-l border-slate-100 pl-3">
-                              <span className="block text-[10px] text-slate-400 uppercase font-semibold">Out</span>
-                              <span className="font-semibold text-slate-700">{formatTime(rec.checkOut)}</span>
-                            </div>
+                        {/* Check-Out Details */}
+                        <td className="p-4">
+                          <div className="flex items-center justify-center gap-2">
+                            <span className="font-semibold text-slate-700">{formatTime(rec.checkOut)}</span>
                             {rec.photoOut1 ? (
                               <button
-                                onClick={() => handleViewPhoto(rec.photoOut1, `Session 1 Check-Out: ${getMonthName(rec.date)}`)}
+                                onClick={() => handleViewPhoto(rec.photoOut1, `Check-Out Selfie: ${getMonthName(rec.date)}`)}
                                 className="group relative inline-block focus:outline-none shrink-0"
                                 title="View Check-Out selfie"
                               >
@@ -394,64 +352,7 @@ const StaffAttendance = () => {
                                 </span>
                               </button>
                             ) : (
-                              <span className="text-xs text-slate-300 italic">No Selfie</span>
-                            )}
-                          </div>
-                        </td>
-
-                        {/* Session 2 Check-In / Out Details */}
-                        <td className="p-4">
-                          <div className="flex items-center justify-center gap-3">
-                            <div className="text-right">
-                              <span className="block text-[10px] text-slate-400 uppercase font-semibold">In</span>
-                              <span className="font-semibold text-slate-700">{formatTime(rec.checkIn2)}</span>
-                            </div>
-                            {rec.photoIn2 ? (
-                              <button
-                                onClick={() => handleViewPhoto(rec.photoIn2, `Session 2 Check-In: ${getMonthName(rec.date)}`)}
-                                className="group relative inline-block focus:outline-none shrink-0"
-                                title="View Check-In selfie"
-                              >
-                                <img
-                                  src={rec.photoIn2.startsWith("http") ? rec.photoIn2 : `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${rec.photoIn2}`}
-                                  alt="Check In 2"
-                                  className="w-8 h-8 object-cover rounded-lg border border-slate-200 shadow-sm"
-                                  onError={(e) => {
-                                    e.target.src = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&h=100&q=80";
-                                  }}
-                                />
-                                <span className="absolute -bottom-1 -right-1 bg-primary text-white p-0.5 rounded-full shadow border border-white">
-                                  <Eye size={6} />
-                                </span>
-                              </button>
-                            ) : (
-                              <span className="text-xs text-slate-300 italic">No Selfie</span>
-                            )}
-
-                            <div className="text-left ml-2 border-l border-slate-100 pl-3">
-                              <span className="block text-[10px] text-slate-400 uppercase font-semibold">Out</span>
-                              <span className="font-semibold text-slate-700">{formatTime(rec.checkOut2)}</span>
-                            </div>
-                            {rec.photoOut2 ? (
-                              <button
-                                onClick={() => handleViewPhoto(rec.photoOut2, `Session 2 Check-Out: ${getMonthName(rec.date)}`)}
-                                className="group relative inline-block focus:outline-none shrink-0"
-                                title="View Check-Out selfie"
-                              >
-                                <img
-                                  src={rec.photoOut2.startsWith("http") ? rec.photoOut2 : `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${rec.photoOut2}`}
-                                  alt="Check Out 2"
-                                  className="w-8 h-8 object-cover rounded-lg border border-slate-200 shadow-sm"
-                                  onError={(e) => {
-                                    e.target.src = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&h=100&q=80";
-                                  }}
-                                />
-                                <span className="absolute -bottom-1 -right-1 bg-primary text-white p-0.5 rounded-full shadow border border-white">
-                                  <Eye size={6} />
-                                </span>
-                              </button>
-                            ) : (
-                              <span className="text-xs text-slate-300 italic">No Selfie</span>
+                              rec.checkOut && <span className="text-xs text-slate-300 italic">No Selfie</span>
                             )}
                           </div>
                         </td>

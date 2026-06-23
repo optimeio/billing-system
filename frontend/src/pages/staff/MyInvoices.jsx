@@ -415,6 +415,9 @@ const MyInvoices = () => {
                             <p><span className="font-semibold">Name:</span> {selectedInvoice.customerName}</p>
                             <p><span className="font-semibold">Address:</span> {selectedInvoice.customerAddress || 'No Address Provided'}</p>
                             <p><span className="font-semibold">Phone:</span> {selectedInvoice.customerPhone}</p>
+                            {selectedInvoice.customerIdNumber && (
+                              <p><span className="font-semibold">Aadhar/GST/PAN:</span> {selectedInvoice.customerIdNumber}</p>
+                            )}
                           </div>
                         </div>
 
@@ -551,6 +554,12 @@ const MyInvoices = () => {
                             <span className="font-semibold">Total Tax</span>
                             <span>{tax > 0 ? tax.toFixed(2) : '0.00'}</span>
                           </div>
+                          {selectedInvoice.discount > 0 && (
+                            <div className="flex justify-between p-2 border-b border-black text-green-700 font-semibold">
+                              <span>Discount</span>
+                              <span>-₹ {selectedInvoice.discount.toFixed(2)}</span>
+                            </div>
+                          )}
                           <div className="flex justify-between p-3 bg-slate-100 font-bold text-sm">
                             <span>Grand Total</span>
                             <span className="text-red-700">₹ {grandTotal.toFixed(2)}</span>
@@ -736,6 +745,9 @@ const MyInvoices = () => {
                     <p><span className="font-semibold">Name:</span> {invoiceForPdf.customerName}</p>
                     <p><span className="font-semibold">Address:</span> {invoiceForPdf.customerAddress || 'No Address Provided'}</p>
                     <p><span className="font-semibold">Phone:</span> {invoiceForPdf.customerPhone}</p>
+                    {invoiceForPdf.customerIdNumber && (
+                      <p><span className="font-semibold">Aadhar/GST/PAN:</span> {invoiceForPdf.customerIdNumber}</p>
+                    )}
                   </div>
                 </div>
 
@@ -871,6 +883,12 @@ const MyInvoices = () => {
                     <span className="font-semibold">Total Tax</span>
                     <span>{tax > 0 ? tax.toFixed(2) : '0.00'}</span>
                   </div>
+                  {invoiceForPdf.discount > 0 && (
+                    <div className="flex justify-between p-2 border-b border-black font-semibold" style={{ color: '#15803d' }}>
+                      <span>Discount</span>
+                      <span>-₹ {invoiceForPdf.discount.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between p-3 font-bold text-sm" style={{ backgroundColor: '#f1f5f9' }}>
                     <span>Grand Total</span>
                     <span style={{ color: '#b91c1c' }}>₹ {grandTotal.toFixed(2)}</span>

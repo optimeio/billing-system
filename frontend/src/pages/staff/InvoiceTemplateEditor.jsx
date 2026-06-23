@@ -88,7 +88,12 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
   const [customerName, setCustomerName] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [customerIdNumber, setCustomerIdNumber] = useState('');
   const [placeOfSupply, setPlaceOfSupply] = useState('');
+
+  // Discount
+  const [discountInput, setDiscountInput] = useState('');
+  const [discountType, setDiscountType] = useState('percentage'); // 'percentage' or 'amount'
 
   // Products (up to 10 rows visible on template)
   const [items, setItems] = useState([
@@ -156,6 +161,13 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
         }
         setQtyLabel(inv.qtyLabel || 'Qty');
         setApprovalPhoto(inv.approvalPhoto || '');
+        if (inv.discount) {
+          setDiscountInput(String(inv.discount));
+          setDiscountType('amount');
+        } else {
+          setDiscountInput('');
+          setDiscountType('percentage');
+        }
         if (inv.companyId) {
           const compName = typeof inv.companyId === 'object' ? inv.companyId.name : '';
           const compIdStr = typeof inv.companyId === 'object' ? inv.companyId._id : inv.companyId;
@@ -204,7 +216,13 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
   const totalTaxableAmount = items.reduce((sum, item) => sum + calculateItemTaxableValue(item), 0);
   const totalGSTAmount = items.reduce((sum, item) => sum + calculateItemGST(item), 0);
   const halfGST = totalGSTAmount / 2;
-  const grandTotal = totalTaxableAmount + totalGSTAmount;
+  
+  const discountValParsed = parseFloat(discountInput) || 0;
+  const discountAmount = discountType === 'percentage'
+    ? (totalTaxableAmount + totalGSTAmount) * discountValParsed / 100
+    : discountValParsed;
+
+  const grandTotal = Math.max(0, totalTaxableAmount + totalGSTAmount - discountAmount);
   const amountInWords = numberToWords(grandTotal);
 
   // ── Item Handlers ─────────────────────────────────────────────
@@ -261,6 +279,7 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
         customerName,
         customerPhone,
         customerAddress,
+        customerIdNumber,
         invoiceNumber: invoiceNumber ? invoiceNumber.trim() : undefined,
         invoiceDate: invoiceDate ? new Date(invoiceDate).toISOString() : undefined,
         type: documentType,
@@ -274,7 +293,7 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
         taxRate: Number(items[0]?.gstPercent) || 0,
         tax: totalGSTAmount,
         taxableValue: totalTaxableAmount,
-        discount: 0,
+        discount: discountAmount,
         companyId: dbCompanies.find(c => c.name === selectedCompany?.name)?._id || selectedCompany?._id,
         qtyLabel,
         approvalPhoto
@@ -478,6 +497,17 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
                 />
               </div>
             </div>
+            <div className="form-row full">
+              <div className="form-field">
+                <label>Aadhar Number / GST Number / PAN Number</label>
+                <input
+                  type="text"
+                  value={customerIdNumber}
+                  onChange={e => setCustomerIdNumber(e.target.value)}
+                  placeholder="e.g. XXXX-XXXX-XXXX or 22AAAAA0000A1Z5 or ABCDE1234F"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Product Items */}
@@ -614,6 +644,40 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
           </div>
 
 
+          {/* Discount Section */}
+          <div className="form-section">
+            <div className="form-section-title">Discount (Optional)</div>
+            <div className="form-row">
+              <div className="form-field" style={{ flex: '2' }}>
+                <label>Discount Value</label>
+                <input
+                  type="text"
+                  value={discountInput}
+                  onChange={e => {
+                    const val = e.target.value;
+                    if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                      setDiscountInput(val);
+                    }
+                  }}
+                  placeholder="e.g. 10 or 500"
+                />
+              </div>
+              <div className="form-field" style={{ flex: '1' }}>
+                <label>Discount Type</label>
+                <select
+                  value={discountType}
+                  onChange={e => setDiscountType(e.target.value)}
+                  className="p-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-slate-700 font-semibold"
+                  style={{ height: '42px', marginTop: '4px' }}
+                >
+                  <option value="percentage">Percentage (%)</option>
+                  <option value="amount">Flat Amount (₹)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+
           {/* Summary (read-only) */}
           <div className="form-section">
             <div className="form-section-title">Summary</div>
@@ -634,6 +698,12 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
                 <span>Total Tax:</span>
                 <span>₹{totalGSTAmount.toFixed(2)}</span>
               </div>
+              {discountAmount > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a', fontWeight: 'bold' }}>
+                  <span>Discount ({discountType === 'percentage' ? `${discountInput || 0}%` : '₹'}):</span>
+                  <span>-₹{discountAmount.toFixed(2)}</span>
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #e2e8f0', paddingTop: '6px', marginTop: '6px' }}>
                 <strong style={{ color: '#1e293b' }}>Grand Total:</strong>
                 <strong style={{ color: '#b91c1c', fontSize: '16px' }}>₹{grandTotal.toFixed(2)}</strong>
@@ -749,6 +819,9 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
                         <p><span className="font-semibold">Address:</span> {customerAddress}</p>
                         <p><span className="font-semibold">Phone:</span> {customerPhone}</p>
                         <p><span className="font-semibold">Place Of Supply:</span> {placeOfSupply}</p>
+                        {customerIdNumber && (
+                          <p><span className="font-semibold">Aadhar/GST/PAN:</span> {customerIdNumber}</p>
+                        )}
                       </div>
                     </div>
 
@@ -882,6 +955,12 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
                         <span className="font-semibold">Total Tax</span>
                         <span>{totalGSTAmount > 0 ? totalGSTAmount.toFixed(2) : ''}</span>
                       </div>
+                      {discountAmount > 0 && (
+                        <div className="flex justify-between p-2 border-b border-black text-green-700 font-semibold">
+                          <span>Discount</span>
+                          <span>-₹ {discountAmount.toFixed(2)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between p-3 bg-slate-100 font-bold text-lg">
                         <span>Grand Total</span>
                         <span className="text-red-700">{grandTotal > 0 ? `₹ ${grandTotal.toFixed(2)}` : ''}</span>
@@ -958,6 +1037,9 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
                     <p><span className="font-semibold">Address:</span> {customerAddress}</p>
                     <p><span className="font-semibold">Phone:</span> {customerPhone}</p>
                     <p><span className="font-semibold">Place Of Supply:</span> {placeOfSupply}</p>
+                    {customerIdNumber && (
+                      <p><span className="font-semibold">Aadhar/GST/PAN:</span> {customerIdNumber}</p>
+                    )}
                   </div>
                 </div>
 
@@ -1090,6 +1172,12 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
                     <span className="font-semibold">Total Tax</span>
                     <span>{totalGSTAmount > 0 ? totalGSTAmount.toFixed(2) : ''}</span>
                   </div>
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between p-2 border-b border-black font-semibold" style={{ color: '#15803d' }}>
+                      <span>Discount</span>
+                      <span>-₹ {discountAmount.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between p-3 font-bold text-lg" style={{ backgroundColor: '#f1f5f9' }}>
                     <span>Grand Total</span>
                     <span style={{ color: '#b91c1c' }}>{grandTotal > 0 ? `₹ ${grandTotal.toFixed(2)}` : ''}</span>

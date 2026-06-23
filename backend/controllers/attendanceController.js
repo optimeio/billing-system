@@ -30,64 +30,44 @@ exports.checkIn = async (req, res) => {
 
         if (!record) {
             // First check-in of the day
-            if (isPast10AM) {
-                // If it is past 10:00 AM, Session 1 is missed. Users must check in for Session 2 directly.
-                record = await Attendance.create({
-                    userId: req.user._id,
-                    date: todayStr,
-                    status: "present",
-                    checkIn2: now,
-                    photoIn2: photoPath,
-                    notes: "Missed Session 1 check-in (arrived after 10:00 AM)."
-                });
-                return res.status(201).json({
-                    message: "Morning check-in deadline (10:00 AM) passed. Session 1 marked as missed. Checked in for Session 2 successfully!",
-                    record
-                });
-            } else {
-                // Before 10:00 AM, standard Session 1 check-in
-                record = await Attendance.create({
-                    userId: req.user._id,
-                    date: todayStr,
-                    status: "present",
-                    checkIn: now,
-                    photo: photoPath
-                });
-                return res.status(201).json({
-                    message: "Checked in for Session 1 successfully! Have a great day at work.",
-                    record
-                });
-            }
+            record = await Attendance.create({
+                userId: req.user._id,
+                date: todayStr,
+                status: "present",
+                checkIn: now,
+                photo: photoPath,
+                notes: isPast10AM ? "Late check-in (arrived after 10:00 AM)." : ""
+            });
+            return res.status(201).json({
+                message: "Checked in successfully! Have a great day at work.",
+                record
+            });
         } else {
             // A record exists for today
-            // Case A: Session 1 is checked in but not checked out
+            if (record.status === "leave") {
+                return res.status(400).json({ message: "You are marked as on leave today." });
+            }
+
             if (record.checkIn && !record.checkOut) {
-                return res.status(400).json({ message: "You must check out of Session 1 before checking in for Session 2." });
+                return res.status(400).json({ message: "You are already checked in today." });
             }
             
-            // Case B: Session 1 is checked out, but Session 2 is not checked in
-            if (record.checkOut && !record.checkIn2) {
-                record.checkIn2 = now;
-                record.photoIn2 = photoPath;
-                record.status = "present"; // ensure status is present
-                await record.save();
-                return res.status(200).json({
-                    message: "Checked in for Session 2 successfully!",
-                    record
-                });
+            if (record.checkIn && record.checkOut) {
+                return res.status(400).json({ message: "You have already completed your attendance for today." });
             }
 
-            // Case C: Session 2 is already checked in (regardless of checkout)
-            if (record.checkIn2) {
-                return res.status(400).json({ message: "You have already checked in for Session 2 today." });
+            // If it was marked as absent manually, but they check in now:
+            record.checkIn = now;
+            record.photo = photoPath;
+            record.status = "present";
+            if (isPast10AM) {
+                record.notes = "Late check-in (arrived after 10:00 AM).";
             }
-
-            // Case D: Session 1 was missed (direct check-in to Session 2 was already done)
-            if (!record.checkIn && record.checkIn2) {
-                return res.status(400).json({ message: "You have already checked in for Session 2 today." });
-            }
-
-            return res.status(400).json({ message: "Invalid check-in state." });
+            await record.save();
+            return res.status(200).json({
+                message: "Checked in successfully!",
+                record
+            });
         }
     } catch (error) {
         console.error("Check-in error:", error);
@@ -105,7 +85,7 @@ exports.checkOut = async (req, res) => {
 
         // Fetch today's record
         const record = await Attendance.findOne({ userId: req.user._id, date: todayStr });
-        if (!record || record.status !== "present") {
+        if (!record || record.status !== "present" || !record.checkIn) {
             return res.status(400).json({ message: "You must check in first before checking out." });
         }
 
@@ -116,51 +96,24 @@ exports.checkOut = async (req, res) => {
 
         const photoPath = `/uploads/${req.file.filename}`;
 
-        // Case A: Session 1 checked in, but not checked out
         if (record.checkIn && !record.checkOut) {
             record.checkOut = now;
             record.photoOut1 = photoPath;
 
-            // Calculate hours worked in Session 1
+            // Calculate hours worked
             const diffMs = now.getTime() - record.checkIn.getTime();
             const diffHours = diffMs / (1000 * 60 * 60);
             record.workHours = Math.round(diffHours * 100) / 100;
 
             await record.save();
             return res.json({
-                message: "Checked out of Session 1 successfully!",
+                message: "Checked out successfully! Thank you for your work.",
                 record
             });
         }
 
-        // Case B: Session 2 checked in, but not checked out
-        if (record.checkIn2 && !record.checkOut2) {
-            record.checkOut2 = now;
-            record.photoOut2 = photoPath;
-
-            // Calculate hours worked in Session 2
-            const diffMs = now.getTime() - record.checkIn2.getTime();
-            const session2Hours = diffMs / (1000 * 60 * 60);
-            
-            // Total work hours is Session 1 hours + Session 2 hours
-            const previousHours = record.workHours || 0;
-            record.workHours = Math.round((previousHours + session2Hours) * 100) / 100;
-
-            await record.save();
-            return res.json({
-                message: "Checked out of Session 2 successfully! Thank you for your work.",
-                record
-            });
-        }
-
-        // Case C: Checked out of Session 1, but hasn't checked in to Session 2
-        if (record.checkOut && !record.checkIn2) {
-            return res.status(400).json({ message: "You must check in for Session 2 before you can check out." });
-        }
-
-        // Case D: Already checked out of Session 2
-        if (record.checkOut2) {
-            return res.status(400).json({ message: "You have already checked out of all sessions for today." });
+        if (record.checkOut) {
+            return res.status(400).json({ message: "You have already checked out today." });
         }
 
         return res.status(400).json({ message: "Invalid check-out state." });
@@ -259,10 +212,10 @@ exports.getDailyAttendance = async (req, res) => {
                 checkOut: rec ? rec.checkOut : null,
                 photo: rec ? rec.photo : null,
                 photoOut1: rec ? rec.photoOut1 : null,
-                checkIn2: rec ? rec.checkIn2 : null,
-                checkOut2: rec ? rec.checkOut2 : null,
-                photoIn2: rec ? rec.photoIn2 : null,
-                photoOut2: rec ? rec.photoOut2 : null,
+                checkIn2: null,
+                checkOut2: null,
+                photoIn2: null,
+                photoOut2: null,
                 workHours: rec ? rec.workHours : 0,
                 notes: rec ? rec.notes : (isOnLeave ? `On Leave: ${leaveMap.get(userIdStr)}` : ""),
                 recordId: rec ? rec._id : null
