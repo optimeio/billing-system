@@ -4,16 +4,16 @@
 
 
 async function testLiveLogin() {
-  console.log('Testing live API login endpoint...');
+  console.log('Testing local API login endpoint...');
   try {
-    const res = await fetch('https://billing-system-udie.onrender.com/api/auth/login', {
+    const res = await fetch('http://localhost:5002/api/auth/login', {
       method: 'POST',
       headers: {
-        'Origin': 'https://billing.thesmgroups.com',
+        'Origin': 'http://localhost:5173',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        loginId: 'nonexistent@test.com',
+        loginId: 'shreenithya111@gmail.com',
         password: 'wrongpassword'
       })
     });

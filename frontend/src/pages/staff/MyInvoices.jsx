@@ -8,6 +8,7 @@ import api from '../../services/api';
 import toast from 'react-hot-toast';
 import DynamicInvoiceHeader from '../../components/DynamicInvoiceHeader';
 import { companies as staticCompanies } from '../../data/companyConfig';
+import { useCompany } from '../../store/CompanyContext';
 
 // ── Number to Words (Indian Rupees) ─────────────────────────────
 const numberToWords = (num) => {
@@ -39,8 +40,21 @@ const formatDate = (dateStr) => {
 };
 
 const MyInvoices = () => {
+  const { selectedCompany } = useCompany();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Filter invoices based on selectedCompany from the layout header
+  const filteredInvoices = invoices.filter(inv => {
+    if (!selectedCompany) return true;
+    
+    const selectedCompId = selectedCompany._id || selectedCompany.id;
+    const invCompId = typeof inv.companyId === 'object' ? (inv.companyId?._id || inv.companyId?.id) : inv.companyId;
+    const invCompName = typeof inv.companyId === 'object' ? inv.companyId?.name : '';
+    
+    return invCompId === selectedCompId || 
+           (invCompName && selectedCompany.name && invCompName.toLowerCase() === selectedCompany.name.toLowerCase());
+  });
 
   // Modal Preview States
   const [selectedInvoice, setSelectedInvoice] = useState(null);
@@ -266,7 +280,7 @@ const MyInvoices = () => {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr><td colSpan="5" className="p-12 text-center"><Loader2 size={32} className="animate-spin text-primary inline" /></td></tr>
-              ) : invoices.map((inv) => (
+              ) : filteredInvoices.map((inv) => (
                 <tr key={inv._id} className="hover:bg-slate-50 transition-colors">
                   <td className="p-4">
                     <p className="font-semibold">{inv.invoiceNumber}</p>
@@ -321,8 +335,8 @@ const MyInvoices = () => {
                   </td>
                 </tr>
               ))}
-              {!loading && invoices.length === 0 && (
-                <tr><td colSpan="5" className="p-8 text-center text-slate-500">You haven't created any invoices yet.</td></tr>
+              {!loading && filteredInvoices.length === 0 && (
+                <tr><td colSpan="5" className="p-8 text-center text-slate-500">No invoices found for this company.</td></tr>
               )}
             </tbody>
           </table>

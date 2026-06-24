@@ -28,7 +28,11 @@ export const CompanyProvider = ({ children }) => {
             if (response.data && response.data.length > 0) {
                 setCompanies(response.data);
                 if (selectedCompany) {
-                    const stillExists = response.data.find(c => c._id === selectedCompany._id);
+                    const stillExists = response.data.find(c => 
+                        (c._id && selectedCompany._id && c._id === selectedCompany._id) || 
+                        (c.id && selectedCompany.id && c.id === selectedCompany.id) ||
+                        c.name === selectedCompany.name
+                    );
                     if (stillExists) setSelectedCompany(stillExists);
                     else setSelectedCompany(response.data[0]);
                 } else {
@@ -56,7 +60,7 @@ export const CompanyProvider = ({ children }) => {
     }, []);
 
     const changeCompany = (companyId) => {
-        const comp = companies.find(c => c._id === companyId || c.name === companyId);
+        const comp = companies.find(c => c._id === companyId || c.id === companyId || c.name === companyId);
         if (comp) {
             setSelectedCompany(comp);
         }

@@ -8,6 +8,7 @@ import api from '../../services/api';
 import toast from 'react-hot-toast';
 import DynamicInvoiceHeader from '../../components/DynamicInvoiceHeader';
 import { companies as staticCompanies } from '../../data/companyConfig';
+import { useCompany } from '../../store/CompanyContext';
 
 // ── Number to Words (Indian Rupees) ─────────────────────────────
 const numberToWords = (num) => {
@@ -39,8 +40,21 @@ const formatDate = (dateStr) => {
 };
 
 const MyQuotations = () => {
+  const { selectedCompany } = useCompany();
   const [quotations, setQuotations] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Filter quotations based on selectedCompany from the layout header
+  const filteredQuotations = quotations.filter(q => {
+    if (!selectedCompany) return true;
+    
+    const selectedCompId = selectedCompany._id || selectedCompany.id;
+    const qCompId = typeof q.companyId === 'object' ? (q.companyId?._id || q.companyId?.id) : q.companyId;
+    const qCompName = typeof q.companyId === 'object' ? q.companyId?.name : '';
+    
+    return qCompId === selectedCompId || 
+           (qCompName && selectedCompany.name && qCompName.toLowerCase() === selectedCompany.name.toLowerCase());
+  });
 
   // Modal Preview States
   const [selectedQuotation, setSelectedQuotation] = useState(null);
@@ -221,7 +235,7 @@ const MyQuotations = () => {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr><td colSpan="5" className="p-12 text-center"><Loader2 size={32} className="animate-spin text-primary inline" /></td></tr>
-              ) : quotations.map((q) => (
+              ) : filteredQuotations.map((q) => (
                 <tr key={q._id} className="hover:bg-slate-50 transition-colors">
                   <td className="p-4">
                     <p className="font-semibold">{q.invoiceNumber}</p>
@@ -276,8 +290,8 @@ const MyQuotations = () => {
                   </td>
                 </tr>
               ))}
-              {!loading && quotations.length === 0 && (
-                <tr><td colSpan="5" className="p-8 text-center text-slate-500">You haven't created any quotations yet.</td></tr>
+              {!loading && filteredQuotations.length === 0 && (
+                <tr><td colSpan="5" className="p-8 text-center text-slate-500">No quotations found for this company.</td></tr>
               )}
             </tbody>
           </table>

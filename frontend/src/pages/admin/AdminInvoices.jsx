@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { socket } from '../../services/socket';
 import DynamicInvoiceHeader from '../../components/DynamicInvoiceHeader';
 import { companies as staticCompanies } from '../../data/companyConfig';
+import { useCompany } from '../../store/CompanyContext';
 
 // ── Number to Words (Indian Rupees) ─────────────────────────────
 const numberToWords = (num) => {
@@ -40,6 +41,7 @@ const formatDate = (dateStr) => {
 };
 
 const AdminInvoices = () => {
+  const { selectedCompany } = useCompany();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -240,7 +242,18 @@ const AdminInvoices = () => {
     const matchesSearch = inv.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           inv.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesEmployee = selectedEmployeeId ? inv.createdBy?._id === selectedEmployeeId : true;
-    return matchesSearch && matchesEmployee;
+    
+    let matchesCompany = true;
+    if (selectedCompany) {
+      const selectedCompId = selectedCompany._id || selectedCompany.id;
+      const invCompId = typeof inv.companyId === 'object' ? (inv.companyId?._id || inv.companyId?.id) : inv.companyId;
+      const invCompName = typeof inv.companyId === 'object' ? inv.companyId?.name : '';
+      
+      matchesCompany = invCompId === selectedCompId || 
+                       (invCompName && selectedCompany.name && invCompName.toLowerCase() === selectedCompany.name.toLowerCase());
+    }
+    
+    return matchesSearch && matchesEmployee && matchesCompany;
   });
 
   return (

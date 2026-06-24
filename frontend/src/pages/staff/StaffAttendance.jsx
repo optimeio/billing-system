@@ -1,9 +1,70 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Clock, Camera, CheckCircle2, LogOut, History, Eye, Calendar, AlertTriangle } from "lucide-react";
+import { Clock, Camera, CheckCircle2, LogOut, History, Eye, Calendar, AlertTriangle, Image as ImageIcon } from "lucide-react";
 import api from "../../services/api";
 import toast from "react-hot-toast";
 import Modal from "../../components/common/Modal";
+
+// Client-side image compression helper
+const compressImage = (file, maxWidth = 1200, maxHeight = 1200, quality = 0.8) => {
+  return new Promise((resolve) => {
+    if (!file.type.startsWith("image/")) {
+      resolve(file);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const originalName = file.name;
+              const lastDotIndex = originalName.lastIndexOf(".");
+              const baseName = lastDotIndex !== -1 ? originalName.substring(0, lastDotIndex) : originalName;
+              
+              const compressedFile = new File([blob], `${baseName}-compressed.jpg`, {
+                type: "image/jpeg",
+                lastModified: Date.now()
+              });
+              resolve(compressedFile);
+            } else {
+              resolve(file);
+            }
+          },
+          "image/jpeg",
+          quality
+        );
+      };
+      img.onerror = () => resolve(file);
+    };
+    reader.onerror = () => resolve(file);
+  });
+};
 
 const StaffAttendance = () => {
   const [time, setTime] = useState(new Date());
@@ -15,6 +76,8 @@ const StaffAttendance = () => {
   // Photo uploads state
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
+  const [uploadMethod, setUploadMethod] = useState("camera"); // 'camera' or 'gallery'
+  const [compressing, setCompressing] = useState(false);
 
   // Photo viewer modal
   const [isPhotoOpen, setIsPhotoOpen] = useState(false);
@@ -50,11 +113,21 @@ const StaffAttendance = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      setSelectedFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
+      setCompressing(true);
+      try {
+        const compressedFile = await compressImage(file);
+        setSelectedFile(compressedFile);
+        setPreviewUrl(URL.createObjectURL(compressedFile));
+      } catch (err) {
+        console.error("Compression error:", err);
+        setSelectedFile(file);
+        setPreviewUrl(URL.createObjectURL(file));
+      } finally {
+        setCompressing(false);
+      }
     }
   };
 
@@ -205,14 +278,51 @@ const StaffAttendance = () => {
                     )}
                   </div>
 
-                  <div className="text-left space-y-1.5">
+                  <div className="text-left space-y-2">
                     <span className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">Selfie Upload</span>
                     
+                    {/* Method toggle buttons */}
+                    <div className="flex bg-slate-100 p-1 rounded-xl mb-3 text-xs font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUploadMethod("camera");
+                          setSelectedFile(null);
+                          setPreviewUrl("");
+                        }}
+                        className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+                          uploadMethod === "camera"
+                            ? "bg-white text-slate-800 shadow-sm"
+                            : "text-slate-500 hover:text-slate-700"
+                        }`}
+                      >
+                        <Camera size={14} />
+                        Take Selfie
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUploadMethod("gallery");
+                          setSelectedFile(null);
+                          setPreviewUrl("");
+                        }}
+                        className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+                          uploadMethod === "gallery"
+                            ? "bg-white text-slate-800 shadow-sm"
+                            : "text-slate-500 hover:text-slate-700"
+                        }`}
+                      >
+                        <ImageIcon size={14} />
+                        Upload Image
+                      </button>
+                    </div>
+
                     <div className="relative border-2 border-dashed border-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center gap-3 bg-slate-50/50 hover:bg-slate-50 transition-colors group cursor-pointer">
                       <input
+                        key={uploadMethod}
                         type="file"
                         accept="image/*"
-                        capture="user" // Force front camera on mobile
+                        capture={uploadMethod === "camera" ? "user" : undefined}
                         required
                         onChange={handleFileChange}
                         className="absolute inset-0 opacity-0 cursor-pointer z-10"
@@ -227,17 +337,21 @@ const StaffAttendance = () => {
                             className="w-full h-full object-cover"
                           />
                           <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity z-20">
-                            <Camera className="text-white" size={24} />
+                            {uploadMethod === "camera" ? <Camera className="text-white" size={24} /> : <ImageIcon className="text-white" size={24} />}
                           </div>
                         </div>
                       ) : (
                         <>
                           <div className="w-12 h-12 bg-white text-primary rounded-full flex items-center justify-center shadow border border-slate-100 group-hover:scale-105 transition-transform">
-                            <Camera size={20} />
+                            {uploadMethod === "camera" ? <Camera size={20} /> : <ImageIcon size={20} />}
                           </div>
                           <div className="text-center space-y-1">
-                            <span className="block text-xs font-bold text-slate-700">Take Session Selfie</span>
-                            <span className="block text-[10px] text-slate-400 font-medium uppercase tracking-wide">Supports camera or file upload</span>
+                            <span className="block text-xs font-bold text-slate-700">
+                              {uploadMethod === "camera" ? "Take Session Selfie" : "Select Image from Gallery"}
+                            </span>
+                            <span className="block text-[10px] text-slate-400 font-medium uppercase tracking-wide">
+                              {uploadMethod === "camera" ? "Opens device front camera" : "Choose file or photo"}
+                            </span>
                           </div>
                         </>
                       )}
@@ -246,13 +360,18 @@ const StaffAttendance = () => {
 
                   <button
                     type="submit"
-                    disabled={submitting || !selectedFile}
+                    disabled={submitting || compressing || !selectedFile}
                     className="w-full bg-primary text-white py-3.5 rounded-xl font-bold shadow-lg shadow-primary/30 hover:bg-blue-600 transition-all disabled:opacity-50 flex justify-center items-center gap-2"
                   >
                     {submitting ? (
                       <>
                         <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                         Recording...
+                      </>
+                    ) : compressing ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Compressing...
                       </>
                     ) : (
                       activeState.label
