@@ -147,7 +147,9 @@ const QuotationManagement = () => {
           scale: 2,
           useCORS: true,
           logging: false,
-          backgroundColor: '#ffffff'
+          backgroundColor: '#ffffff',
+          width: 794,
+          windowWidth: 794
         });
         const imgData = canvas.toDataURL('image/jpeg', 0.95);
         const pdf = new jsPDF({
@@ -734,11 +736,11 @@ const QuotationManagement = () => {
         const qtyLabel = invoiceForPdf.qtyLabel || 'Qty';
 
         return (
-          <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+          <div style={{ position: 'fixed', left: '-9999px', top: '-9999px', width: '794px', overflow: 'hidden' }}>
             <div
               ref={pdfTemplateRef}
               className="w-[794px] min-h-[1123px] bg-white border border-black p-4 text-sm flex flex-col relative"
-              style={{ transform: 'none', margin: '0', fontFamily: 'Segoe UI, Arial, sans-serif' }}
+              style={{ width: '794px', minHeight: '1123px', boxSizing: 'border-box', transform: 'none', margin: '0', fontFamily: 'Segoe UI, Arial, sans-serif' }}
             >
               <DynamicInvoiceHeader company={company} />
 
