@@ -583,11 +583,11 @@ const QuotationManagement = () => {
                               <td className="border-l border-r border-black p-2">{item.name}</td>
                               <td className="border-l border-r border-black p-2 text-center">{selectedQuotation.hsnCode || '99'}</td>
                               <td className="border-l border-r border-black p-2 text-center">{qty}</td>
-                              <td className="border-l border-r border-black p-2 text-center">{rate}</td>
-                              <td className="border-l border-r border-black p-2 text-center">{taxable.toFixed(2)}</td>
-                              <td className="border-l border-r border-black p-2 text-center">{gstRate}</td>
+                              <td className="border-l border-r border-black p-2 text-center whitespace-nowrap">₹ {Number(rate).toFixed(2)}</td>
+                              <td className="border-l border-r border-black p-2 text-center whitespace-nowrap">₹ {taxable.toFixed(2)}</td>
+                              <td className="border-l border-r border-black p-2 text-center">{Number(gstRate)}%</td>
                               <td className="border-l border-r border-black p-2 text-center">{gstAmt.toFixed(2)}</td>
-                              <td className="border-l border-r border-black p-2 text-center font-medium">{total.toFixed(2)}</td>
+                              <td className="border-l border-r border-black p-2 text-center font-medium whitespace-nowrap">₹ {total.toFixed(2)}</td>
                             </tr>
                           );
                         })}
@@ -839,11 +839,11 @@ const QuotationManagement = () => {
                         <td className="border-l border-r border-black p-2">{item.name}</td>
                         <td className="border-l border-r border-black p-2 text-center">{invoiceForPdf.hsnCode || '99'}</td>
                         <td className="border-l border-r border-black p-2 text-center">{qty}</td>
-                        <td className="border-l border-r border-black p-2 text-center">{rate}</td>
-                        <td className="border-l border-r border-black p-2 text-center">{taxable.toFixed(2)}</td>
-                        <td className="border-l border-r border-black p-2 text-center">{gstRate}</td>
+                        <td className="border-l border-r border-black p-2 text-center whitespace-nowrap">₹ {Number(rate).toFixed(2)}</td>
+                        <td className="border-l border-r border-black p-2 text-center whitespace-nowrap">₹ {taxable.toFixed(2)}</td>
+                        <td className="border-l border-r border-black p-2 text-center">{Number(gstRate)}%</td>
                         <td className="border-l border-r border-black p-2 text-center">{gstAmt.toFixed(2)}</td>
-                        <td className="border-l border-r border-black p-2 text-center font-medium">{total.toFixed(2)}</td>
+                        <td className="border-l border-r border-black p-2 text-center font-medium whitespace-nowrap">₹ {total.toFixed(2)}</td>
                       </tr>
                     );
                   })}

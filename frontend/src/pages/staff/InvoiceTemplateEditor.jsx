@@ -886,11 +886,11 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
                           <td className="border-l border-r border-black p-2">{item.productName}</td>
                           <td className="border-l border-r border-black p-2 text-center">{item.hsnCode}</td>
                           <td className="border-l border-r border-black p-2 text-center">{item.qty}</td>
-                          <td className="border-l border-r border-black p-2 text-center">{item.rate}</td>
-                          <td className="border-l border-r border-black p-2 text-center">{calculateItemTaxableValue(item).toFixed(2)}</td>
-                          <td className="border-l border-r border-black p-2 text-center">{item.gstPercent}</td>
+                          <td className="border-l border-r border-black p-2 text-center whitespace-nowrap">₹ {Number(item.rate || 0).toFixed(2)}</td>
+                          <td className="border-l border-r border-black p-2 text-center whitespace-nowrap">₹ {calculateItemTaxableValue(item).toFixed(2)}</td>
+                          <td className="border-l border-r border-black p-2 text-center">{Number(item.gstPercent || 0)}%</td>
                           <td className="border-l border-r border-black p-2 text-center">{calculateItemGST(item).toFixed(2)}</td>
-                          <td className="border-l border-r border-black p-2 text-center font-medium">{calculateItemTotal(item).toFixed(2)}</td>
+                          <td className="border-l border-r border-black p-2 text-center font-medium whitespace-nowrap">₹ {calculateItemTotal(item).toFixed(2)}</td>
                         </tr>
                       ))}
                       {Array.from({ length: Math.max(0, 10 - items.length) }).map((_, idx) => (
@@ -1103,11 +1103,11 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
                       <td className="border-l border-r border-black p-2">{item.productName}</td>
                       <td className="border-l border-r border-black p-2 text-center">{item.hsnCode}</td>
                       <td className="border-l border-r border-black p-2 text-center">{item.qty}</td>
-                      <td className="border-l border-r border-black p-2 text-center">{item.rate}</td>
-                      <td className="border-l border-r border-black p-2 text-center">{calculateItemTaxableValue(item).toFixed(2)}</td>
-                      <td className="border-l border-r border-black p-2 text-center">{item.gstPercent}</td>
+                      <td className="border-l border-r border-black p-2 text-center whitespace-nowrap">₹ {Number(item.rate || 0).toFixed(2)}</td>
+                      <td className="border-l border-r border-black p-2 text-center whitespace-nowrap">₹ {calculateItemTaxableValue(item).toFixed(2)}</td>
+                      <td className="border-l border-r border-black p-2 text-center">{Number(item.gstPercent || 0)}%</td>
                       <td className="border-l border-r border-black p-2 text-center">{calculateItemGST(item).toFixed(2)}</td>
-                      <td className="border-l border-r border-black p-2 text-center font-medium">{calculateItemTotal(item).toFixed(2)}</td>
+                      <td className="border-l border-r border-black p-2 text-center font-medium whitespace-nowrap">₹ {calculateItemTotal(item).toFixed(2)}</td>
                     </tr>
                   ))}
                   {Array.from({ length: Math.max(0, 10 - items.length) }).map((_, idx) => (
