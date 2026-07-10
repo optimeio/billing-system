@@ -168,9 +168,9 @@ const DynamicInvoiceHeader = ({ company }) => {
             company.name === 'VENTHULIR'
               ? { transform: 'translateY(15%) scale(1.5)', mixBlendMode: 'multiply' }
               : company.name === 'THE SRI TECH ENERGY'
-                ? { transform: 'scale(2) translateX(-15%)', mixBlendMode: 'multiply' }
+                ? { mixBlendMode: 'multiply' }
               : company.name === 'THE SRI TECH ENGINEERING'
-                ? { mixBlendMode: 'multiply', transform: 'scale(3.2) translateY(5%)' }
+                ? { mixBlendMode: 'multiply' }
               : company.name === 'WINKBENCH'
                 ? { mixBlendMode: 'multiply', transform: 'scale(1.9) translateX(-5%)' }
               : company.name === 'OPTIME'
