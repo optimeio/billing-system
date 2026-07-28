@@ -49,7 +49,7 @@ init(server);
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   'https://billing.thesmgroups.com',
-  'https://billing-system-udie.onrender.com',
+  'https://billing-system-wgas.onrender.com',
   'http://localhost:5173',
   'http://localhost:3000',
 ].filter(Boolean);
