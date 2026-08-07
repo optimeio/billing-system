@@ -60,6 +60,10 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const [selectedCompanyId, setSelectedCompanyId] = useState('smgroups');
+  const [signatureError, setSignatureError] = useState(false);
+  useEffect(() => {
+    setSignatureError(false);
+  }, [selectedCompanyId]);
   const selectedCompany = staticCompanies[selectedCompanyId];
   const companiesList = Object.values(staticCompanies);
 
@@ -90,6 +94,26 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerIdNumber, setCustomerIdNumber] = useState('');
   const [placeOfSupply, setPlaceOfSupply] = useState('');
+  const [companyPhone, setCompanyPhone] = useState(selectedCompany?.phone || '');
+  const [bankDetails, setBankDetails] = useState({
+    accountName: selectedCompany?.bankDetails?.accountName || '',
+    bankName: selectedCompany?.bankDetails?.bankName || '',
+    accountNumber: selectedCompany?.bankDetails?.accountNumber || '',
+    ifscCode: selectedCompany?.bankDetails?.ifscCode || ''
+  });
+
+  // Sync state when selected company changes (if not in edit mode or loading defaults)
+  useEffect(() => {
+    if (!isEditMode && selectedCompany) {
+      setCompanyPhone(selectedCompany.phone || '');
+      setBankDetails({
+        accountName: selectedCompany.bankDetails?.accountName || '',
+        bankName: selectedCompany.bankDetails?.bankName || '',
+        accountNumber: selectedCompany.bankDetails?.accountNumber || '',
+        ifscCode: selectedCompany.bankDetails?.ifscCode || ''
+      });
+    }
+  }, [selectedCompany, isEditMode]);
 
   // Discount
   const [discountInput, setDiscountInput] = useState('');
@@ -159,6 +183,10 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
         if (inv.createdAt) {
           setCreatedAtTime(new Date(inv.createdAt));
         }
+        if (inv.companyPhone) setCompanyPhone(inv.companyPhone);
+        if (inv.bankDetails) setBankDetails(inv.bankDetails);
+        if (inv.challanNumber) setChallanNumber(inv.challanNumber);
+        if (inv.challanDate) setChallanDate(inv.challanDate);
         setQtyLabel(inv.qtyLabel || 'Qty');
         setApprovalPhoto(inv.approvalPhoto || '');
         if (inv.discount) {
@@ -295,6 +323,10 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
         taxableValue: totalTaxableAmount,
         discount: discountAmount,
         companyId: dbCompanies.find(c => c.name === selectedCompany?.name)?._id || selectedCompany?._id,
+        companyPhone,
+        bankDetails,
+        challanNumber,
+        challanDate,
         qtyLabel,
         approvalPhoto
       };
@@ -449,6 +481,15 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
                   value={qtyLabel}
                   onChange={e => setQtyLabel(e.target.value)}
                   placeholder="Qty"
+                />
+              </div>
+              <div className="form-field">
+                <label>Company Contact Number</label>
+                <input
+                  type="text"
+                  value={companyPhone}
+                  onChange={e => setCompanyPhone(e.target.value)}
+                  placeholder="e.g. 9488316728"
                 />
               </div>
             </div>
@@ -606,9 +647,8 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
                 <label>Account Name</label>
                 <input
                   type="text"
-                  readOnly
-                  value={selectedCompany?.bankDetails?.accountName || ''}
-                  className="bg-gray-50 text-gray-500"
+                  value={bankDetails.accountName}
+                  onChange={(e) => setBankDetails({...bankDetails, accountName: e.target.value})}
                 />
               </div>
             </div>
@@ -617,9 +657,8 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
                 <label>Bank Name</label>
                 <input
                   type="text"
-                  readOnly
-                  value={selectedCompany?.bankDetails?.bankName || ''}
-                  className="bg-gray-50 text-gray-500"
+                  value={bankDetails.bankName}
+                  onChange={(e) => setBankDetails({...bankDetails, bankName: e.target.value})}
                 />
               </div>
             </div>
@@ -628,18 +667,16 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
                 <label>Account Number</label>
                 <input
                   type="text"
-                  readOnly
-                  value={selectedCompany?.bankDetails?.accountNumber || ''}
-                  className="bg-gray-50 text-gray-500"
+                  value={bankDetails.accountNumber}
+                  onChange={(e) => setBankDetails({...bankDetails, accountNumber: e.target.value})}
                 />
               </div>
               <div className="form-field">
                 <label>IFSC Code</label>
                 <input
                   type="text"
-                  readOnly
-                  value={selectedCompany?.bankDetails?.ifscCode || ''}
-                  className="bg-gray-50 text-gray-500"
+                  value={bankDetails.ifscCode}
+                  onChange={(e) => setBankDetails({...bankDetails, ifscCode: e.target.value})}
                 />
               </div>
             </div>
@@ -787,7 +824,7 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
                     boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
                   }}
                 >
-                  <DynamicInvoiceHeader company={selectedCompany} />
+                  <DynamicInvoiceHeader company={selectedCompany} companyPhone={companyPhone} />
 
                   <div 
                     className="border border-black text-center py-2 mb-4 text-white"
@@ -922,22 +959,22 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
                             <tr>
                               <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Account Name</td>
                               <td className="pr-2 py-0.5 align-top">:</td>
-                              <td className="py-0.5 align-top">THE SM GROUPS</td>
+                              <td className="py-0.5 align-top">{bankDetails.accountName}</td>
                             </tr>
                             <tr>
                               <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Bank Name</td>
                               <td className="pr-2 py-0.5 align-top">:</td>
-                              <td className="py-0.5 align-top">CITY UNION BANK</td>
+                              <td className="py-0.5 align-top">{bankDetails.bankName}</td>
                             </tr>
                             <tr>
                               <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Account Number</td>
                               <td className="pr-2 py-0.5 align-top">:</td>
-                              <td className="py-0.5 align-top">510909010317651</td>
+                              <td className="py-0.5 align-top">{bankDetails.accountNumber}</td>
                             </tr>
                             <tr>
                               <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">IFSC Code</td>
                               <td className="pr-2 py-0.5 align-top">:</td>
-                              <td className="py-0.5 align-top">CIUB0000188</td>
+                              <td className="py-0.5 align-top">{bankDetails.ifscCode}</td>
                             </tr>
                           </tbody>
                         </table>
@@ -975,6 +1012,22 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
                   <div className="flex justify-between items-end mt-8 pt-4">
                     <div className="font-bold border-t-2 border-black pt-2 w-48 text-center">Customer Signature</div>
                     <div className="font-bold border-t-2 border-black pt-2 w-48 text-center relative flex flex-col items-center">
+                      {selectedCompany?.signature && !signatureError ? (
+                        <img 
+                          src={import.meta.env.BASE_URL + selectedCompany.signature.replace(/^\//, '')} 
+                          alt="Signature" 
+                          className="h-16 object-contain absolute bottom-full mb-1" 
+                          crossOrigin="anonymous"
+                          onError={() => setSignatureError(true)}
+                        />
+                      ) : (
+                        <div 
+                          className="h-16 w-full absolute bottom-full mb-1 flex items-end justify-center pb-1 text-center"
+                          style={{ fontFamily: '"Brush Script MT", "Caveat", cursive', fontSize: '26px', color: '#1e3a8a', lineHeight: '1.1', overflow: 'hidden' }}
+                        >
+                          P. Ganga
+                        </div>
+                      )}
                       Authorized Signature
                     </div>
                   </div>
@@ -1005,7 +1058,7 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
         >
           {selectedCompany && (
             <>
-              <DynamicInvoiceHeader company={selectedCompany} />
+              <DynamicInvoiceHeader company={selectedCompany} companyPhone={companyPhone} />
 
               <div 
                 className="border border-black text-center py-2 mb-4 text-white"
@@ -1192,6 +1245,22 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
               <div className="flex justify-between items-end mt-8 pt-4">
                 <div className="font-bold border-t-2 border-black pt-2 w-48 text-center">Customer Signature</div>
                 <div className="font-bold border-t-2 border-black pt-2 w-48 text-center relative flex flex-col items-center">
+                  {selectedCompany?.signature && !signatureError ? (
+                    <img 
+                      src={import.meta.env.BASE_URL + selectedCompany.signature.replace(/^\//, '')} 
+                      alt="Signature" 
+                      className="h-16 object-contain absolute bottom-full mb-1" 
+                      crossOrigin="anonymous"
+                      onError={() => setSignatureError(true)}
+                    />
+                  ) : (
+                    <div 
+                      className="h-16 w-full absolute bottom-full mb-1 flex items-end justify-center pb-1 text-center"
+                      style={{ fontFamily: '"Brush Script MT", "Caveat", cursive', fontSize: '26px', color: '#1e3a8a', lineHeight: '1.1', overflow: 'hidden' }}
+                    >
+                      P. Ganga
+                    </div>
+                  )}
                   Authorized Signature
                 </div>
               </div>

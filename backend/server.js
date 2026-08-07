@@ -175,15 +175,28 @@ mongoose.connection.on('error', (err) => {
   console.error('❌ MongoDB error:', err.message);
 });
 
-// Test Route
-app.get("/", (req, res) => {
-    res.json({
-      status: "ok",
-      message: "Billing Software API is running...",
-      environment: process.env.NODE_ENV || "development",
-      timestamp: new Date().toISOString()
+// Serve frontend in production
+if (process.env.NODE_ENV === "production") {
+    // Serve any static files
+    app.use(express.static(path.join(__dirname, "../frontend/dist")));
+
+    // Handle React routing, return all GET requests to React app
+    app.use((req, res, next) => {
+        if (req.method !== 'GET') return next();
+        if (req.url.startsWith('/api')) return next();
+        res.sendFile(path.join(__dirname, "../frontend/dist", "index.html"));
     });
-});
+} else {
+    // Test Route
+    app.get("/", (req, res) => {
+        res.json({
+          status: "ok",
+          message: "Billing Software API is running...",
+          environment: process.env.NODE_ENV || "development",
+          timestamp: new Date().toISOString()
+        });
+    });
+}
 
 // 404 Handler
 app.use((req, res) => {
