@@ -7,7 +7,7 @@ services:
     env: node
     region: oregon
     plan: free
-    buildCommand: cd backend && npm install
+    buildCommand: npm install --prefix frontend && npm run build --prefix frontend && cd backend && npm install
     startCommand: cd backend && npm start
     envVars:
       - key: NODE_ENV
