@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Red hexagon outline -->
+  <polygon points="256,30 470,140 470,372 256,482 42,372 42,140" fill="none" stroke="#DC2626" stroke-width="40" stroke-linejoin="round"/>
+  <!-- Dark grey side panels for 3D effect -->
+  <polygon points="42,140 42,372 80,355 80,157" fill="#4B5563" opacity="0.9"/>
+  <polygon points="470,140 470,372 432,355 432,157" fill="#4B5563" opacity="0.9"/>
+  <!-- Red bull head silhouette -->
+  <path d="M256,360 C256,360 230,340 220,310 C215,295 218,275 225,260 C220,250 200,230 170,215 C165,212 165,207 170,208 C195,212 215,225 230,240 C238,228 248,220 256,218 C264,220 274,228 282,240 C297,225 317,212 342,208 C347,207 347,212 342,215 C312,230 292,250 287,260 C294,275 297,295 292,310 C282,340 256,360 256,360 Z" fill="#DC2626"/>
+</svg>
