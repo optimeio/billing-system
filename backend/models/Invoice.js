@@ -22,6 +22,10 @@ const invoiceSchema = new mongoose.Schema({
         type: String,
         default: ""
     },
+    placeOfSupply: {
+        type: String,
+        default: ""
+    },
     items: [{
         productId: { 
             type: mongoose.Schema.Types.ObjectId, 
@@ -58,6 +62,16 @@ const invoiceSchema = new mongoose.Schema({
         ref: "User", 
         required: true 
     },
+    companyPhone: { type: String, default: "" },
+    bankDetails: {
+        accountName: { type: String, default: "" },
+        bankName: { type: String, default: "" },
+        accountNumber: { type: String, default: "" },
+        ifscCode: { type: String, default: "" },
+        branchName: { type: String, default: "" }
+    },
+    challanNumber: { type: String, default: "" },
+    challanDate: { type: String, default: "" },
     qtyLabel: {
         type: String,
         default: "Qty"

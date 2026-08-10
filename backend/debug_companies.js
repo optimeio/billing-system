@@ -7,7 +7,7 @@ const staticCompanies = [
     name: 'THE SM GROUPS',
     address: '2nd Floor, Om Shiva Towers, 239 Advaitha Ashram Road, Fairlands, Salem, Tamil Nadu - 636004',
     gst: '33AABCT1234F1ZV',
-    phone: '+91 98765 43210',
+    phone: '+91 9488316728',
     email: 'info@thesmgroups.com',
     logo: '/logo.png',
     bankDetails: {
@@ -23,7 +23,7 @@ const staticCompanies = [
     name: 'THE SRI TECH ENGINEERING',
     address: '2nd Floor, Om Shiva Towers, 239 Advaitha Ashram Road, Fairlands, Salem, Tamil Nadu - 636004',
     gst: '33AABCT5678G2ZX',
-    phone: '+91 98765 11111',
+    phone: '+91 9488316728',
     email: 'info@thesritech.com',
     logo: '/logo-sritech.png',
     bankDetails: {
@@ -39,7 +39,7 @@ const staticCompanies = [
     name: 'THE SRI TECH ENERGY',
     address: '2nd Floor, Om Shiva Towers, 239 Advaitha Ashram Road, Fairlands, Salem, Tamil Nadu - 636004',
     gst: '33AABCS1234K6ZB',
-    phone: '+91 98765 55555',
+    phone: '+91 9488316728',
     email: 'energy@thesritech.com',
     logo: '/logo-sritechen.png',
     bankDetails: {
@@ -55,7 +55,7 @@ const staticCompanies = [
     name: 'MBK TECHNOLOGY',
     address: '2nd Floor, Om Shiva Towers, 239 Advaitha Ashram Road, Fairlands, Salem, Tamil Nadu - 636004',
     gst: '33AABCM7890J5ZA',
-    phone: '+91 98765 44444',
+    phone: '+91 9488316728',
     email: 'info@mbk.in',
     logo: '/logo-mbk.png',
     bankDetails: {
@@ -71,7 +71,7 @@ const staticCompanies = [
     name: 'OPTIME',
     address: '2nd Floor, Om Shiva Towers, 239 Advaitha Ashram Road, Fairlands, Salem, Tamil Nadu - 636004',
     gst: '33AABCO9012H3ZY',
-    phone: '+91 98765 22222',
+    phone: '+91 9488316728',
     email: 'info@optime.in',
     logo: '/logo-optime.png',
     bankDetails: {
@@ -87,7 +87,7 @@ const staticCompanies = [
     name: 'VENTHULIR',
     address: '2nd Floor, Om Shiva Towers, 239 Advaitha Ashram Road, Fairlands, Salem, Tamil Nadu - 636004',
     gst: '33AABCV3456I4ZZ',
-    phone: '+91 98765 33333',
+    phone: '+91 9488316728',
     email: 'info@venthulir.com',
     logo: '/logo-venthulir.png',
     bankDetails: {
@@ -103,7 +103,7 @@ const staticCompanies = [
     name: 'PAVECH',
     address: '2nd Floor, Om Shiva Towers, 239 Advaitha Ashram Road, Fairlands, Salem, Tamil Nadu - 636004',
     gst: '33AABCP1234P1ZZ',
-    phone: '+91 98765 22222',
+    phone: '+91 9488316728',
     email: 'info@pavech.com',
     logo: '/logo-pavech.png',
     bankDetails: {
@@ -119,7 +119,7 @@ const staticCompanies = [
     name: 'WINKBENCH',
     address: '2nd Floor, Om Shiva Towers, 239 Advaitha Ashram Road, Fairlands, Salem, Tamil Nadu - 636004',
     gst: '33AABCW1234W1ZZ',
-    phone: '+91 98765 11111',
+    phone: '+91 9488316728',
     email: 'info@winkbench.com',
     logo: '/logo-winkbench.png',
     bankDetails: {

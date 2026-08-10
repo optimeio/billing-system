@@ -27,7 +27,7 @@ mongoose.connect(process.env.MONGODB_URI)
             admin = new User({
                 name: "SM Groups Admin",
                 email: adminEmail,
-                phone: "1234567890",
+                phone: "9488316728",
                 staffId: "ADMIN_MAIN",
                 password: "TSMGPVT@2026",
                 role: "admin",
@@ -51,7 +51,7 @@ mongoose.connect(process.env.MONGODB_URI)
             extraAdmin = new User({
                 name: "Official Administrator",
                 email: extraAdminEmail,
-                phone: "1234567890",
+                phone: "9488316728",
                 staffId: "ADMIN_OFFICIAL",
                 password: "TSMG1997",
                 role: "admin",
@@ -75,7 +75,7 @@ mongoose.connect(process.env.MONGODB_URI)
             inventory = new User({
                 name: "Inventory Manager",
                 email: inventoryEmail,
-                phone: "1234567890",
+                phone: "9488316728",
                 staffId: "INV_MAIN",
                 password: "TSMG1997",
                 role: "inventory",

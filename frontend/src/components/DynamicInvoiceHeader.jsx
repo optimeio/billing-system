@@ -1,7 +1,7 @@
 import React from 'react';
 import { companies as companiesConfigMap } from '../data/companyConfig';
 
-const DynamicInvoiceHeader = ({ company }) => {
+const DynamicInvoiceHeader = ({ company, companyPhone }) => {
   // Guard against missing company data
   if (!company) {
     return <div className="p-4 text-red-600">Company not found</div>;
@@ -151,6 +151,16 @@ const DynamicInvoiceHeader = ({ company }) => {
               {idx === 2 && <br />}
             </React.Fragment>
           ))}
+          {companyPhone && (
+            <div style={{ marginTop: '4px', fontWeight: 'bold' }}>
+              Contact: {companyPhone}
+            </div>
+          )}
+          {company.gst && (
+            <div style={{ marginTop: '2px', fontWeight: 'bold' }}>
+              GST: {company.gst}
+            </div>
+          )}
         </div>
       </div>
 

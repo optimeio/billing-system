@@ -21,7 +21,7 @@ const invoiceFilled = {
     createdAt: new Date("2026-06-04T12:00:00.000Z"),
     customerName: "John Doe",
     customerAddress: "123 Main St, New York, NY 10001",
-    customerPhone: "1234567890",
+    customerPhone: "9488316728",
     hsnCode: "99",
     items: [
         { name: "Product A", total: 100 },
@@ -59,7 +59,7 @@ const quotationFilled = {
     createdAt: new Date("2026-06-04T12:00:00.000Z"),
     customerName: "Jane Doe",
     customerAddress: "456 Market St, San Francisco, CA 94105",
-    customerPhone: "0987654321",
+    customerPhone: "9488316728",
     hsnCode: "99",
     items: [
         { name: "Service A", total: 500 },

@@ -17,7 +17,7 @@ const seedUsers = async () => {
             {
                 name: "SM Groups Admin",
                 email: "thesmgroups@gmail.com",
-                phone: "1234567890",
+                phone: "9488316728",
                 staffId: "ADMIN_MAIN",
                 password: "TSMGPVT@2026",
                 role: "admin",
@@ -26,7 +26,7 @@ const seedUsers = async () => {
             {
                 name: "Official Administrator",
                 email: "tsmgmdofficial@gmail.com",
-                phone: "1234567890",
+                phone: "9488316728",
                 staffId: "ADMIN_OFFICIAL",
                 password: "TSMG1997",
                 role: "admin",
@@ -35,7 +35,7 @@ const seedUsers = async () => {
             {
                 name: "Inventory Manager",
                 email: "theoptime.io@gmail.com",
-                phone: "1234567890",
+                phone: "9488316728",
                 staffId: "INV_MAIN",
                 password: "TSMG1997",
                 role: "inventory_manager",
@@ -44,7 +44,7 @@ const seedUsers = async () => {
             {
                 name: "Nithyashree T",
                 email: "shreenithya111@gmail.com",
-                phone: "9876543210",
+                phone: "9488316728",
                 staffId: "SM003",
                 password: "StaffPassword123",
                 role: "staff",

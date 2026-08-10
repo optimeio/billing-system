@@ -92,6 +92,8 @@ exports.generateInvoicePDF = async (invoice, res) => {
         }
         const addrLines = wrapText(invoice.customerAddress || "", 40);
         if (phone) addrLines.push(phone);
+        if (invoice.placeOfSupply) addrLines.push(`Place Of Supply: ${invoice.placeOfSupply}`);
+        if (invoice.customerIdNumber) addrLines.push(`GST Number: ${invoice.customerIdNumber}`);
         let ly = nameUpper ? 676 : 688;
         addrLines.forEach(line => {
             page.drawText(line, { x: 30, y: ly, size: 8, font: fReg, color: MUTED });
@@ -104,6 +106,8 @@ exports.generateInvoicePDF = async (invoice, res) => {
         }
         const rightLines = wrapText(invoice.customerAddress || "", 30);
         if (phone) rightLines.push(phone);
+        if (invoice.placeOfSupply) rightLines.push(`Place Of Supply: ${invoice.placeOfSupply}`);
+        if (invoice.customerIdNumber) rightLines.push(`GST Number: ${invoice.customerIdNumber}`);
         let ry = nameUpper ? 676 : 688;
         rightLines.forEach(line => {
             page.drawText(line, { x: 355, y: ry, size: 8, font: fReg, color: MUTED });
@@ -238,6 +242,8 @@ exports.generateQuotationPDF = async (quotation, res) => {
         }
         const addrLines = wrapText(quotation.customerAddress || "", 40);
         if (phone) addrLines.push(phone);
+        if (quotation.placeOfSupply) addrLines.push(`Place Of Supply: ${quotation.placeOfSupply}`);
+        if (quotation.customerIdNumber) addrLines.push(`GST Number: ${quotation.customerIdNumber}`);
         let ly = nameUpper ? 676 : 688;
         addrLines.forEach(line => {
             page.drawText(line, { x: 30, y: ly, size: 8, font: fReg, color: MUTED });

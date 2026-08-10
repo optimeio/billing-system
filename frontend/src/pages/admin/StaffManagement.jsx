@@ -153,7 +153,7 @@ const StaffManagement = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Phone</label>
-                <input required placeholder="1234567890" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full border border-slate-300 p-2 rounded-lg outline-none focus:ring-2 focus:ring-primary/20" />
+                <input required placeholder="9488316728" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full border border-slate-300 p-2 rounded-lg outline-none focus:ring-2 focus:ring-primary/20" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">

@@ -266,8 +266,12 @@ const CompanyManagement = () => {
                     <input type="text" name="bank_accountNumber" value={formData.bankDetails.accountNumber} onChange={handleInputChange} className="w-full border rounded-lg px-3 py-2" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">IFSC Code</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">IFSC Code</label>
                     <input type="text" name="bank_ifscCode" value={formData.bankDetails.ifscCode} onChange={handleInputChange} className="w-full border rounded-lg px-3 py-2" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Branch Name</label>
+                    <input type="text" name="bank_branchName" value={formData.bankDetails.branchName || ''} onChange={handleInputChange} className="w-full border rounded-lg px-3 py-2" />
                   </div>
 
                   <h3 className="font-semibold text-lg border-b pb-2 mt-6">Images</h3>

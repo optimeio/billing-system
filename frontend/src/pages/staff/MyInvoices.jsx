@@ -56,6 +56,44 @@ const MyInvoices = () => {
            (invCompName && selectedCompany.name && invCompName.toLowerCase() === selectedCompany.name.toLowerCase());
   });
 
+  const handleExportCSV = () => {
+    if (filteredInvoices.length === 0) {
+      toast.error('No invoices to export');
+      return;
+    }
+    const headers = ['Invoice No', 'Customer Name', 'Customer Phone', 'Date', 'Time', 'Total Amount', 'Status', 'Created By', 'Products'];
+    const csvRows = [headers.join(',')];
+
+    filteredInvoices.forEach(inv => {
+      const date = new Date(inv.createdAt).toLocaleDateString('en-IN');
+      const time = new Date(inv.createdAt).toLocaleTimeString('en-IN');
+      const products = inv.items?.map(i => `${i.name} (Qty: ${i.qty})`).join(' | ') || '';
+
+      const row = [
+        inv.invoiceNumber || '',
+        `"${(inv.customerName || '').replace(/"/g, '""')}"`,
+        inv.customerPhone || '',
+        date,
+        time,
+        inv.grandTotal || 0,
+        inv.paymentStatus || '',
+        `"${(inv.createdBy?.name || 'System').replace(/"/g, '""')}"`,
+        `"${products.replace(/"/g, '""')}"`
+      ];
+      csvRows.push(row.join(','));
+    });
+
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `MyInvoices_Export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Modal Preview States
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -262,9 +300,17 @@ const MyInvoices = () => {
 
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <h1 className="text-2xl font-bold text-slate-800">My Invoices</h1>
-        <Link to="/staff/create-invoice" className="bg-primary text-white px-4 py-2 rounded-lg flex items-center shadow-md hover:bg-blue-600 transition-all self-start sm:self-auto">
-          <Plus size={18} className="mr-2" /> New Invoice
-        </Link>
+        <div className="flex gap-2 items-center self-start sm:self-auto">
+          <button 
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg shadow-md hover:bg-green-700 transition-colors"
+          >
+            <Download size={18} /> Export CSV
+          </button>
+          <Link to="/staff/create-invoice" className="bg-primary text-white px-4 py-2 rounded-lg flex items-center shadow-md hover:bg-blue-600 transition-all">
+            <Plus size={18} className="mr-2" /> New Invoice
+          </Link>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -431,6 +477,9 @@ const MyInvoices = () => {
                             <p><span className="font-semibold">Name:</span> {selectedInvoice.customerName}</p>
                             <p><span className="font-semibold">Address:</span> {selectedInvoice.customerAddress || 'No Address Provided'}</p>
                             <p><span className="font-semibold">Phone:</span> {selectedInvoice.customerPhone}</p>
+                            {selectedInvoice.placeOfSupply && (
+                              <p><span className="font-semibold">Place Of Supply:</span> {selectedInvoice.placeOfSupply}</p>
+                            )}
                             {selectedInvoice.customerIdNumber && (
                               <p><span className="font-semibold">Aadhar/GST/PAN:</span> {selectedInvoice.customerIdNumber}</p>
                             )}
@@ -761,6 +810,7 @@ const MyInvoices = () => {
                     <p><span className="font-semibold">Name:</span> {invoiceForPdf.customerName}</p>
                     <p><span className="font-semibold">Address:</span> {invoiceForPdf.customerAddress || 'No Address Provided'}</p>
                     <p><span className="font-semibold">Phone:</span> {invoiceForPdf.customerPhone}</p>
+                    <p><span className="font-semibold">Place Of Supply:</span> {invoiceForPdf.placeOfSupply}</p>
                     {invoiceForPdf.customerIdNumber && (
                       <p><span className="font-semibold">Aadhar/GST/PAN:</span> {invoiceForPdf.customerIdNumber}</p>
                     )}

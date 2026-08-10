@@ -99,7 +99,8 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
     accountName: selectedCompany?.bankDetails?.accountName || '',
     bankName: selectedCompany?.bankDetails?.bankName || '',
     accountNumber: selectedCompany?.bankDetails?.accountNumber || '',
-    ifscCode: selectedCompany?.bankDetails?.ifscCode || ''
+    ifscCode: selectedCompany?.bankDetails?.ifscCode || '',
+    branchName: selectedCompany?.bankDetails?.branchName || ''
   });
 
   // Sync state when selected company changes (if not in edit mode or loading defaults)
@@ -110,7 +111,8 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
         accountName: selectedCompany.bankDetails?.accountName || '',
         bankName: selectedCompany.bankDetails?.bankName || '',
         accountNumber: selectedCompany.bankDetails?.accountNumber || '',
-        ifscCode: selectedCompany.bankDetails?.ifscCode || ''
+        ifscCode: selectedCompany.bankDetails?.ifscCode || '',
+        branchName: selectedCompany.bankDetails?.branchName || ''
       });
     }
   }, [selectedCompany, isEditMode]);
@@ -680,6 +682,16 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
                 />
               </div>
             </div>
+            <div className="form-row full">
+              <div className="form-field">
+                <label>Branch Name</label>
+                <input
+                  type="text"
+                  value={bankDetails.branchName || ''}
+                  onChange={(e) => setBankDetails({...bankDetails, branchName: e.target.value})}
+                />
+              </div>
+            </div>
           </div>
 
 
@@ -975,6 +987,11 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
                               <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">IFSC Code</td>
                               <td className="pr-2 py-0.5 align-top">:</td>
                               <td className="py-0.5 align-top">{bankDetails.ifscCode}</td>
+                            </tr>
+                            <tr>
+                              <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Branch Name</td>
+                              <td className="pr-2 py-0.5 align-top">:</td>
+                              <td className="py-0.5 align-top">{bankDetails.branchName}</td>
                             </tr>
                           </tbody>
                         </table>

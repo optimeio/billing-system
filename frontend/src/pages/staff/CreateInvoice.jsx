@@ -14,6 +14,7 @@ const CreateInvoice = ({ isQuotation = false }) => {
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [customerIdNumber, setCustomerIdNumber] = useState('');
+  const [placeOfSupply, setPlaceOfSupply] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceDate, setInvoiceDate] = useState('');
   
@@ -39,6 +40,7 @@ const CreateInvoice = ({ isQuotation = false }) => {
         setCustomerPhone(inv.customerPhone || '');
         setCustomerAddress(inv.customerAddress || '');
         setCustomerIdNumber(inv.customerIdNumber || '');
+        setPlaceOfSupply(inv.placeOfSupply || '');
         setInvoiceNumber(inv.invoiceNumber || '');
         
         // Format ISO date to YYYY-MM-DD for date input
@@ -127,6 +129,7 @@ const CreateInvoice = ({ isQuotation = false }) => {
         customerPhone,
         customerAddress,
         customerIdNumber,
+        placeOfSupply,
         invoiceNumber: invoiceNumber ? invoiceNumber.trim() : undefined,
         invoiceDate: invoiceDate ? new Date(invoiceDate).toISOString() : undefined,
         type: isQuotation ? 'quotation' : 'invoice',
@@ -157,6 +160,7 @@ const CreateInvoice = ({ isQuotation = false }) => {
         setCustomerPhone('');
         setCustomerAddress('');
         setCustomerIdNumber('');
+        setPlaceOfSupply('');
         setInvoiceNumber('');
         setInvoiceDate('');
         setItems([{ productName: '', category: '', price: '', qty: 1 }]);
@@ -273,6 +277,17 @@ const CreateInvoice = ({ isQuotation = false }) => {
                 onChange={(e) => setCustomerIdNumber(e.target.value)} 
                 className="w-full border border-slate-300 p-2.5 rounded-lg focus:ring-primary focus:border-primary"
                 placeholder="e.g. XXXX-XXXX-XXXX or 22AAAAA0000A1Z5 or ABCDE1234F"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-slate-600 mb-1">Place of Supply (Optional)</label>
+              <input 
+                type="text" 
+                value={placeOfSupply} 
+                onChange={(e) => setPlaceOfSupply(e.target.value)} 
+                className="w-full border border-slate-300 p-2.5 rounded-lg focus:ring-primary focus:border-primary"
+                placeholder="e.g. Tamil Nadu"
               />
             </div>
           </div>

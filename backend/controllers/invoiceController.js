@@ -14,7 +14,7 @@ const { sendEmail } = require("../utils/emailService");
 // @access  Admin/Staff
 exports.createInvoice = async (req, res) => {
     try {
-        let { invoiceNumber, invoiceDate, customerName, customerPhone, customerAddress, customerIdNumber, items, hsnCode = "", taxRate = 0, tax = 0, discount = 0, taxableValue = 0, type = "invoice", companyId } = req.body;
+        let { invoiceNumber, invoiceDate, customerName, customerPhone, customerAddress, customerIdNumber, items, hsnCode = "", taxRate = 0, tax = 0, discount = 0, taxableValue = 0, type = "invoice", companyId, companyPhone, bankDetails, challanNumber, challanDate } = req.body;
 
         customerName = customerName ? customerName.trim() : "";
         customerPhone = customerPhone ? customerPhone.trim() : "";
@@ -127,7 +127,11 @@ exports.createInvoice = async (req, res) => {
             invoiceDate: dateToSet,
             qtyLabel: req.body.qtyLabel || "Qty",
             approvalPhoto: req.body.approvalPhoto || "",
-            companyId: companyId || undefined
+            companyId: companyId || undefined,
+            companyPhone: companyPhone || "",
+            bankDetails: bankDetails || {},
+            challanNumber: challanNumber || "",
+            challanDate: challanDate || ""
         });
 
         // 5. Emit socket event and create notification
@@ -444,7 +448,7 @@ exports.deleteInvoice = async (req, res) => {
 // @access  Admin/Staff
 exports.updateInvoice = async (req, res) => {
     try {
-        let { invoiceNumber, invoiceDate, customerName, customerPhone, customerAddress, customerIdNumber, items, hsnCode = "", taxRate = 0, tax = 0, discount = 0, taxableValue = 0, type = "invoice", qtyLabel, approvalPhoto, companyId } = req.body;
+        let { invoiceNumber, invoiceDate, customerName, customerPhone, customerAddress, customerIdNumber, items, hsnCode = "", taxRate = 0, tax = 0, discount = 0, taxableValue = 0, type = "invoice", qtyLabel, approvalPhoto, companyId, companyPhone, bankDetails, challanNumber, challanDate } = req.body;
 
         customerName = customerName ? customerName.trim() : "";
         customerPhone = customerPhone ? customerPhone.trim() : "";
@@ -531,6 +535,10 @@ exports.updateInvoice = async (req, res) => {
         if (qtyLabel) invoice.qtyLabel = qtyLabel;
         if (approvalPhoto !== undefined) invoice.approvalPhoto = approvalPhoto;
         if (companyId) invoice.companyId = companyId;
+        if (companyPhone !== undefined) invoice.companyPhone = companyPhone;
+        if (bankDetails !== undefined) invoice.bankDetails = bankDetails;
+        if (challanNumber !== undefined) invoice.challanNumber = challanNumber;
+        if (challanDate !== undefined) invoice.challanDate = challanDate;
 
         await invoice.save();
 

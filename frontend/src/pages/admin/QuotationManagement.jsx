@@ -252,6 +252,44 @@ const QuotationManagement = () => {
     return matchesSearch && matchesEmployee && matchesCompany;
   });
 
+  const handleExportCSV = () => {
+    if (filteredQuotations.length === 0) {
+      toast.error('No quotations to export');
+      return;
+    }
+    const headers = ['Quotation No', 'Customer Name', 'Customer Phone', 'Date', 'Time', 'Total Amount', 'Status', 'Created By', 'Products'];
+    const csvRows = [headers.join(',')];
+
+    filteredQuotations.forEach(q => {
+      const date = new Date(q.createdAt).toLocaleDateString('en-IN');
+      const time = new Date(q.createdAt).toLocaleTimeString('en-IN');
+      const products = q.items?.map(i => `${i.name} (Qty: ${i.qty})`).join(' | ') || '';
+
+      const row = [
+        q.invoiceNumber || '',
+        `"${(q.customerName || '').replace(/"/g, '""')}"`,
+        q.customerPhone || '',
+        date,
+        time,
+        q.grandTotal || 0,
+        q.paymentStatus || '',
+        `"${(q.createdBy?.name || 'System').replace(/"/g, '""')}"`,
+        `"${products.replace(/"/g, '""')}"`
+      ];
+      csvRows.push(row.join(','));
+    });
+
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Quotations_Export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
       {/* PDF Generating Overlay */}
@@ -277,6 +315,12 @@ const QuotationManagement = () => {
           </div>
           <button className="p-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 flex-shrink-0">
             <Filter size={18} />
+          </button>
+          <button 
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <Download size={18} /> Export CSV
           </button>
         </div>
       </div>
@@ -503,6 +547,9 @@ const QuotationManagement = () => {
                           <p><span className="font-semibold">Name:</span> {selectedQuotation.customerName}</p>
                           <p><span className="font-semibold">Address:</span> {selectedQuotation.customerAddress || 'No Address Provided'}</p>
                           <p><span className="font-semibold">Phone:</span> {selectedQuotation.customerPhone}</p>
+                          {selectedQuotation.placeOfSupply && (
+                            <p><span className="font-semibold">Place Of Supply:</span> {selectedQuotation.placeOfSupply}</p>
+                          )}
                           {selectedQuotation.customerIdNumber && (
                             <p><span className="font-semibold">Aadhar/GST/PAN:</span> {selectedQuotation.customerIdNumber}</p>
                           )}
@@ -772,6 +819,7 @@ const QuotationManagement = () => {
                     <p><span className="font-semibold">Name:</span> {invoiceForPdf.customerName}</p>
                     <p><span className="font-semibold">Address:</span> {invoiceForPdf.customerAddress || 'No Address Provided'}</p>
                     <p><span className="font-semibold">Phone:</span> {invoiceForPdf.customerPhone}</p>
+                    <p><span className="font-semibold">Place Of Supply:</span> {invoiceForPdf.placeOfSupply}</p>
                     {invoiceForPdf.customerIdNumber && (
                       <p><span className="font-semibold">Aadhar/GST/PAN:</span> {invoiceForPdf.customerIdNumber}</p>
                     )}
