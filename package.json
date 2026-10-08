@@ -8,6 +8,7 @@
     "frontend": "npm run dev --prefix frontend",
     "dev": "concurrently -k -s first \"npm run backend\" \"npm run frontend\"",
     "build": "npm run build --prefix frontend",
+    "build:static": "npm run build:static --prefix frontend",
     "start": "node backend/server.js"
   },
   "devDependencies": {

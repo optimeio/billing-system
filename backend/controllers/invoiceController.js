@@ -2,25 +2,119 @@ const Invoice = require("../models/Invoice");
 const Product = require("../models/Product");
 const Category = require("../models/Category");
 const User = require("../models/User");
+const Company = require("../models/Company");
+const mongoose = require("mongoose");
 const { generateInvoicePDF } = require("../utils/pdfGenerator");
 const { findOrCreateCategory, findOrCreateProduct } = require("../utils/autoProductService");
 const Notification = require("../models/Notification");
 const { getIO } = require("../utils/socketService");
 const { sendEmail } = require("../utils/emailService");
 
+// Helper to resolve companyId (whether ObjectId, slug, or name)
+const resolveCompanyObjectId = async (companyIdOrSlug) => {
+    if (!companyIdOrSlug) return undefined;
+    
+    try {
+        // If it's already a valid ObjectId
+        if (mongoose.isValidObjectId(companyIdOrSlug)) {
+            const found = await Company.findById(companyIdOrSlug);
+            if (found) return found._id;
+        }
+
+        // Try finding by name or slug
+        const cleanStr = String(companyIdOrSlug).trim();
+        const cleanName = cleanStr.replace(/[-_]/g, ' ');
+        const foundByName = await Company.findOne({
+            $or: [
+                { name: new RegExp(`^${cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+                { name: new RegExp(cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }
+            ]
+        });
+        if (foundByName) return foundByName._id;
+    } catch (err) {
+        console.error("[Invoice] resolveCompanyObjectId error:", err.message);
+    }
+
+    return undefined;
+};
+
+// Helper to calculate the next unique sequential number for invoice or quotation
+const getNextDocNumber = async (type = "invoice") => {
+    const isQuotation = type === "quotation";
+    const prefix = isQuotation ? "QT" : "INV";
+    
+    // Starting baseline: Invoice starts from at least 68 (next INV69), Quotation from at least 44 (next QT45)
+    const baseMin = isQuotation ? 44 : 68;
+
+    // Search existing documents for the highest number in the active sequence
+    const allDocs = await Invoice.find({ type: isQuotation ? "quotation" : "invoice" })
+        .select("invoiceNumber type")
+        .lean();
+
+    let maxNum = baseMin;
+
+    for (const doc of allDocs) {
+        if (!doc.invoiceNumber) continue;
+        const raw = doc.invoiceNumber.trim().toUpperCase();
+
+        if (isQuotation) {
+            // Match QT44, QT-44, QT 44, etc. Exclude rogue 4-digit test numbers (1001-1010)
+            const match = raw.match(/^QT-?\s*(\d+)$/);
+            if (match) {
+                const num = parseInt(match[1], 10);
+                if (!isNaN(num) && num >= 44 && num < 1000 && num > maxNum) {
+                    maxNum = num;
+                }
+            }
+        } else {
+            // Match INV66, INV-66, INV 66, etc. Exclude rogue entry INV107 and 4-digit test number INV1102
+            const match = raw.match(/^INV-?\s*(\d+)$/);
+            if (match) {
+                const num = parseInt(match[1], 10);
+                if (!isNaN(num) && num >= 66 && num !== 107 && num < 1000 && num > maxNum) {
+                    maxNum = num;
+                }
+            }
+        }
+    }
+
+    let nextNum = maxNum + 1;
+    let candidate = `${prefix}${nextNum}`;
+
+    // Loop until we find a candidate that definitely does NOT exist in DB (prevent duplicates)
+    while (await Invoice.findOne({ invoiceNumber: candidate })) {
+        nextNum++;
+        candidate = `${prefix}${nextNum}`;
+    }
+
+    return candidate;
+};
+
+// @desc    Get next available invoice or quotation number
+// @route   GET /api/invoices/next-number
+// @access  Admin/Staff
+exports.getNextNumber = async (req, res) => {
+    try {
+        const type = req.query.type || "invoice";
+        const nextNumber = await getNextDocNumber(type);
+        res.json({ nextNumber });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
 
 // @desc    Create new invoice
 // @route   POST /api/invoices
 // @access  Admin/Staff
 exports.createInvoice = async (req, res) => {
     try {
-        let { invoiceNumber, invoiceDate, customerName, customerPhone, customerAddress, customerIdNumber, items, hsnCode = "", taxRate = 0, tax = 0, discount = 0, taxableValue = 0, type = "invoice", companyId, companyPhone, bankDetails, challanNumber, challanDate } = req.body;
+        let { invoiceNumber, invoiceDate, customerName, customerPhone, customerAddress, customerIdNumber, items, hsnCode = "7321", taxRate = 0, tax = 0, discount = 0, taxableValue = 0, type = "invoice", companyId, companyPhone, bankDetails, challanNumber, challanDate, amountInWords = "" } = req.body;
 
         customerName = customerName ? customerName.trim() : "";
         customerPhone = customerPhone ? customerPhone.trim() : "";
         customerAddress = customerAddress ? customerAddress.trim() : "";
         customerIdNumber = customerIdNumber ? customerIdNumber.trim() : "";
-        hsnCode = hsnCode ? hsnCode.trim() : "";
+        hsnCode = hsnCode ? hsnCode.trim() : "7321";
 
         if (!items || items.length === 0) {
             return res.status(400).json({ message: "Document must have at least one item." });
@@ -29,23 +123,12 @@ exports.createInvoice = async (req, res) => {
         // 1. Resolve Invoice Number (custom manual value or auto-generated)
         let finalInvoiceNumber = invoiceNumber ? invoiceNumber.trim() : "";
         if (!finalInvoiceNumber) {
-            const prefix = type === "quotation" ? "QT" : "INV";
-            // Search ALL invoices for highest number with this prefix (ignore type field)
-            const allDocs = await Invoice.find({}).select("invoiceNumber").lean();
-
-            let maxNum = 1000;
-            for (const doc of allDocs) {
-                if (doc.invoiceNumber && doc.invoiceNumber.startsWith(prefix)) {
-                    const num = parseInt(doc.invoiceNumber.replace(prefix, ""), 10);
-                    if (!isNaN(num) && num > maxNum) maxNum = num;
-                }
-            }
-            finalInvoiceNumber = `${prefix}${maxNum + 1}`;
+            finalInvoiceNumber = await getNextDocNumber(type);
         } else {
-            // Verify manual entry is unique
+            // Verify manual entry is unique, or auto-increment if collision
             const existing = await Invoice.findOne({ invoiceNumber: finalInvoiceNumber });
             if (existing) {
-                return res.status(400).json({ message: `Number "${finalInvoiceNumber}" is already in use.` });
+                finalInvoiceNumber = await getNextDocNumber(type);
             }
         }
 
@@ -60,10 +143,13 @@ exports.createInvoice = async (req, res) => {
         for (let item of items) {
             let product;
 
-            // Find product by ID
-            if (item.productId) {
+            // Find product by ID if valid
+            if (item.productId && mongoose.isValidObjectId(item.productId)) {
                 product = await Product.findById(item.productId);
-            } else if (item.productName) {
+            }
+            
+            if (!product && (item.productName || item.name)) {
+                const prodName = (item.productName || item.name).trim();
                 let categoryId = null;
                 
                 // Handle Category auto-creation if provided
@@ -77,20 +163,31 @@ exports.createInvoice = async (req, res) => {
                     }
                 }
 
-                const productResult = await findOrCreateProduct(item.productName, categoryId, item.price, req.user._id);
+                const productResult = await findOrCreateProduct(prodName, categoryId, item.price || item.rate, req.user._id);
                 product = productResult.product;
                 if (productResult.isNew) {
                     autoCreatedProducts.push(product);
                 }
             }
 
+            if (!product && (item.productName || item.name)) {
+                const prodName = (item.productName || item.name).trim();
+                product = await Product.create({
+                    name: prodName,
+                    price: Number(item.price || item.rate) || 0,
+                    stock: 0,
+                    createdBy: req.user._id,
+                    isAutoCreated: true
+                });
+            }
+
             if (!product) {
-                return res.status(400).json({ message: `Product could not be found or created for item: ${item.productName || item.productId}` });
+                return res.status(400).json({ message: `Product could not be found or created for item: ${item.productName || item.name || item.productId}` });
             }
 
             // Calculate totals for line item
-            const itemPrice = item.price || product.price;
-            const itemQty = item.qty || 1;
+            const itemPrice = Number(item.price !== undefined ? item.price : (item.rate !== undefined ? item.rate : product.price)) || 0;
+            const itemQty = Number(item.qty) || 1;
             const itemTotal = itemPrice * itemQty;
 
             processedItems.push({
@@ -106,6 +203,9 @@ exports.createInvoice = async (req, res) => {
 
         // 3. Final Calculations
         const grandTotal = subtotal + parseFloat(tax) - parseFloat(discount);
+
+        // Resolve Company ID safely to valid ObjectId or undefined
+        const resolvedCompanyId = await resolveCompanyObjectId(companyId);
 
         // 4. Save Invoice with exact fields
         const invoice = await Invoice.create({
@@ -127,7 +227,8 @@ exports.createInvoice = async (req, res) => {
             invoiceDate: dateToSet,
             qtyLabel: req.body.qtyLabel || "Qty",
             approvalPhoto: req.body.approvalPhoto || "",
-            companyId: companyId || undefined,
+            amountInWords: amountInWords || "",
+            companyId: resolvedCompanyId,
             companyPhone: companyPhone || "",
             bankDetails: bankDetails || {},
             challanNumber: challanNumber || "",
@@ -145,7 +246,7 @@ exports.createInvoice = async (req, res) => {
             });
             io.emit("invoiceCreated", { invoice, notification });
         } catch (err) {
-            console.error("Socket error on invoice create:", err);
+            console.error("Socket error on invoice create:", err.message);
         }
 
         // 6. Send Email Notification to Admin
@@ -168,7 +269,6 @@ exports.createInvoice = async (req, res) => {
         sendEmail(process.env.EMAIL_USER, `New ${docName} Created: ${invoice.invoiceNumber}`, "", adminEmailMessage)
             .catch(emailErr => console.error(`Failed to send admin notification email for ${type}:`, emailErr.message));
 
-
         res.status(201).json({
             message: `${docName} created successfully`,
             autoCreatedProducts,
@@ -177,6 +277,7 @@ exports.createInvoice = async (req, res) => {
         });
 
     } catch (error) {
+        console.error("[Invoice] createInvoice error:", error);
         res.status(500).json({ message: error.message });
     }
 };
@@ -251,50 +352,6 @@ exports.cancelInvoice = async (req, res) => {
         invoice.paymentStatus = "cancelled";
         await invoice.save();
 
-        // Send Email Notification to Staff Creator
-        try {
-            const creator = await User.findById(invoice.createdBy).select("name email");
-            if (creator && creator.email) {
-                const emailHtml = `
-                    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-                      <div style="background: linear-gradient(135deg, #1e293b, #0f172a); color: white; padding: 24px; text-align: center;">
-                        <h2 style="margin: 0; font-size: 22px; font-weight: 600; letter-spacing: 0.5px;">SM GROUPS</h2>
-                        <p style="margin: 4px 0 0 0; font-size: 14px; opacity: 0.85;">Invoice Cancelled</p>
-                      </div>
-                      <div style="padding: 24px; background-color: #ffffff;">
-                        <p style="font-size: 16px; color: #1e293b; margin-top: 0;">Hello <strong>${creator.name}</strong>,</p>
-                        <p style="font-size: 14px; color: #475569; line-height: 1.5;">Your created invoice <strong>${invoice.invoiceNumber}</strong> has been <strong style="color: #dc2626;">CANCELLED</strong> by the administrator. Below are the details:</p>
-                        
-                        <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px;">
-                          <tbody>
-                            <tr style="border-bottom: 1px solid #e2e8f0;">
-                              <td style="padding: 10px; color: #475569; font-weight: 600;">Invoice Number</td>
-                              <td style="padding: 10px; text-align: right; color: #1e293b;">${invoice.invoiceNumber}</td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid #e2e8f0;">
-                              <td style="padding: 10px; color: #475569; font-weight: 600;">Customer Name</td>
-                              <td style="padding: 10px; text-align: right; color: #1e293b;">${invoice.customerName}</td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid #e2e8f0;">
-                              <td style="padding: 10px; color: #475569; font-weight: 600;">Grand Total</td>
-                              <td style="padding: 10px; text-align: right; color: #1e293b; font-weight: bold;">₹${parseFloat(invoice.grandTotal).toLocaleString()}</td>
-                            </tr>
-                            <tr>
-                              <td style="padding: 10px; color: #475569; font-weight: 600;">Status</td>
-                              <td style="padding: 10px; text-align: right; color: #dc2626; font-weight: bold;">CANCELLED</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                `;
-                sendEmail(creator.email, `Invoice Cancelled: ${invoice.invoiceNumber}`, "", emailHtml)
-                    .catch(emailErr => console.error("Failed to send invoice cancellation email:", emailErr.message));
-            }
-        } catch (fetchErr) {
-            console.error("Failed to fetch creator for email notification:", fetchErr.message);
-        }
-
         try {
             const io = getIO();
             io.emit("invoiceUpdated", invoice);
@@ -324,50 +381,6 @@ exports.markInvoiceAsPaid = async (req, res) => {
 
         invoice.paymentStatus = "paid";
         await invoice.save();
-
-        // Send Email Notification to Staff Creator
-        try {
-            const creator = await User.findById(invoice.createdBy).select("name email");
-            if (creator && creator.email) {
-                const emailHtml = `
-                    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-                      <div style="background: linear-gradient(135deg, #1e293b, #0f172a); color: white; padding: 24px; text-align: center;">
-                        <h2 style="margin: 0; font-size: 22px; font-weight: 600; letter-spacing: 0.5px;">SM GROUPS</h2>
-                        <p style="margin: 4px 0 0 0; font-size: 14px; opacity: 0.85;">Invoice Approved / Paid</p>
-                      </div>
-                      <div style="padding: 24px; background-color: #ffffff;">
-                        <p style="font-size: 16px; color: #1e293b; margin-top: 0;">Hello <strong>${creator.name}</strong>,</p>
-                        <p style="font-size: 14px; color: #475569; line-height: 1.5;">Your created invoice <strong>${invoice.invoiceNumber}</strong> has been <strong>APPROVED</strong> and marked as <strong>PAID</strong> by the administrator. Below are the details:</p>
-                        
-                        <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px;">
-                          <tbody>
-                            <tr style="border-bottom: 1px solid #e2e8f0;">
-                              <td style="padding: 10px; color: #475569; font-weight: 600;">Invoice Number</td>
-                              <td style="padding: 10px; text-align: right; color: #1e293b;">${invoice.invoiceNumber}</td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid #e2e8f0;">
-                              <td style="padding: 10px; color: #475569; font-weight: 600;">Customer Name</td>
-                              <td style="padding: 10px; text-align: right; color: #1e293b;">${invoice.customerName}</td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid #e2e8f0;">
-                              <td style="padding: 10px; color: #475569; font-weight: 600;">Grand Total</td>
-                              <td style="padding: 10px; text-align: right; color: #1e293b; font-weight: bold;">₹${parseFloat(invoice.grandTotal).toLocaleString()}</td>
-                            </tr>
-                            <tr>
-                              <td style="padding: 10px; color: #475569; font-weight: 600;">Status</td>
-                              <td style="padding: 10px; text-align: right; color: #16a34a; font-weight: bold;">PAID</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                `;
-                sendEmail(creator.email, `Invoice Approved/Paid: ${invoice.invoiceNumber}`, "", emailHtml)
-                    .catch(emailErr => console.error("Failed to send invoice paid email:", emailErr.message));
-            }
-        } catch (fetchErr) {
-            console.error("Failed to fetch creator for email notification:", fetchErr.message);
-        }
 
         try {
             const io = getIO();
@@ -411,6 +424,7 @@ exports.downloadInvoice = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
 // @desc    Delete invoice (Admin or Creator)
 // @route   DELETE /api/invoices/:id
 exports.deleteInvoice = async (req, res) => {
@@ -443,18 +457,15 @@ exports.deleteInvoice = async (req, res) => {
 // @desc    Update/Edit existing invoice
 // @route   PUT /api/invoices/:id
 // @access  Admin/Staff
-// @desc    Update/Edit existing invoice
-// @route   PUT /api/invoices/:id
-// @access  Admin/Staff
 exports.updateInvoice = async (req, res) => {
     try {
-        let { invoiceNumber, invoiceDate, customerName, customerPhone, customerAddress, customerIdNumber, items, hsnCode = "", taxRate = 0, tax = 0, discount = 0, taxableValue = 0, type = "invoice", qtyLabel, approvalPhoto, companyId, companyPhone, bankDetails, challanNumber, challanDate } = req.body;
+        let { invoiceNumber, invoiceDate, customerName, customerPhone, customerAddress, customerIdNumber, items, hsnCode = "7321", taxRate = 0, tax = 0, discount = 0, taxableValue = 0, type = "invoice", qtyLabel, approvalPhoto, companyId, companyPhone, bankDetails, challanNumber, challanDate, amountInWords } = req.body;
 
         customerName = customerName ? customerName.trim() : "";
         customerPhone = customerPhone ? customerPhone.trim() : "";
         customerAddress = customerAddress ? customerAddress.trim() : "";
         customerIdNumber = customerIdNumber ? customerIdNumber.trim() : "";
-        hsnCode = hsnCode ? hsnCode.trim() : "";
+        hsnCode = hsnCode ? hsnCode.trim() : "7321";
 
         if (!items || items.length === 0) {
             return res.status(400).json({ message: "Document must have at least one item." });
@@ -472,7 +483,10 @@ exports.updateInvoice = async (req, res) => {
 
         // If invoice number is changed, check uniqueness
         if (invoiceNumber && invoiceNumber.trim() !== invoice.invoiceNumber) {
-            const existing = await Invoice.findOne({ invoiceNumber: invoiceNumber.trim() });
+            const existing = await Invoice.findOne({ 
+                invoiceNumber: invoiceNumber.trim(),
+                _id: { $ne: invoice._id }
+            });
             if (existing) {
                 return res.status(400).json({ message: `Number "${invoiceNumber}" is already in use.` });
             }
@@ -502,8 +516,8 @@ exports.updateInvoice = async (req, res) => {
                 return res.status(400).json({ message: `Product could not be found or created for item: ${item.productName || item.productId}` });
             }
 
-            const itemPrice = item.price || product.price;
-            const itemQty = item.qty || 1;
+            const itemPrice = Number(item.price !== undefined ? item.price : (item.rate !== undefined ? item.rate : product.price)) || 0;
+            const itemQty = Number(item.qty) || 1;
             const itemTotal = itemPrice * itemQty;
 
             processedItems.push({
@@ -534,7 +548,15 @@ exports.updateInvoice = async (req, res) => {
         invoice.invoiceDate = invoiceDate ? new Date(invoiceDate) : invoice.invoiceDate;
         if (qtyLabel) invoice.qtyLabel = qtyLabel;
         if (approvalPhoto !== undefined) invoice.approvalPhoto = approvalPhoto;
-        if (companyId) invoice.companyId = companyId;
+        if (amountInWords !== undefined) invoice.amountInWords = amountInWords;
+        
+        if (companyId) {
+            const resolvedCompanyId = await resolveCompanyObjectId(companyId);
+            if (resolvedCompanyId) {
+                invoice.companyId = resolvedCompanyId;
+            }
+        }
+        
         if (companyPhone !== undefined) invoice.companyPhone = companyPhone;
         if (bankDetails !== undefined) invoice.bankDetails = bankDetails;
         if (challanNumber !== undefined) invoice.challanNumber = challanNumber;
@@ -546,11 +568,12 @@ exports.updateInvoice = async (req, res) => {
             const io = getIO();
             io.emit("invoiceUpdated", invoice);
         } catch (err) {
-            console.error("Socket error on invoice update:", err);
+            console.error("Socket error on invoice update:", err.message);
         }
 
         res.json({ message: `${type === 'quotation' ? 'Quotation' : 'Invoice'} updated successfully`, invoice });
     } catch (error) {
+        console.error("[Invoice] updateInvoice error:", error);
         res.status(500).json({ message: error.message });
     }
 };

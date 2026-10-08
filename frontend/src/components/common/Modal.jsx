@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useEffect } from 'react';
 
-const Modal = ({ isOpen, onClose, title, children }) => {
+const Modal = ({ isOpen, onClose, title, maxWidth = 'sm:max-w-lg', children }) => {
   // Lock body scroll when modal is open
   useEffect(() => {
     if (isOpen) {
@@ -29,7 +29,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 30, scale: 0.97 }}
           transition={{ type: 'spring', damping: 28, stiffness: 340 }}
-          className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg overflow-hidden border border-slate-100 max-h-[90dvh] flex flex-col"
+          className={`bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full ${maxWidth} overflow-hidden border border-slate-100 max-h-[92dvh] flex flex-col`}
         >
           {/* Drag handle for mobile */}
           <div className="flex justify-center pt-3 pb-0 sm:hidden">

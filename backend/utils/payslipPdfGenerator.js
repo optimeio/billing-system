@@ -1,155 +1,227 @@
-const PDFDocument = require("pdfkit");
+const { PDFDocument, rgb, StandardFonts } = require("pdf-lib");
 const path = require("path");
 const fs = require("fs");
 
 /**
- * Generates a monthly Payslip PDF document
+ * Formats a number to Indian currency format with commas and 2 decimals
+ */
+const formatCurrency = (val) => {
+    const num = Number(val || 0);
+    return num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+/**
+ * Generates a monthly Payslip PDF document matching the exact official SM Groups Payslip Statement design
+ * using the official Canva A4 background template (SM_Groups_Payslip_Template.pdf)
  * @param {Object} payslip - The payslip database document
  * @param {Object} employee - The employee user document
  * @returns {Promise<Buffer>} - Resolves with the PDF Buffer
  */
-const generatePayslipPDF = (payslip, employee) => {
-    return new Promise((resolve, reject) => {
-        try {
-            const doc = new PDFDocument({ margin: 50, size: "A4" });
-            const buffers = [];
-
-            doc.on("data", buffers.push.bind(buffers));
-            doc.on("end", () => {
-                const pdfData = Buffer.concat(buffers);
-                resolve(pdfData);
-            });
-            doc.on("error", reject);
-
-            // Extract numerical variables safely with defaults
-            const basicSalary = Number(payslip.basicSalary || 0);
-            const allowances = Number(payslip.allowances || 0);
-            const deductions = Number(payslip.deductions || 0);
-            const lopDays = Number(payslip.lopDays || 0);
-            const lopDeduction = Number(payslip.lopDeduction || 0);
-            const netSalary = Number(payslip.netSalary || 0);
-
-            // ─── Header Section ─────────────────────────────────────────────
-            const logoPath = path.join(__dirname, "logo.png");
-            let headerY = 50;
-
-            if (fs.existsSync(logoPath)) {
-                // Render the logo image centered at the top
-                doc.image(logoPath, 237, 30, { width: 120 });
-                headerY = 80;
-            } else {
-                // Fallback to text header if logo is missing
-                doc.fillColor("#0f172a")
-                   .fontSize(20)
-                   .text("SM GROUPS", 50, 35, { align: "center", font: "Helvetica-Bold" });
-                headerY = 65;
-            }
-
-            doc.fillColor("#475569")
-               .fontSize(9)
-               .text("MONTHLY PAYSLIP & LOP STATEMENT", 50, headerY + 5, { align: "center", font: "Helvetica-Bold" });
-
-            // Line Divider
-            doc.strokeColor("#e2e8f0")
-               .lineWidth(1.5)
-               .moveTo(50, 105)
-               .lineTo(545, 105)
-               .stroke();
-
-            // ─── Metadata ───────────────────────────────────────────────────
-            const monthNames = [
-                "January", "February", "March", "April", "May", "June", 
-                "July", "August", "September", "October", "November", "December"
-            ];
-            const [yearStr, monthStr] = payslip.month.split("-");
-            const monthName = monthNames[parseInt(monthStr, 10) - 1] || payslip.month;
-
-            doc.fillColor("#1e293b")
-               .fontSize(11)
-               .text(`Pay Period: ${monthName} ${yearStr}`, 50, 120, { font: "Helvetica-Bold" })
-               .text(`Status: ${payslip.status.toUpperCase()}`, 400, 120, { align: "right", font: "Helvetica-Bold" });
-
-            // ─── Employee Info Box ──────────────────────────────────────────
-            // Box boundaries: x=50, y=145, width=495, height=75
-            doc.rect(50, 145, 495, 75)
-               .fillColor("#f8fafc")
-               .fillAndStroke()
-               .strokeColor("#cbd5e1");
-
-            doc.fillColor("#475569")
-               .fontSize(9)
-               .text("EMPLOYEE DETAILS", 65, 155, { font: "Helvetica-Bold" });
-
-            doc.fillColor("#1e293b")
-               .fontSize(9)
-               .text(`Name: ${employee.name}`, 65, 175)
-               .text(`Staff ID: ${employee.staffId}`, 65, 192)
-               .text(`Role: ${employee.role.toUpperCase()}`, 300, 175)
-               .text(`Email: ${employee.email}`, 300, 192);
-
-            // ─── Earnings & Deductions Table ─────────────────────────────────
-            // Header Row: y=240, height=20
-            doc.rect(50, 240, 495, 20)
-               .fillColor("#0f172a")
-               .fill();
-
-            doc.fillColor("#ffffff")
-               .fontSize(9)
-               .text("EARNINGS", 60, 246, { font: "Helvetica-Bold" })
-               .text("AMOUNT (INR)", 200, 246, { font: "Helvetica-Bold" })
-               .text("DEDUCTIONS", 300, 246, { font: "Helvetica-Bold" })
-               .text("AMOUNT (INR)", 450, 246, { font: "Helvetica-Bold" });
-
-            // Table Body
-            doc.fillColor("#0f172a")
-               .fontSize(9);
-
-            // Row 1: Basic Pay vs LOP
-            doc.text("Basic Salary", 60, 275)
-               .text(`₹${basicSalary.toFixed(2)}`, 200, 275)
-               .text(`LOP Deduction (${lopDays} days)`, 300, 275)
-               .text(`₹${lopDeduction.toFixed(2)}`, 450, 275);
-
-            // Row 2: Allowances vs Other Deductions
-            doc.text("Allowances / Bonus", 60, 300)
-               .text(`+ ₹${allowances.toFixed(2)}`, 200, 300)
-               .text("Other Deductions", 300, 300)
-               .text(`- ₹${deductions.toFixed(2)}`, 450, 300);
-
-            // Table Border Line
-            doc.strokeColor("#cbd5e1")
-               .lineWidth(1)
-               .moveTo(50, 325)
-               .lineTo(545, 325)
-               .stroke();
-
-            // ─── Net Salary Callout Box ──────────────────────────────────────
-            // Box boundaries: x=50, y=345, width=495, height=40
-            doc.rect(50, 345, 495, 40)
-               .fillColor("#f1f5f9")
-               .fillAndStroke()
-               .strokeColor("#94a3b8");
-
-            doc.fillColor("#0f172a")
-               .fontSize(11);
-            doc.text("NET TAKE-HOME SALARY:", 65, 359, { font: "Helvetica-Bold" });
-            doc.text(`₹${netSalary.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 50, 359, { 
-                width: 480, 
-                align: "right", 
-                font: "Helvetica-Bold" 
-            });
-
-            // ─── Footer Section ─────────────────────────────────────────────
-            doc.fillColor("#64748b")
-               .fontSize(8)
-               .text(`Generation Timestamp: ${new Date(payslip.generatedAt || payslip.createdAt).toLocaleString()}`, 50, 410)
-               .text("This is a system-generated document and does not require a physical signature.", 50, 430, { align: "center" });
-
-            doc.end();
-        } catch (err) {
-            reject(err);
+const generatePayslipPDF = async (payslip, employee) => {
+    try {
+        const templatePath = path.join(__dirname, "SM_Groups_Payslip_Template.pdf");
+        if (!fs.existsSync(templatePath)) {
+            throw new Error(`Template not found: ${templatePath}`);
         }
-    });
+
+        const pdfDoc = await PDFDocument.load(fs.readFileSync(templatePath));
+        const page = pdfDoc.getPages()[0];
+        const { width, height } = page.getSize();
+
+        // Embed official Logo and Building Sketch
+        const logoPath = path.join(__dirname, "sm-groups-logo.png");
+        const sketchPath = path.join(__dirname, "building_sketch.png");
+
+        let logoImg = null;
+        let sketchImg = null;
+
+        if (fs.existsSync(logoPath)) {
+            logoImg = await pdfDoc.embedPng(fs.readFileSync(logoPath));
+        }
+        if (fs.existsSync(sketchPath)) {
+            sketchImg = await pdfDoc.embedPng(fs.readFileSync(sketchPath));
+        }
+
+        const fReg = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        const fBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+        const cDark = rgb(15 / 255, 23 / 255, 42 / 255);       // #0f172a
+        const cBlack = rgb(0, 0, 0);
+        const cBorder = rgb(50 / 255, 50 / 255, 50 / 255);     // Dark borders
+        const cWhite = rgb(1, 1, 1);
+
+        // ── 1. OFFICIAL SM GROUPS LOGO (TOP CENTER) ───────────────────────────
+        if (logoImg) {
+            const logoW = 230;
+            const logoH = logoW * (logoImg.height / logoImg.width);
+            page.drawImage(logoImg, {
+                x: (width - logoW) / 2,
+                y: 750,
+                width: logoW,
+                height: logoH
+            });
+        }
+
+        // ── 2. BUILDING SKETCH & PAYSLIP STATEMENT TITLE ──────────────────────
+        if (sketchImg) {
+            const skW = 145;
+            const skH = skW * (sketchImg.height / sketchImg.width);
+            page.drawImage(sketchImg, {
+                x: 55,
+                y: 645,
+                width: skW,
+                height: skH
+            });
+        }
+
+        page.drawText("PAYSLIP STATEMENT", {
+            x: 215,
+            y: 668,
+            size: 26,
+            font: fBold,
+            color: cDark
+        });
+
+        // Horizontal divider line
+        page.drawLine({
+            start: { x: 55, y: 638 },
+            end: { x: 540, y: 638 },
+            thickness: 1.5,
+            color: cBorder
+        });
+
+        // ── 3. EMPLOYEE DETAILS (CLEAN VERTICAL ALIGNMENT, NO BOX) ────────────
+        const [yearStr, monthStr] = (payslip.month || "").split("-");
+        const monthNames = [
+            "January", "February", "March", "April", "May", "June", 
+            "July", "August", "September", "October", "November", "December"
+        ];
+        const monthName = monthNames[parseInt(monthStr, 10) - 1] || payslip.month || "Current Month";
+        const fullMonthText = `${monthName} ${yearStr || ""}`.trim();
+
+        let payDateText = payslip.payDate;
+        if (!payDateText && yearStr && monthStr) {
+            const yearNum = parseInt(yearStr, 10);
+            const monthNum = parseInt(monthStr, 10);
+            const lastDay = new Date(yearNum, monthNum, 0).getDate();
+            payDateText = `${lastDay} ${monthName} ${yearStr}`;
+        }
+        if (!payDateText) payDateText = "End of Month";
+
+        const designationText = payslip.designation || employee.designation || employee.role?.toUpperCase() || "Staff Member";
+        const departmentText = payslip.department || employee.department || "Operations";
+        const employeeName = employee.name || payslip.userId?.name || "Staff Member";
+        const staffId = employee.staffId || employee.userId?.staffId || payslip.userId?.staffId || "-";
+
+        const empDetails = [
+            { label: "Month", val: fullMonthText, bold: false },
+            { label: "Employee Name", val: employeeName, bold: true },
+            { label: "Employee ID", val: staffId, bold: false },
+            { label: "Department", val: departmentText, bold: false },
+            { label: "Designation", val: designationText, bold: false },
+            { label: "Pay Date", val: payDateText, bold: false }
+        ];
+
+        let empY = 612;
+        empDetails.forEach(item => {
+            page.drawText(item.label, { x: 60, y: empY, size: 11, font: fBold, color: cDark });
+            page.drawText(`: ${item.val}`, { x: 190, y: empY, size: 11, font: item.bold ? fBold : fReg, color: cDark, maxWidth: 340 });
+            empY -= 19.5;
+        });
+
+        // ── 4. EARNINGS SECTION HEADING & TABLE ───────────────────────────────
+        empY -= 10;
+        page.drawText("Earnings", { x: 60, y: empY, size: 13, font: fBold, color: cDark });
+
+        const tableX = 55;
+        const tableW = 485;
+        const col1W = 245;
+        const col2W = tableW - col1W; // 240
+        const rowH = 26;
+
+        let tblY = empY - 32;
+
+        // Header row (Solid Black)
+        page.drawRectangle({ x: tableX, y: tblY, width: tableW, height: rowH, color: cBlack });
+
+        const descHdr = "Description";
+        const descHdrW = fBold.widthOfTextAtSize(descHdr, 11);
+        page.drawText(descHdr, { x: tableX + (col1W - descHdrW) / 2, y: tblY + 8, size: 11, font: fBold, color: cWhite });
+
+        const amtHdr = "Amount (INR)";
+        const amtHdrW = fBold.widthOfTextAtSize(amtHdr, 11);
+        page.drawText(amtHdr, { x: tableX + col1W + (col2W - amtHdrW) / 2, y: tblY + 8, size: 11, font: fBold, color: cWhite });
+
+        tblY -= rowH;
+
+        const basicSalary = Number(payslip.basicSalary ?? employee.basicSalary ?? 0);
+        const allowances = Number(payslip.allowances || 0);
+        const bonus = Number(payslip.bonus || 0);
+        const lopDays = Number(payslip.lopDays || 0);
+        const lopDeduction = Number(payslip.lopDeduction || 0);
+        const deductions = Number(payslip.deductions || 0);
+        const netSalary = Number(payslip.netSalary !== undefined ? payslip.netSalary : Math.max(0, basicSalary + allowances + bonus - lopDeduction - deductions));
+
+        const rows = [
+            { desc: "Basic Salary", amt: formatCurrency(basicSalary) },
+            { desc: "Allowance", amt: formatCurrency(allowances) },
+            { desc: "Performance Bonus", amt: formatCurrency(bonus) },
+            { desc: `LOP Deduction (${lopDays} days)`, amt: lopDeduction > 0 ? `- ${formatCurrency(lopDeduction)}` : "0.00" }
+        ];
+
+        if (deductions > 0) {
+            rows.push({ desc: "Other Deductions", amt: `- ${formatCurrency(deductions)}` });
+        }
+
+        rows.forEach(r => {
+            page.drawRectangle({ x: tableX, y: tblY, width: tableW, height: rowH, borderColor: cBorder, borderWidth: 1 });
+            page.drawLine({ start: { x: tableX + col1W, y: tblY }, end: { x: tableX + col1W, y: tblY + rowH }, thickness: 1, color: cBorder });
+
+            page.drawText(r.desc, { x: tableX + 15, y: tblY + 8, size: 10.5, font: fReg, color: cDark });
+
+            const aW = fReg.widthOfTextAtSize(r.amt, 10.5);
+            page.drawText(r.amt, { x: tableX + col1W + (col2W - aW) / 2, y: tblY + 8, size: 10.5, font: fReg, color: cDark });
+
+            tblY -= rowH;
+        });
+
+        // Total Earnings Row
+        page.drawRectangle({ x: tableX, y: tblY, width: tableW, height: rowH + 2, borderColor: cBorder, borderWidth: 1.2 });
+        page.drawLine({ start: { x: tableX + col1W, y: tblY }, end: { x: tableX + col1W, y: tblY + rowH + 2 }, thickness: 1.2, color: cBorder });
+
+        const totLbl = "Total Earnings";
+        const totLblW = fBold.widthOfTextAtSize(totLbl, 11);
+        page.drawText(totLbl, { x: tableX + (col1W - totLblW) / 2, y: tblY + 8, size: 11, font: fBold, color: cDark });
+
+        const totVal = formatCurrency(netSalary);
+        const totValW = fBold.widthOfTextAtSize(totVal, 11);
+        page.drawText(totVal, { x: tableX + col1W + (col2W - totValW) / 2, y: tblY + 8, size: 11, font: fBold, color: cDark });
+
+        // ── 5. PAYMENT & BANK DETAILS (CLEAN VERTICAL ALIGNMENT, NO BOX) ──────
+        let payY = tblY - 45;
+        const bankAcc = payslip.bankAccount || employee.bankAccount || "-";
+        const ifsc = payslip.ifscCode || employee.ifscCode || "-";
+        const payMode = payslip.paymentMode || "Bank Transfer";
+
+        const payDetails = [
+            { label: "Net Pay", val: formatCurrency(netSalary), bold: true },
+            { label: "Bank Account", val: bankAcc, bold: false },
+            { label: "IFSC Code", val: ifsc, bold: false },
+            { label: "Payment Mode", val: payMode, bold: false }
+        ];
+
+        payDetails.forEach(p => {
+            page.drawText(p.label, { x: 65, y: payY, size: 11, font: fBold, color: cDark });
+            page.drawText(`: ${p.val}`, { x: 185, y: payY, size: 11, font: p.bold ? fBold : fReg, color: cDark, maxWidth: 300 });
+            payY -= 20;
+        });
+
+        const pdfBytes = await pdfDoc.save();
+        return Buffer.from(pdfBytes);
+    } catch (err) {
+        console.error("Error in generatePayslipPDF:", err);
+        throw err;
+    }
 };
 
 module.exports = { generatePayslipPDF };

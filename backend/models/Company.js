@@ -40,6 +40,18 @@ const companySchema = new mongoose.Schema({
     themeColor: { 
         type: String, 
         default: "#d60000" 
+    },
+    defaultHsn: {
+        type: String,
+        default: "7321"
+    },
+    defaultGstRate: {
+        type: Number,
+        default: 0
+    },
+    defaultDiscount: {
+        type: Number,
+        default: 0
     }
 }, { timestamps: true });
 

@@ -31,11 +31,11 @@ exports.login = async (req, res) => {
     }
 
     try {
-        // Email lookup is case-insensitive; staffId lookup is exact
+        // Email lookup is case-insensitive; staffId lookup is also case-insensitive
         const isEmail = loginId.includes("@");
         const query = isEmail
             ? { email: loginId.toLowerCase() }
-            : { staffId: loginId };
+            : { staffId: { $regex: new RegExp(`^${loginId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } };
 
         const user = await User.findOne(query);
 

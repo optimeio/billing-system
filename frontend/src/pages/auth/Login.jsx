@@ -71,7 +71,7 @@ const Login = () => {
       }, 800);
 
     } catch (err) {
-      const msg = err.response?.data?.message || 'Login failed. Please try again.';
+      const msg = err.response?.data?.message || (err.message === 'Network Error' ? 'Network Error: Cannot connect to backend server.' : 'Login failed. Please check your credentials and try again.');
       setError(msg);
     } finally {
       setLoading(false);

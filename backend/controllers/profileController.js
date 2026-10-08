@@ -22,7 +22,7 @@ exports.getMyProfile = async (req, res) => {
 // @access  Private
 exports.updateMyProfile = async (req, res) => {
     try {
-        const { name, phone, address } = req.body;
+        const { name, phone, address, bankAccount, ifscCode } = req.body;
         
         const user = await User.findById(req.user._id);
         if (!user) {
@@ -32,6 +32,8 @@ exports.updateMyProfile = async (req, res) => {
         user.name = name || user.name;
         user.phone = phone || user.phone;
         user.address = address || user.address;
+        if (bankAccount !== undefined) user.bankAccount = bankAccount;
+        if (ifscCode !== undefined) user.ifscCode = ifscCode;
 
         const updatedUser = await user.save();
         

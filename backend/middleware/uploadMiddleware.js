@@ -14,7 +14,8 @@ const storage = multer.diskStorage({
         cb(null, uploadDir);
     },
     filename: function(req, file, cb) {
-        cb(null, `${Date.now()}-${file.originalname}`);
+        const sanitized = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+        cb(null, `${Date.now()}-${sanitized}`);
     }
 });
 
@@ -30,7 +31,7 @@ function checkFileType(file, cb) {
     if (mimetype && extname) {
         return cb(null, true);
     } else {
-        cb("Error: Images and PDFs Only!");
+        cb(new Error("Only image and PDF files are allowed"));
     }
 }
 

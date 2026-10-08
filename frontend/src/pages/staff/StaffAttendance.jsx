@@ -1,97 +1,26 @@
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Clock, Camera, CheckCircle2, LogOut, History, Eye, Calendar, AlertTriangle, Image as ImageIcon } from "lucide-react";
+import { motion } from "framer-motion";
+import { History, Eye, Calendar, ExternalLink, AlertCircle, ShieldAlert, CheckCircle2 } from "lucide-react";
 import api from "../../services/api";
 import toast from "react-hot-toast";
 import Modal from "../../components/common/Modal";
 
-// Client-side image compression helper
-const compressImage = (file, maxWidth = 1200, maxHeight = 1200, quality = 0.8) => {
-  return new Promise((resolve) => {
-    if (!file.type.startsWith("image/")) {
-      resolve(file);
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target.result;
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > maxWidth) {
-            height = Math.round((height * maxWidth) / width);
-            width = maxWidth;
-          }
-        } else {
-          if (height > maxHeight) {
-            width = Math.round((width * maxHeight) / height);
-            height = maxHeight;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, width, height);
-
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              const originalName = file.name;
-              const lastDotIndex = originalName.lastIndexOf(".");
-              const baseName = lastDotIndex !== -1 ? originalName.substring(0, lastDotIndex) : originalName;
-              
-              const compressedFile = new File([blob], `${baseName}-compressed.jpg`, {
-                type: "image/jpeg",
-                lastModified: Date.now()
-              });
-              resolve(compressedFile);
-            } else {
-              resolve(file);
-            }
-          },
-          "image/jpeg",
-          quality
-        );
-      };
-      img.onerror = () => resolve(file);
-    };
-    reader.onerror = () => resolve(file);
-  });
-};
-
 const StaffAttendance = () => {
-  const [time, setTime] = useState(new Date());
-  const [todayRecord, setTodayRecord] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-
-  // Photo uploads state
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState("");
-  const [uploadMethod, setUploadMethod] = useState("camera"); // 'camera' or 'gallery'
-  const [compressing, setCompressing] = useState(false);
 
   // Photo viewer modal
   const [isPhotoOpen, setIsPhotoOpen] = useState(false);
-  const [photoUrl, setPhotoUrl] = useState("");
-  const [photoTitle, setPhotoTitle] = useState("Photo Viewer");
+  const [photoStatus, setPhotoStatus] = useState("loading"); // 'loading' | 'success' | 'error'
+  const [photoData, setPhotoData] = useState({
+    url: "",
+    title: "",
+    time: "",
+    type: "Check-In",
+    date: ""
+  });
 
-  const fetchTodayRecord = async () => {
-    try {
-      const res = await api.get("/attendance/today");
-      setTodayRecord(res.data);
-    } catch (err) {
-      console.error("Failed to load today's attendance:", err);
-    }
-  };
+  const EMS_PORTAL_URL = "https://ems.thesmgroups.com/";
 
   const fetchHistory = async () => {
     setLoading(true);
@@ -99,109 +28,28 @@ const StaffAttendance = () => {
       const res = await api.get("/attendance/my-history");
       setHistory(res.data);
     } catch (err) {
-      toast.error("Failed to load attendance history");
+      console.error("Failed to load attendance history:", err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    // Live clock ticker
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    fetchTodayRecord();
     fetchHistory();
-    return () => clearInterval(timer);
   }, []);
 
-  const handleFileChange = async (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setCompressing(true);
-      try {
-        const compressedFile = await compressImage(file);
-        setSelectedFile(compressedFile);
-        setPreviewUrl(URL.createObjectURL(compressedFile));
-      } catch (err) {
-        console.error("Compression error:", err);
-        setSelectedFile(file);
-        setPreviewUrl(URL.createObjectURL(file));
-      } finally {
-        setCompressing(false);
-      }
-    }
-  };
-
-  // Helper to determine check-in state, labels, and deadlines
-  const getAttendanceState = () => {
-    const nowHour = time.getHours();
-    const nowMinutes = time.getMinutes();
-    const isPast10AM = nowHour > 10 || (nowHour === 10 && nowMinutes > 0);
-
-    if (!todayRecord) {
-      return {
-        type: "check-in",
-        label: "Check In",
-        description: "Record your daily presence. Selfie photo is required.",
-        alert: isPast10AM ? "Late Check In (Deadline 10:00 AM)" : null
-      };
-    }
-
-    // Checked in, but not checked out
-    if (todayRecord.checkIn && !todayRecord.checkOut) {
-      return {
-        type: "check-out",
-        label: "Check Out",
-        description: "Record check-out and complete your workday. Selfie photo is required.",
-        alert: null
-      };
-    }
-
-    // Checked in and checked out
-    return {
-      type: "completed",
-      label: "Attendance Completed",
-      description: "You have completed your check-in and check-out for today.",
-      alert: null
-    };
-  };
-
-  const activeState = getAttendanceState();
-
-  const handleFormSubmit = async (e) => {
-    e.preventDefault();
-    if (activeState.type === "completed") return;
-
-    if (!selectedFile) {
-      toast.error(`Selfie photo is required for ${activeState.label}!`);
-      return;
-    }
-
-    setSubmitting(true);
-    const formData = new FormData();
-    formData.append("photo", selectedFile);
-
-    try {
-      const endpoint = activeState.type === "check-in" ? "/attendance/check-in" : "/attendance/check-out";
-      const res = await api.post(endpoint, formData, {
-        headers: { "Content-Type": "multipart/form-data" }
-      });
-      toast.success(res.data.message || "Attendance recorded successfully!");
-      setSelectedFile(null);
-      setPreviewUrl("");
-      fetchTodayRecord();
-      fetchHistory();
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Operation failed. Please try again.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleViewPhoto = (photoPath, title = "Visual Verification") => {
+  const handleViewPhoto = (photoPath, date, time, type = "Check-In") => {
+    if (!photoPath) return;
     const backendUrl = import.meta.env.VITE_API_URL || "";
     const cleanUrl = photoPath.startsWith("http") ? photoPath : `${backendUrl.replace("/api", "")}${photoPath}`;
-    setPhotoUrl(cleanUrl);
-    setPhotoTitle(title);
+    setPhotoStatus("loading");
+    setPhotoData({
+      url: cleanUrl,
+      title: `${type} Verification: ${getMonthName(date)}`,
+      time: formatTime(time),
+      type,
+      date: getMonthName(date)
+    });
     setIsPhotoOpen(true);
   };
 
@@ -225,305 +73,256 @@ const StaffAttendance = () => {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8 pb-12">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Attendance Dashboard</h1>
-        <p className="text-sm text-slate-500 mt-1">Record your check-in and check-out for today. All steps require selfie verification.</p>
+        <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Staff Attendance</h1>
+        <p className="text-sm text-slate-500 mt-1">
+          Attendance tracking has transitioned to the centralized EMS Portal.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
-        {/* Check-in Widget Card */}
-        <div className="xl:col-span-1 space-y-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center text-center space-y-6">
-            {/* Live Clock Ticker */}
-            <div className="space-y-1">
-              <div className="text-sm font-semibold text-slate-400 uppercase tracking-wider">Current Time</div>
-              <div className="text-3xl font-black text-slate-850 tracking-tight flex items-center justify-center gap-2">
-                <Clock className="text-primary animate-pulse" size={24} />
-                {time.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-              </div>
-              <div className="text-xs text-slate-500 font-medium">
-                {time.toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-              </div>
+      {/* ── EMS PORTAL MIGRATION NOTICE CARD (PROMINENT) ── */}
+      <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-6 sm:p-8 rounded-2xl shadow-xl border border-blue-700/40 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="space-y-3 max-w-2xl">
+            <div className="inline-flex items-center gap-2 bg-blue-500/20 border border-blue-400/30 text-blue-200 px-3 py-1 rounded-full text-xs font-semibold">
+              <AlertCircle size={14} />
+              <span>Official Attendance Portal</span>
             </div>
-
-            <div className="w-full border-t border-slate-100 pt-6">
-              {activeState.type === "completed" ? (
-                <div className="space-y-6">
-                  <div className="flex flex-col items-center justify-center gap-2">
-                    <div className="w-14 h-14 bg-green-50 text-green-600 rounded-full flex items-center justify-center shadow border border-green-100">
-                      <CheckCircle2 size={30} />
-                    </div>
-                    <span className="text-sm font-bold text-green-600 uppercase tracking-wider mt-1">Done for Today</span>
-                  </div>
-                  <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-100 text-left space-y-2">
-                    <p className="font-semibold text-slate-700">Today's Summary:</p>
-                    {todayRecord?.checkIn && (
-                      <p>• Check In: {formatTime(todayRecord.checkIn)}</p>
-                    )}
-                    {todayRecord?.checkOut && (
-                      <p>• Check Out: {formatTime(todayRecord.checkOut)}</p>
-                    )}
-                    <p className="font-bold border-t pt-1.5 mt-1">Total Hours: {todayRecord?.workHours || 0} hrs</p>
-                  </div>
-                </div>
-              ) : (
-                <form onSubmit={handleFormSubmit} className="space-y-5">
-                  <div className="text-left bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-1">
-                    <span className="text-xs font-bold text-slate-700 block">{activeState.label}</span>
-                    <span className="text-[11px] text-slate-500 block leading-snug">{activeState.description}</span>
-                    {activeState.alert && (
-                      <div className="flex items-center gap-1.5 mt-2 text-amber-600 bg-amber-50 p-2 rounded-lg border border-amber-100 text-[10px] font-bold">
-                        <AlertTriangle size={12} className="shrink-0" />
-                        {activeState.alert}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="text-left space-y-2">
-                    <span className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">Selfie Upload</span>
-                    
-                    {/* Method toggle buttons */}
-                    <div className="flex bg-slate-100 p-1 rounded-xl mb-3 text-xs font-semibold">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUploadMethod("camera");
-                          setSelectedFile(null);
-                          setPreviewUrl("");
-                        }}
-                        className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
-                          uploadMethod === "camera"
-                            ? "bg-white text-slate-800 shadow-sm"
-                            : "text-slate-500 hover:text-slate-700"
-                        }`}
-                      >
-                        <Camera size={14} />
-                        Take Selfie
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUploadMethod("gallery");
-                          setSelectedFile(null);
-                          setPreviewUrl("");
-                        }}
-                        className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
-                          uploadMethod === "gallery"
-                            ? "bg-white text-slate-800 shadow-sm"
-                            : "text-slate-500 hover:text-slate-700"
-                        }`}
-                      >
-                        <ImageIcon size={14} />
-                        Upload Image
-                      </button>
-                    </div>
-
-                    <div className="relative border-2 border-dashed border-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center gap-3 bg-slate-50/50 hover:bg-slate-50 transition-colors group cursor-pointer">
-                      <input
-                        key={uploadMethod}
-                        type="file"
-                        accept="image/*"
-                        capture={uploadMethod === "camera" ? "user" : undefined}
-                        required
-                        onChange={handleFileChange}
-                        className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                        id="selfie-file"
-                      />
-                      
-                      {previewUrl ? (
-                        <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-slate-200 bg-black">
-                          <img
-                            src={previewUrl}
-                            alt="Captured Selfie Preview"
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity z-20">
-                            {uploadMethod === "camera" ? <Camera className="text-white" size={24} /> : <ImageIcon className="text-white" size={24} />}
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="w-12 h-12 bg-white text-primary rounded-full flex items-center justify-center shadow border border-slate-100 group-hover:scale-105 transition-transform">
-                            {uploadMethod === "camera" ? <Camera size={20} /> : <ImageIcon size={20} />}
-                          </div>
-                          <div className="text-center space-y-1">
-                            <span className="block text-xs font-bold text-slate-700">
-                              {uploadMethod === "camera" ? "Take Session Selfie" : "Select Image from Gallery"}
-                            </span>
-                            <span className="block text-[10px] text-slate-400 font-medium uppercase tracking-wide">
-                              {uploadMethod === "camera" ? "Opens device front camera" : "Choose file or photo"}
-                            </span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={submitting || compressing || !selectedFile}
-                    className="w-full bg-primary text-white py-3.5 rounded-xl font-bold shadow-lg shadow-primary/30 hover:bg-blue-600 transition-all disabled:opacity-50 flex justify-center items-center gap-2"
-                  >
-                    {submitting ? (
-                      <>
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Recording...
-                      </>
-                    ) : compressing ? (
-                      <>
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Compressing...
-                      </>
-                    ) : (
-                      activeState.label
-                    )}
-                  </button>
-                </form>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* History Table Column */}
-        <div className="xl:col-span-3 space-y-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
-            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <History className="text-primary" size={20} />
-              Recent Attendance Log
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+              Attendance Moved to EMS Portal
             </h2>
-
-            {loading ? (
-              <div className="py-24 text-center text-slate-500 flex flex-col items-center justify-center gap-2">
-                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-sm font-medium mt-2">Loading your log...</span>
-              </div>
-            ) : history.length === 0 ? (
-              <div className="py-24 border border-dashed border-slate-200 rounded-xl text-center text-slate-400 flex flex-col items-center justify-center gap-2">
-                <Calendar size={36} />
-                <span className="text-sm font-medium">No check-in records found. Check in above to start!</span>
-              </div>
-            ) : (
-              <div className="overflow-x-auto border border-slate-100 rounded-xl">
-                <table className="w-full text-left border-collapse min-w-[700px]" aria-label="Personal Attendance Log">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      <th className="p-4">Date</th>
-                      <th className="p-4 text-center">Check In</th>
-                      <th className="p-4 text-center">Check Out</th>
-                      <th className="p-4 text-center">Work Hours</th>
-                      <th className="p-4 text-center">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-sm text-slate-600">
-                    {history.map((rec) => (
-                      <tr key={rec._id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="p-4 font-bold text-slate-800">
-                          {getMonthName(rec.date)}
-                        </td>
-                        
-                        {/* Check-In Details */}
-                        <td className="p-4">
-                          <div className="flex items-center justify-center gap-2">
-                            <span className="font-semibold text-slate-700">{formatTime(rec.checkIn)}</span>
-                            {rec.photo ? (
-                              <button
-                                onClick={() => handleViewPhoto(rec.photo, `Check-In Selfie: ${getMonthName(rec.date)}`)}
-                                className="group relative inline-block focus:outline-none shrink-0"
-                                title="View Check-In selfie"
-                              >
-                                <img
-                                  src={rec.photo.startsWith("http") ? rec.photo : `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${rec.photo}`}
-                                  alt="Check In"
-                                  className="w-8 h-8 object-cover rounded-lg border border-slate-200 shadow-sm"
-                                  onError={(e) => {
-                                    e.target.src = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&h=100&q=80";
-                                  }}
-                                />
-                                <span className="absolute -bottom-1 -right-1 bg-primary text-white p-0.5 rounded-full shadow border border-white">
-                                  <Eye size={6} />
-                                </span>
-                              </button>
-                            ) : (
-                              rec.checkIn && <span className="text-xs text-slate-300 italic">No Selfie</span>
-                            )}
-                          </div>
-                        </td>
-
-                        {/* Check-Out Details */}
-                        <td className="p-4">
-                          <div className="flex items-center justify-center gap-2">
-                            <span className="font-semibold text-slate-700">{formatTime(rec.checkOut)}</span>
-                            {rec.photoOut1 ? (
-                              <button
-                                onClick={() => handleViewPhoto(rec.photoOut1, `Check-Out Selfie: ${getMonthName(rec.date)}`)}
-                                className="group relative inline-block focus:outline-none shrink-0"
-                                title="View Check-Out selfie"
-                              >
-                                <img
-                                  src={rec.photoOut1.startsWith("http") ? rec.photoOut1 : `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${rec.photoOut1}`}
-                                  alt="Check Out"
-                                  className="w-8 h-8 object-cover rounded-lg border border-slate-200 shadow-sm"
-                                  onError={(e) => {
-                                    e.target.src = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&h=100&q=80";
-                                  }}
-                                />
-                                <span className="absolute -bottom-1 -right-1 bg-primary text-white p-0.5 rounded-full shadow border border-white">
-                                  <Eye size={6} />
-                                </span>
-                              </button>
-                            ) : (
-                              rec.checkOut && <span className="text-xs text-slate-300 italic">No Selfie</span>
-                            )}
-                          </div>
-                        </td>
-
-                        {/* Total Hours */}
-                        <td className="p-4 text-center font-bold text-slate-800">
-                          {rec.workHours !== undefined ? `${rec.workHours} hrs` : "-"}
-                        </td>
-
-                        {/* Status badge */}
-                        <td className="p-4 text-center">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-                              rec.status === "present"
-                                ? "bg-green-50 text-green-600"
-                                : rec.status === "leave"
-                                ? "bg-amber-50 text-amber-600"
-                                : "bg-red-50 text-red-600"
-                            }`}
-                          >
-                            {rec.status.toUpperCase()}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <p className="text-sm text-blue-100/90 leading-relaxed">
+              Daily staff check-in, check-out, and attendance management are now hosted on the official SM Groups EMS platform. Attendance marking on this billing portal is closed.
+            </p>
+            <p className="text-xs text-blue-200 font-medium">
+              Portal URL: <a href={EMS_PORTAL_URL} target="_blank" rel="noopener noreferrer" className="underline font-mono text-white font-bold">{EMS_PORTAL_URL}</a>
+            </p>
           </div>
+
+          <a
+            href={EMS_PORTAL_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold px-6 py-4 rounded-xl shadow-lg shadow-blue-500/30 text-base transition-all hover:scale-[1.02] shrink-0 text-center w-full md:w-auto"
+          >
+            <span>Open EMS Attendance Portal</span>
+            <ExternalLink size={18} />
+          </a>
         </div>
+      </div>
+
+      {/* ── PREVIOUS ATTENDANCE HISTORY LOG ── */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
+          <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+            <History className="text-blue-600" size={20} />
+            Previous Attendance History (Billing Portal)
+          </h2>
+          <span className="text-xs text-slate-500 font-medium">
+            Historical logs recorded on this system are preserved below
+          </span>
+        </div>
+
+        {loading ? (
+          <div className="py-16 text-center text-slate-500 flex flex-col items-center justify-center gap-2">
+            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-sm font-medium mt-2">Loading historical records...</span>
+          </div>
+        ) : history.length === 0 ? (
+          <div className="py-16 border border-dashed border-slate-200 rounded-xl text-center text-slate-400 flex flex-col items-center justify-center gap-2">
+            <Calendar size={36} />
+            <span className="text-sm font-medium">No previous check-in records found on this system.</span>
+          </div>
+        ) : (
+          <div className="overflow-x-auto border border-slate-100 rounded-xl">
+            <table className="w-full text-left border-collapse min-w-[700px]" aria-label="Personal Attendance Log">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  <th className="p-4">Date</th>
+                  <th className="p-4 text-center">Check In</th>
+                  <th className="p-4 text-center">Check Out</th>
+                  <th className="p-4 text-center">Work Hours</th>
+                  <th className="p-4 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-sm text-slate-600">
+                {history.map((rec) => (
+                  <tr key={rec._id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="p-4 font-bold text-slate-800">
+                      {getMonthName(rec.date)}
+                    </td>
+                    
+                    {/* Check-In Details */}
+                    <td className="p-4">
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="font-semibold text-slate-700">{formatTime(rec.checkIn)}</span>
+                        {rec.photo ? (
+                          <button
+                            onClick={() => handleViewPhoto(rec.photo, rec.date, rec.checkIn, "Check-In")}
+                            className="group relative inline-block focus:outline-none shrink-0"
+                            title="View Check-In selfie"
+                          >
+                            <img
+                              src={rec.photo.startsWith("http") ? rec.photo : `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${rec.photo}`}
+                              alt="Check In"
+                              className="w-8 h-8 object-cover rounded-lg border border-slate-200 shadow-sm"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                if (e.currentTarget.nextSibling) {
+                                  e.currentTarget.nextSibling.style.display = 'flex';
+                                }
+                              }}
+                            />
+                            <div className="hidden w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 items-center justify-center text-slate-500 font-bold text-xs">
+                              IN
+                            </div>
+                            <span className="absolute -bottom-1 -right-1 bg-emerald-600 text-white p-0.5 rounded-full shadow border border-white">
+                              <Eye size={6} />
+                            </span>
+                          </button>
+                        ) : (
+                          rec.checkIn && <span className="text-xs text-slate-300 italic">No Selfie</span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Check-Out Details */}
+                    <td className="p-4">
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="font-semibold text-slate-700">{formatTime(rec.checkOut)}</span>
+                        {rec.photoOut1 ? (
+                          <button
+                            onClick={() => handleViewPhoto(rec.photoOut1, rec.date, rec.checkOut, "Check-Out")}
+                            className="group relative inline-block focus:outline-none shrink-0"
+                            title="View Check-Out selfie"
+                          >
+                            <img
+                              src={rec.photoOut1.startsWith("http") ? rec.photoOut1 : `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${rec.photoOut1}`}
+                              alt="Check Out"
+                              className="w-8 h-8 object-cover rounded-lg border border-slate-200 shadow-sm"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                if (e.currentTarget.nextSibling) {
+                                  e.currentTarget.nextSibling.style.display = 'flex';
+                                }
+                              }}
+                            />
+                            <div className="hidden w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 items-center justify-center text-slate-500 font-bold text-xs">
+                              OUT
+                            </div>
+                            <span className="absolute -bottom-1 -right-1 bg-blue-600 text-white p-0.5 rounded-full shadow border border-white">
+                              <Eye size={6} />
+                            </span>
+                          </button>
+                        ) : (
+                          rec.checkOut && <span className="text-xs text-slate-300 italic">No Selfie</span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Total Hours */}
+                    <td className="p-4 text-center font-bold text-slate-800">
+                      {rec.workHours !== undefined ? `${rec.workHours} hrs` : "-"}
+                    </td>
+
+                    {/* Status badge */}
+                    <td className="p-4 text-center">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                          rec.status === "present"
+                            ? "bg-green-50 text-green-600"
+                            : rec.status === "leave"
+                            ? "bg-amber-50 text-amber-600"
+                            : "bg-red-50 text-red-600"
+                        }`}
+                      >
+                        {rec.status.toUpperCase()}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Selfie Photo Zoom Modal */}
-      <Modal isOpen={isPhotoOpen} onClose={() => setIsPhotoOpen(false)} title={photoTitle}>
-        <div className="p-4 flex flex-col items-center justify-center gap-4">
-          <img
-            src={photoUrl}
-            alt={photoTitle}
-            className="max-w-full max-h-[70dvh] object-contain rounded-2xl shadow-lg border border-slate-150"
-            onError={(e) => {
-              e.target.src = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&h=400&q=80";
-            }}
-          />
-          <button
-            onClick={() => setIsPhotoOpen(false)}
-            className="w-full max-w-xs bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 rounded-xl text-sm transition-all shadow-md shadow-slate-800/10"
-          >
-            Close Viewer
-          </button>
-        </div>
-      </Modal>
+      {isPhotoOpen && (
+        <Modal 
+          isOpen={isPhotoOpen} 
+          onClose={() => setIsPhotoOpen(false)} 
+          title={photoData.title}
+          maxWidth="max-w-md w-full"
+        >
+          <div className="p-5 space-y-4">
+            {/* Header info badge */}
+            <div className="flex items-center justify-between bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
+              <div>
+                <p className="font-bold text-slate-800 text-sm">{photoData.type} Verification</p>
+                <p className="text-slate-500 font-medium">{photoData.date}</p>
+              </div>
+              <div className="text-right">
+                <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold inline-block ${
+                  photoData.type === 'Check-In' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
+                }`}>
+                  {photoData.type} at {photoData.time}
+                </span>
+              </div>
+            </div>
+
+            {/* Photo Container */}
+            <div className="flex justify-center items-center bg-slate-100 rounded-2xl p-2 border border-slate-200 overflow-hidden min-h-[260px] relative">
+              {photoStatus === 'loading' && (
+                <div className="flex flex-col items-center justify-center p-8 text-slate-400">
+                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-xs font-medium mt-2">Loading image...</span>
+                </div>
+              )}
+
+              <img
+                src={photoData.url}
+                alt={`${photoData.type} Selfie`}
+                className={`max-h-[55vh] max-w-full object-contain rounded-xl shadow-sm ${photoStatus === 'success' ? 'block' : 'hidden'}`}
+                onLoad={() => setPhotoStatus("success")}
+                onError={() => setPhotoStatus("error")}
+              />
+
+              {photoStatus === 'error' && (
+                <div className="flex flex-col items-center justify-center p-8 text-slate-400 text-center gap-2">
+                  <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-2xl mb-1 shadow-inner">
+                    {photoData.type === 'Check-In' ? 'IN' : 'OUT'}
+                  </div>
+                  <p className="text-sm font-bold text-slate-700">Selfie Not Stored Locally</p>
+                  <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
+                    This check-in was logged in the database, but the image file was stored on a previous server instance or is missing from local disk.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2.5 pt-1">
+              {photoStatus === 'success' ? (
+                <a
+                  href={photoData.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl text-xs transition-all text-center flex items-center justify-center gap-1.5 border border-slate-200"
+                >
+                  <ExternalLink size={14} /> Open Full Size
+                </a>
+              ) : null}
+              <button
+                onClick={() => setIsPhotoOpen(false)}
+                className="flex-1 bg-primary hover:bg-primary-dark text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md shadow-primary/20"
+              >
+                Close Viewer
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </motion.div>
   );
 };

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Download, Filter, FileText, CheckCircle, Clock, XCircle, Loader2, Trash2 } from 'lucide-react';
+import { Search, Download, Filter, FileText, CheckCircle, Clock, XCircle, Loader2, Trash2, Edit2, Calendar, RotateCcw } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import html2canvas from 'html2canvas-pro';
 import { jsPDF } from 'jspdf';
 import api from '../../services/api';
@@ -39,7 +40,17 @@ const formatDate = (dateStr) => {
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
+const backendUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5002';
+const getSignatureUrl = (sig) => {
+  if (!sig) return '';
+  if (sig.startsWith('blob:') || sig.startsWith('data:')) return sig;
+  if (sig.startsWith('http://') || sig.startsWith('https://')) return sig;
+  if (sig.startsWith('/uploads')) return `${backendUrl}${sig}`;
+  return import.meta.env.BASE_URL + sig.replace(/^\//, '');
+};
+
 const QuotationManagement = () => {
+  const navigate = useNavigate();
   const { selectedCompany } = useCompany();
   const [quotations, setQuotations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -58,6 +69,14 @@ const QuotationManagement = () => {
 
   const [employees, setEmployees] = useState([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+
+  // Date Filters State: 'all' | 'today' | 'yesterday' | 'this_week' | 'this_month' | 'previous_month' | 'custom_date' | 'custom_week' | 'custom_month' | 'custom_range'
+  const [dateFilter, setDateFilter] = useState('all');
+  const [customDate, setCustomDate] = useState('');
+  const [customWeek, setCustomWeek] = useState('');
+  const [customMonth, setCustomMonth] = useState('');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
 
   const fetchQuotations = async () => {
     try {
@@ -234,10 +253,152 @@ const QuotationManagement = () => {
     setShowPreviewModal(true);
   };
 
+  const getInvoicedByEmployee = (q) => {
+    if (q.createdBy && typeof q.createdBy === 'object' && q.createdBy.name) {
+      return q.createdBy.name;
+    }
+    const creatorId = typeof q.createdBy === 'object' ? (q.createdBy?._id || q.createdBy?.id) : q.createdBy;
+    if (creatorId) {
+      const foundInEmployees = employees.find(e => String(e._id) === String(creatorId));
+      if (foundInEmployees && foundInEmployees.name) {
+        return foundInEmployees.name;
+      }
+    }
+    if (q.employeeName) return q.employeeName;
+    if (q.staffName) return q.staffName;
+    if (q.createdByName) return q.createdByName;
+    return 'Staff Member';
+  };
+
+  // Helper to parse ISO Week ("YYYY-Www") to start & end date range
+  const getWeekRange = (weekStr) => {
+    if (!weekStr) return null;
+    const parts = weekStr.split('-W');
+    if (parts.length !== 2) return null;
+    const year = parseInt(parts[0], 10);
+    const week = parseInt(parts[1], 10);
+    if (isNaN(year) || isNaN(week)) return null;
+
+    const jan4 = new Date(year, 0, 4);
+    const dayOfWeek = (jan4.getDay() + 6) % 7;
+    const monWeek1 = new Date(year, 0, 4 - dayOfWeek);
+    
+    const monday = new Date(monWeek1.getTime() + (week - 1) * 7 * 86400000);
+    monday.setHours(0, 0, 0, 0);
+    const sunday = new Date(monday.getTime() + 6 * 86400000);
+    sunday.setHours(23, 59, 59, 999);
+    return { start: monday, end: sunday };
+  };
+
+  const matchesDateFilter = (q) => {
+    if (dateFilter === 'all') return true;
+    const rawDate = q.createdAt || q.invoiceDate;
+    if (!rawDate) return false;
+    const qDate = new Date(rawDate);
+    if (isNaN(qDate.getTime())) return false;
+
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    
+    const qYear = qDate.getFullYear();
+    const qMonth = qDate.getMonth();
+    const qDay = qDate.getDate();
+    const qDateStr = `${qYear}-${pad(qMonth + 1)}-${pad(qDay)}`;
+    
+    const todayYear = now.getFullYear();
+    const todayMonth = now.getMonth();
+    const todayDay = now.getDate();
+    const todayStr = `${todayYear}-${pad(todayMonth + 1)}-${pad(todayDay)}`;
+
+    if (dateFilter === 'today') {
+      return qDateStr === todayStr;
+    }
+
+    if (dateFilter === 'yesterday') {
+      const yest = new Date(todayYear, todayMonth, todayDay - 1);
+      const yestStr = `${yest.getFullYear()}-${pad(yest.getMonth() + 1)}-${pad(yest.getDate())}`;
+      return qDateStr === yestStr;
+    }
+
+    if (dateFilter === 'this_week') {
+      const dayOfWeek = (now.getDay() + 6) % 7;
+      const startOfWeek = new Date(todayYear, todayMonth, todayDay - dayOfWeek, 0, 0, 0, 0);
+      const endOfWeek = new Date(todayYear, todayMonth, todayDay - dayOfWeek + 6, 23, 59, 59, 999);
+      return qDate >= startOfWeek && qDate <= endOfWeek;
+    }
+
+    if (dateFilter === 'this_month') {
+      return qYear === todayYear && qMonth === todayMonth;
+    }
+
+    if (dateFilter === 'previous_month') {
+      const prevMonthDate = new Date(todayYear, todayMonth - 1, 1);
+      return qYear === prevMonthDate.getFullYear() && qMonth === prevMonthDate.getMonth();
+    }
+
+    if (dateFilter === 'custom_date') {
+      if (!customDate) return true;
+      return qDateStr === customDate;
+    }
+
+    if (dateFilter === 'custom_week') {
+      if (!customWeek) return true;
+      const range = getWeekRange(customWeek);
+      if (!range) return true;
+      return qDate >= range.start && qDate <= range.end;
+    }
+
+    if (dateFilter === 'custom_month') {
+      if (!customMonth) return true;
+      const [y, m] = customMonth.split('-').map(Number);
+      return qYear === y && (qMonth + 1) === m;
+    }
+
+    if (dateFilter === 'custom_range') {
+      if (customStartDate) {
+        const [sy, sm, sd] = customStartDate.split('-').map(Number);
+        const start = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
+        if (qDate < start) return false;
+      }
+      if (customEndDate) {
+        const [ey, em, ed] = customEndDate.split('-').map(Number);
+        const end = new Date(ey, em - 1, ed, 23, 59, 59, 999);
+        if (qDate > end) return false;
+      }
+      return true;
+    }
+
+    return true;
+  };
+
+  const getDateFilterLabel = () => {
+    switch (dateFilter) {
+      case 'today': return 'Today';
+      case 'yesterday': return 'Yesterday';
+      case 'this_week': return 'This Week';
+      case 'this_month': return 'This Month';
+      case 'previous_month': return 'Previous Month';
+      case 'custom_date': return customDate ? `Date: ${customDate}` : 'Selected Date';
+      case 'custom_week': return customWeek ? `Week: ${customWeek}` : 'Selected Week';
+      case 'custom_month': return customMonth ? `Month: ${customMonth}` : 'Selected Month';
+      case 'custom_range': 
+        if (customStartDate && customEndDate) return `${customStartDate} to ${customEndDate}`;
+        if (customStartDate) return `From ${customStartDate}`;
+        if (customEndDate) return `Up to ${customEndDate}`;
+        return 'Custom Date Range';
+      default: return 'All Time';
+    }
+  };
+
   const filteredQuotations = quotations.filter(q => {
     const matchesSearch = q.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           q.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesEmployee = selectedEmployeeId ? q.createdBy?._id === selectedEmployeeId : true;
+    
+    let matchesEmployee = true;
+    if (selectedEmployeeId) {
+      const creatorId = typeof q.createdBy === 'object' ? (q.createdBy?._id || q.createdBy?.id) : q.createdBy;
+      matchesEmployee = creatorId && String(creatorId) === String(selectedEmployeeId);
+    }
     
     let matchesCompany = true;
     if (selectedCompany) {
@@ -245,11 +406,15 @@ const QuotationManagement = () => {
       const qCompId = typeof q.companyId === 'object' ? (q.companyId?._id || q.companyId?.id) : q.companyId;
       const qCompName = typeof q.companyId === 'object' ? q.companyId?.name : '';
       
-      matchesCompany = qCompId === selectedCompId || 
-                       (qCompName && selectedCompany.name && qCompName.toLowerCase() === selectedCompany.name.toLowerCase());
+      matchesCompany = !qCompId || 
+                       qCompId === selectedCompId || 
+                       (qCompName && selectedCompany.name && qCompName.toLowerCase() === selectedCompany.name.toLowerCase()) ||
+                       (typeof q.companyId === 'string' && selectedCompany.name && q.companyId.toLowerCase() === selectedCompany.name.toLowerCase());
     }
+
+    const matchesDate = matchesDateFilter(q);
     
-    return matchesSearch && matchesEmployee && matchesCompany;
+    return matchesSearch && matchesEmployee && matchesCompany && matchesDate;
   });
 
   const handleExportCSV = () => {
@@ -273,7 +438,7 @@ const QuotationManagement = () => {
         time,
         q.grandTotal || 0,
         q.paymentStatus || '',
-        `"${(q.createdBy?.name || 'System').replace(/"/g, '""')}"`,
+        `"${(getInvoicedByEmployee(q)).replace(/"/g, '""')}"`,
         `"${products.replace(/"/g, '""')}"`
       ];
       csvRows.push(row.join(','));
@@ -289,6 +454,13 @@ const QuotationManagement = () => {
     link.click();
     document.body.removeChild(link);
   };
+
+  const selectedEmployee = employees.find(e => e._id === selectedEmployeeId);
+  const totalQuotationsAmount = filteredQuotations.reduce((acc, q) => acc + (Number(q.grandTotal) || 0), 0);
+  const approvedQuotations = filteredQuotations.filter(q => q.paymentStatus === 'approved');
+  const totalApprovedAmount = approvedQuotations.reduce((acc, q) => acc + (Number(q.grandTotal) || 0), 0);
+  const pendingQuotations = filteredQuotations.filter(q => q.paymentStatus === 'pending');
+  const totalPendingAmount = pendingQuotations.reduce((acc, q) => acc + (Number(q.grandTotal) || 0), 0);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
@@ -325,43 +497,231 @@ const QuotationManagement = () => {
         </div>
       </div>
 
+      {/* Summary Cards with Dynamic Approved & Pending Totals */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="glass p-6 rounded-xl border border-blue-100 bg-blue-50/30">
-          <p className="text-slate-500 text-sm font-medium">Total Quotations Value</p>
-          <p className="text-2xl font-bold text-slate-800 mt-1">₹{quotations.reduce((acc, q) => acc + (q.grandTotal || 0), 0).toLocaleString()}</p>
+        <div className="glass p-5 rounded-2xl border border-blue-100/80 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 shadow-sm">
+          <div className="flex items-center justify-between">
+            <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Total Quotations Value</p>
+            <span className="text-[11px] font-semibold text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-full">
+              {filteredQuotations.length} {filteredQuotations.length === 1 ? 'Quotation' : 'Quotations'}
+            </span>
+          </div>
+          <p className="text-2xl sm:text-3xl font-black text-slate-800 mt-2">
+            ₹{totalQuotationsAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+          <p className="text-[11px] text-slate-500 mt-1 font-medium truncate">
+            {selectedEmployee ? `Created by ${selectedEmployee.name}` : 'Across all quotations'}
+          </p>
         </div>
-        <div className="glass p-6 rounded-xl border border-green-100 bg-green-50/30">
-          <p className="text-slate-500 text-sm font-medium">Approved Quotations</p>
-          <p className="text-2xl font-bold text-slate-800 mt-1">{quotations.filter(q => q.paymentStatus === 'approved').length}</p>
+
+        <div className="glass p-5 rounded-2xl border border-emerald-100/80 bg-gradient-to-br from-emerald-50/50 to-green-50/30 shadow-sm">
+          <div className="flex items-center justify-between">
+            <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Approved Quotations Value</p>
+            <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full">
+              {approvedQuotations.length} Approved
+            </span>
+          </div>
+          <p className="text-2xl sm:text-3xl font-black text-emerald-600 mt-2">
+            ₹{totalApprovedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+          <p className="text-[11px] text-slate-500 mt-1 font-medium truncate">
+            {approvedQuotations.length > 0 
+              ? `${((totalApprovedAmount / (totalQuotationsAmount || 1)) * 100).toFixed(1)}% approved` 
+              : 'No approved quotations'}
+          </p>
         </div>
-        <div className="glass p-6 rounded-xl border border-amber-100 bg-amber-50/30">
-          <p className="text-slate-500 text-sm font-medium">Pending Review</p>
-          <p className="text-2xl font-bold text-slate-800 mt-1">{quotations.filter(q => q.paymentStatus === 'pending').length}</p>
+
+        <div className="glass p-5 rounded-2xl border border-amber-100/80 bg-gradient-to-br from-amber-50/50 to-orange-50/30 shadow-sm">
+          <div className="flex items-center justify-between">
+            <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Pending Review Value</p>
+            <span className="text-[11px] font-semibold text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-full">
+              {pendingQuotations.length} Pending
+            </span>
+          </div>
+          <p className="text-2xl sm:text-3xl font-black text-amber-600 mt-2">
+            ₹{totalPendingAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+          <p className="text-[11px] text-slate-500 mt-1 font-medium truncate">
+            {pendingQuotations.length > 0 
+              ? `${((totalPendingAmount / (totalQuotationsAmount || 1)) * 100).toFixed(1)}% pending review` 
+              : 'No pending quotations'}
+          </p>
         </div>
       </div>
 
-      {/* Employee filter header */}
-      <div className="flex flex-wrap gap-2 items-center bg-white p-3 rounded-xl border border-slate-200">
-        <span className="text-sm font-semibold text-slate-500 mr-2">Filter by Employee:</span>
-        <button
-          onClick={() => setSelectedEmployeeId('')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-            !selectedEmployeeId ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-          }`}
-        >
-          All Employees
-        </button>
-        {employees.map(emp => (
+      {/* Date & Employee Filter Section */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+        {/* Date Filters Header & Quick Buttons */}
+        <div className="space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
+            <div className="flex items-center gap-2">
+              <Calendar size={16} className="text-primary" />
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Filter by Date / Period:</span>
+              <span className="text-xs font-bold text-primary bg-primary/10 px-2.5 py-0.5 rounded-md">
+                {getDateFilterLabel()}
+              </span>
+            </div>
+            {(dateFilter !== 'all' || selectedEmployeeId || searchTerm) && (
+              <button
+                onClick={() => {
+                  setDateFilter('all');
+                  setSelectedEmployeeId('');
+                  setSearchTerm('');
+                  setCustomDate('');
+                  setCustomWeek('');
+                  setCustomMonth('');
+                  setCustomStartDate('');
+                  setCustomEndDate('');
+                }}
+                className="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1 hover:underline transition-colors"
+              >
+                <RotateCcw size={12} /> Reset All Filters
+              </button>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-1.5 items-center">
+            {[
+              { id: 'all', label: 'All Time' },
+              { id: 'today', label: 'Today' },
+              { id: 'yesterday', label: 'Yesterday' },
+              { id: 'this_week', label: 'This Week' },
+              { id: 'this_month', label: 'This Month' },
+              { id: 'previous_month', label: 'Previous Month' },
+              { id: 'custom_date', label: 'Select Date' },
+              { id: 'custom_week', label: 'Select Week' },
+              { id: 'custom_month', label: 'Select Month' },
+              { id: 'custom_range', label: 'Custom Range' }
+            ].map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setDateFilter(item.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  dateFilter === item.id
+                    ? 'bg-primary text-white shadow-sm shadow-primary/20'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Conditional Date Pickers */}
+          {dateFilter === 'custom_date' && (
+            <div className="flex items-center gap-2 pt-1">
+              <span className="text-xs font-medium text-slate-600">Choose Specific Date:</span>
+              <input
+                type="date"
+                value={customDate}
+                onChange={(e) => setCustomDate(e.target.value)}
+                className="p-1.5 px-3 text-xs border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 text-slate-800 font-medium bg-slate-50"
+              />
+              {customDate && (
+                <button
+                  onClick={() => setCustomDate('')}
+                  className="text-xs text-slate-400 hover:text-slate-600 font-medium"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
+
+          {dateFilter === 'custom_week' && (
+            <div className="flex items-center gap-2 pt-1">
+              <span className="text-xs font-medium text-slate-600">Choose Specific Week:</span>
+              <input
+                type="week"
+                value={customWeek}
+                onChange={(e) => setCustomWeek(e.target.value)}
+                className="p-1.5 px-3 text-xs border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 text-slate-800 font-medium bg-slate-50"
+              />
+              {customWeek && (
+                <button
+                  onClick={() => setCustomWeek('')}
+                  className="text-xs text-slate-400 hover:text-slate-600 font-medium"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
+
+          {dateFilter === 'custom_month' && (
+            <div className="flex items-center gap-2 pt-1">
+              <span className="text-xs font-medium text-slate-600">Choose Specific Month:</span>
+              <input
+                type="month"
+                value={customMonth}
+                onChange={(e) => setCustomMonth(e.target.value)}
+                className="p-1.5 px-3 text-xs border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 text-slate-800 font-medium bg-slate-50"
+              />
+              {customMonth && (
+                <button
+                  onClick={() => setCustomMonth('')}
+                  className="text-xs text-slate-400 hover:text-slate-600 font-medium"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
+
+          {dateFilter === 'custom_range' && (
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span className="text-xs font-medium text-slate-600">From:</span>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="p-1.5 px-3 text-xs border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 text-slate-800 font-medium bg-slate-50"
+              />
+              <span className="text-xs font-medium text-slate-600">To:</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="p-1.5 px-3 text-xs border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 text-slate-800 font-medium bg-slate-50"
+              />
+              {(customStartDate || customEndDate) && (
+                <button
+                  onClick={() => {
+                    setCustomStartDate('');
+                    setCustomEndDate('');
+                  }}
+                  className="text-xs text-slate-400 hover:text-slate-600 font-medium"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Employee Filter Header */}
+        <div className="pt-2 border-t border-slate-100 flex flex-wrap gap-2 items-center">
+          <span className="text-xs font-bold text-slate-700 uppercase tracking-wider mr-1">Filter by Employee:</span>
           <button
-            key={emp._id}
-            onClick={() => setSelectedEmployeeId(emp._id)}
+            onClick={() => setSelectedEmployeeId('')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              selectedEmployeeId === emp._id ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              !selectedEmployeeId ? 'bg-primary text-white shadow-sm shadow-primary/20' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            {emp.name}
+            All Employees
           </button>
-        ))}
+          {employees.map(emp => (
+            <button
+              key={emp._id}
+              onClick={() => setSelectedEmployeeId(emp._id)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                selectedEmployeeId === emp._id ? 'bg-primary text-white shadow-sm shadow-primary/20' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {emp.name}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -385,7 +745,7 @@ const QuotationManagement = () => {
                   <td className="p-4">
                     <p className="font-semibold text-slate-800">{q.invoiceNumber}</p>
                     <p className="text-[10px] text-slate-500 font-normal">
-                      Created by: <span className="font-bold">{q.createdBy?.name || 'System'}</span>
+                      Created by: <span className="font-bold">{getInvoicedByEmployee(q)}</span>
                     </p>
                   </td>
                   <td className="p-4">
@@ -434,6 +794,13 @@ const QuotationManagement = () => {
                         </button>
                       </>
                     )}
+                    <button 
+                      onClick={() => navigate(`/admin/edit-quotation/${q._id}`)}
+                      className="text-blue-600 hover:text-blue-800 p-2" 
+                      title="Edit Quotation"
+                    >
+                      <Edit2 size={18} />
+                    </button>
                     <button 
                       onClick={() => handleDownload(q)}
                       className="text-primary hover:text-blue-700 p-2" 
@@ -514,7 +881,7 @@ const QuotationManagement = () => {
                       flexShrink: 0,
                       margin: '0 auto',
                       boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-                      fontFamily: 'Segoe UI, Arial, sans-serif'
+                      fontFamily: "'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif"
                     }}
                   >
                     <DynamicInvoiceHeader company={company} />
@@ -628,7 +995,7 @@ const QuotationManagement = () => {
                             <tr key={index} className="h-10">
                               <td className="border-l border-r border-black p-2 text-center">{index + 1}</td>
                               <td className="border-l border-r border-black p-2">{item.name}</td>
-                              <td className="border-l border-r border-black p-2 text-center">{selectedQuotation.hsnCode || '99'}</td>
+                              <td className="border-l border-r border-black p-2 text-center">{selectedQuotation.hsnCode || '7321'}</td>
                               <td className="border-l border-r border-black p-2 text-center">{qty}</td>
                               <td className="border-l border-r border-black p-2 text-center whitespace-nowrap">₹ {Number(rate).toFixed(2)}</td>
                               <td className="border-l border-r border-black p-2 text-center whitespace-nowrap">₹ {taxable.toFixed(2)}</td>
@@ -667,23 +1034,30 @@ const QuotationManagement = () => {
                               <tr>
                                 <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Account Name</td>
                                 <td className="pr-2 py-0.5 align-top">:</td>
-                                <td className="py-0.5 align-top">THE SM GROUPS</td>
+                                <td className="py-0.5 align-top">{selectedQuotation.bankDetails?.accountName || company.bankDetails?.accountName || ''}</td>
                               </tr>
                               <tr>
                                 <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Bank Name</td>
                                 <td className="pr-2 py-0.5 align-top">:</td>
-                                <td className="py-0.5 align-top">CITY UNION BANK</td>
+                                <td className="py-0.5 align-top">{selectedQuotation.bankDetails?.bankName || company.bankDetails?.bankName || ''}</td>
                               </tr>
                               <tr>
                                 <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Account Number</td>
                                 <td className="pr-2 py-0.5 align-top">:</td>
-                                <td className="py-0.5 align-top">510909010317651</td>
+                                <td className="py-0.5 align-top">{selectedQuotation.bankDetails?.accountNumber || company.bankDetails?.accountNumber || ''}</td>
                               </tr>
                               <tr>
                                 <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">IFSC Code</td>
                                 <td className="pr-2 py-0.5 align-top">:</td>
-                                <td className="py-0.5 align-top">CIUB0000188</td>
+                                <td className="py-0.5 align-top">{selectedQuotation.bankDetails?.ifscCode || company.bankDetails?.ifscCode || ''}</td>
                               </tr>
+                              {(selectedQuotation.bankDetails?.branchName || company.bankDetails?.branchName) && (
+                                <tr>
+                                  <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Branch Name</td>
+                                  <td className="pr-2 py-0.5 align-top">:</td>
+                                  <td className="py-0.5 align-top">{selectedQuotation.bankDetails?.branchName || company.bankDetails?.branchName}</td>
+                                </tr>
+                              )}
                             </tbody>
                           </table>
                         </div>
@@ -720,6 +1094,17 @@ const QuotationManagement = () => {
                     <div className="flex justify-between items-end mt-8 pt-4">
                       <div className="font-bold border-t-2 border-black pt-2 w-48 text-center text-xs">Customer Signature</div>
                       <div className="font-bold border-t-2 border-black pt-2 w-48 text-center relative flex flex-col items-center text-xs">
+                        {company?.signature ? (
+                          <img 
+                            src={getSignatureUrl(company.signature)} 
+                            alt="" 
+                            className="h-12 object-contain absolute bottom-full mb-1" 
+                            crossOrigin="anonymous"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        ) : null}
                         Authorized Signature
                       </div>
                     </div>
@@ -787,7 +1172,7 @@ const QuotationManagement = () => {
             <div
               ref={pdfTemplateRef}
               className="w-[794px] min-h-[1123px] bg-white border border-black p-4 text-sm flex flex-col relative"
-              style={{ width: '794px', minHeight: '1123px', boxSizing: 'border-box', transform: 'none', margin: '0', fontFamily: 'Segoe UI, Arial, sans-serif' }}
+              style={{ width: '794px', minHeight: '1123px', boxSizing: 'border-box', transform: 'none', margin: '0', fontFamily: "'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif", backgroundColor: '#ffffff', color: '#000000' }}
             >
               <DynamicInvoiceHeader company={company} />
 
@@ -885,7 +1270,7 @@ const QuotationManagement = () => {
                       <tr key={index} className="h-10">
                         <td className="border-l border-r border-black p-2 text-center">{index + 1}</td>
                         <td className="border-l border-r border-black p-2">{item.name}</td>
-                        <td className="border-l border-r border-black p-2 text-center">{invoiceForPdf.hsnCode || '99'}</td>
+                        <td className="border-l border-r border-black p-2 text-center">{invoiceForPdf.hsnCode || '7321'}</td>
                         <td className="border-l border-r border-black p-2 text-center">{qty}</td>
                         <td className="border-l border-r border-black p-2 text-center whitespace-nowrap">₹ {Number(rate).toFixed(2)}</td>
                         <td className="border-l border-r border-black p-2 text-center whitespace-nowrap">₹ {taxable.toFixed(2)}</td>
@@ -924,23 +1309,30 @@ const QuotationManagement = () => {
                         <tr>
                           <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Account Name</td>
                           <td className="pr-2 py-0.5 align-top">:</td>
-                          <td className="py-0.5 align-top">THE SM GROUPS</td>
+                          <td className="py-0.5 align-top">{invoiceForPdf.bankDetails?.accountName || company.bankDetails?.accountName || ''}</td>
                         </tr>
                         <tr>
                           <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Bank Name</td>
                           <td className="pr-2 py-0.5 align-top">:</td>
-                          <td className="py-0.5 align-top">CITY UNION BANK</td>
+                          <td className="py-0.5 align-top">{invoiceForPdf.bankDetails?.bankName || company.bankDetails?.bankName || ''}</td>
                         </tr>
                         <tr>
                           <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Account Number</td>
                           <td className="pr-2 py-0.5 align-top">:</td>
-                          <td className="py-0.5 align-top">510909010317651</td>
+                          <td className="py-0.5 align-top">{invoiceForPdf.bankDetails?.accountNumber || company.bankDetails?.accountNumber || ''}</td>
                         </tr>
                         <tr>
                           <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">IFSC Code</td>
                           <td className="pr-2 py-0.5 align-top">:</td>
-                          <td className="py-0.5 align-top">CIUB0000188</td>
+                          <td className="py-0.5 align-top">{invoiceForPdf.bankDetails?.ifscCode || company.bankDetails?.ifscCode || ''}</td>
                         </tr>
+                        {(invoiceForPdf.bankDetails?.branchName || company.bankDetails?.branchName) && (
+                          <tr>
+                            <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Branch Name</td>
+                            <td className="pr-2 py-0.5 align-top">:</td>
+                            <td className="py-0.5 align-top">{invoiceForPdf.bankDetails?.branchName || company.bankDetails?.branchName}</td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -977,6 +1369,17 @@ const QuotationManagement = () => {
               <div className="flex justify-between items-end mt-8 pt-4">
                 <div className="font-bold border-t-2 border-black pt-2 w-48 text-center text-xs">Customer Signature</div>
                 <div className="font-bold border-t-2 border-black pt-2 w-48 text-center relative flex flex-col items-center text-xs">
+                  {company?.signature ? (
+                    <img 
+                      src={getSignatureUrl(company.signature)} 
+                      alt="" 
+                      className="h-12 object-contain absolute bottom-full mb-1" 
+                      crossOrigin="anonymous"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  ) : null}
                   Authorized Signature
                 </div>
               </div>

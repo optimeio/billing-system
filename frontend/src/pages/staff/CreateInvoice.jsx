@@ -4,11 +4,13 @@ import { Plus, Trash2, FileText, Loader2, ArrowLeft } from 'lucide-react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import { useCompany } from '../../store/CompanyContext';
 
 const CreateInvoice = ({ isQuotation = false }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const isEditMode = !!id;
+  const { selectedCompany } = useCompany();
 
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -19,7 +21,7 @@ const CreateInvoice = ({ isQuotation = false }) => {
   const [invoiceDate, setInvoiceDate] = useState('');
   
   const [items, setItems] = useState([{ productName: '', category: '', price: '', qty: 1 }]);
-  const [hsnCode, setHsnCode] = useState('99');
+  const [hsnCode, setHsnCode] = useState('7321');
   const [taxRate, setTaxRate] = useState(0);
   const [taxAmount, setTaxAmount] = useState(0);
   const [taxableValue, setTaxableValue] = useState('');
@@ -51,7 +53,7 @@ const CreateInvoice = ({ isQuotation = false }) => {
           setInvoiceDate('');
         }
         
-        setHsnCode(inv.hsnCode || '99');
+        setHsnCode(inv.hsnCode || '7321');
         setTaxRate(inv.taxRate || 0);
         setTaxAmount(inv.tax || 0);
         setTaxableValue(inv.taxableValue || '');
@@ -76,6 +78,22 @@ const CreateInvoice = ({ isQuotation = false }) => {
 
     fetchInvoiceDetails();
   }, [id, isEditMode, navigate, isQuotation]);
+
+  // Auto-fetch next sequential document number for new docs
+  useEffect(() => {
+    if (isEditMode) return;
+    const fetchNextNumber = async () => {
+      try {
+        const res = await api.get(`/invoices/next-number?type=${isQuotation ? 'quotation' : 'invoice'}`);
+        if (res.data?.nextNumber) {
+          setInvoiceNumber(res.data.nextNumber);
+        }
+      } catch (err) {
+        console.error('Failed to fetch next document number:', err);
+      }
+    };
+    fetchNextNumber();
+  }, [isEditMode, isQuotation]);
 
   const handleAddItem = () => {
     setItems([...items, { productName: '', category: '', price: '', qty: 1 }]);
@@ -144,7 +162,8 @@ const CreateInvoice = ({ isQuotation = false }) => {
         taxRate: Number(taxRate),
         tax: Number(taxAmount),
         taxableValue: taxableValue ? Number(taxableValue) : 0,
-        discount: 0
+        discount: 0,
+        companyId: selectedCompany?._id || selectedCompany?.id
       };
 
       if (isEditMode) {
@@ -161,13 +180,19 @@ const CreateInvoice = ({ isQuotation = false }) => {
         setCustomerAddress('');
         setCustomerIdNumber('');
         setPlaceOfSupply('');
-        setInvoiceNumber('');
         setInvoiceDate('');
         setItems([{ productName: '', category: '', price: '', qty: 1 }]);
         setHsnCode('99');
         setTaxRate(0);
         setTaxAmount(0);
         setTaxableValue('');
+        
+        // Fetch new next number for the next entry
+        api.get(`/invoices/next-number?type=${isQuotation ? 'quotation' : 'invoice'}`)
+          .then(nextRes => {
+            if (nextRes.data?.nextNumber) setInvoiceNumber(nextRes.data.nextNumber);
+          })
+          .catch(() => {});
       }
       
     } catch (err) {

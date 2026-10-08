@@ -3,7 +3,7 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const { transporter } = require('../utils/emailService');
 
-router.get('/health', async (req, res) => {
+const healthCheckHandler = async (req, res) => {
   const dbOk = mongoose.connection.readyState === 1; // 1 = connected
   let mailOk = false;
   let mailError = null;
@@ -14,7 +14,10 @@ router.get('/health', async (req, res) => {
     mailError = err.message || err;
   }
   res.status(200).json({ status: 'ok', db: dbOk, mail: mailOk, mailError });
-});
+};
+
+router.get('/', healthCheckHandler);
+router.get('/health', healthCheckHandler);
 
 router.get('/test-email', async (req, res) => {
   try {

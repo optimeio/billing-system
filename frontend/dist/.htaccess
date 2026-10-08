@@ -1,6 +1,11 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+
+  # Proxy API and Uploads requests to PHP proxy
+  RewriteRule ^api/(.*)$ api/index.php [QSA,L]
+  RewriteRule ^uploads/(.*)$ api/index.php [QSA,L]
+
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d

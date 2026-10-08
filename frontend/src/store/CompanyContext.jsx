@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import api from '../services/api';
+import useAuthStore from './authStore';
 import { companies as companiesConfigMap } from '../data/companyConfig';
 
 const companiesConfig = Object.values(companiesConfigMap);
@@ -9,47 +10,33 @@ const CompanyContext = createContext();
 export const useCompany = () => useContext(CompanyContext);
 
 export const CompanyProvider = ({ children }) => {
-    const [companies, setCompanies] = useState([]);
-    const [selectedCompany, setSelectedCompany] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [companies, setCompanies] = useState(companiesConfig);
+    const [selectedCompany, setSelectedCompany] = useState(companiesConfig[0]);
+    const [loading, setLoading] = useState(false);
+    const { token, isAuthenticated } = useAuthStore();
 
     const fetchCompanies = async () => {
-        setLoading(true);
         try {
-            const token = localStorage.getItem('token');
-            if (!token) {
-                // Not authenticated, fallback to static config silently
-                setCompanies(companiesConfig);
-                setSelectedCompany(companiesConfig[0]);
-                return;
-            }
-
-            const response = await api.get('/companies');
-            if (response.data && response.data.length > 0) {
+            const response = await api.get('/companies', { timeout: 8000 });
+            if (response.data && Array.isArray(response.data) && response.data.length > 0) {
                 setCompanies(response.data);
-                if (selectedCompany) {
-                    const stillExists = response.data.find(c => 
-                        (c._id && selectedCompany._id && c._id === selectedCompany._id) || 
-                        (c.id && selectedCompany.id && c.id === selectedCompany.id) ||
-                        c.name === selectedCompany.name
-                    );
-                    if (stillExists) setSelectedCompany(stillExists);
-                    else setSelectedCompany(response.data[0]);
-                } else {
-                    setSelectedCompany(response.data[0]);
-                }
+                setSelectedCompany(prevSelected => {
+                    if (prevSelected) {
+                        const matched = response.data.find(c => 
+                            (c._id && prevSelected._id && c._id === prevSelected._id) || 
+                            (c.id && prevSelected.id && c.id === prevSelected.id) ||
+                            (c.name && prevSelected.name && c.name.toLowerCase() === prevSelected.name.toLowerCase())
+                        );
+                        return matched || response.data[0];
+                    }
+                    return response.data[0];
+                });
             } else {
                 setCompanies(companiesConfig);
-                setSelectedCompany(companiesConfig[0]);
             }
         } catch (error) {
-            if (error.response && error.response.status === 401) {
-                console.warn("Unauthorized to fetch companies, using fallback config.");
-            } else {
-                console.error("Error fetching companies:", error);
-            }
+            // Silently fallback to static config if endpoint is unavailable
             setCompanies(companiesConfig);
-            if (!selectedCompany) setSelectedCompany(companiesConfig[0]);
         } finally {
             setLoading(false);
         }
@@ -57,10 +44,15 @@ export const CompanyProvider = ({ children }) => {
 
     useEffect(() => {
         fetchCompanies();
-    }, []);
+    }, [isAuthenticated, token]);
 
     const changeCompany = (companyId) => {
-        const comp = companies.find(c => c._id === companyId || c.id === companyId || c.name === companyId);
+        const comp = companies.find(c => 
+            c._id === companyId || 
+            c.id === companyId || 
+            c.name === companyId ||
+            (c.name && String(companyId).toLowerCase() === c.name.toLowerCase())
+        );
         if (comp) {
             setSelectedCompany(comp);
         }
@@ -72,3 +64,4 @@ export const CompanyProvider = ({ children }) => {
         </CompanyContext.Provider>
     );
 };
+

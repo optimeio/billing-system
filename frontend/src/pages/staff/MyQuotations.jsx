@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Download, FileText, CheckCircle, Clock, XCircle, Loader2, Trash2 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Plus, Download, FileText, CheckCircle, Clock, XCircle, Loader2, Trash2, Edit2 } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import html2canvas from 'html2canvas-pro';
 import { jsPDF } from 'jspdf';
 import api from '../../services/api';
@@ -39,7 +39,17 @@ const formatDate = (dateStr) => {
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
+const backendUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5002';
+const getSignatureUrl = (sig) => {
+  if (!sig) return '';
+  if (sig.startsWith('blob:') || sig.startsWith('data:')) return sig;
+  if (sig.startsWith('http://') || sig.startsWith('https://')) return sig;
+  if (sig.startsWith('/uploads')) return `${backendUrl}${sig}`;
+  return import.meta.env.BASE_URL + sig.replace(/^\//, '');
+};
+
 const MyQuotations = () => {
+  const navigate = useNavigate();
   const { selectedCompany } = useCompany();
   const [quotations, setQuotations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -52,8 +62,10 @@ const MyQuotations = () => {
     const qCompId = typeof q.companyId === 'object' ? (q.companyId?._id || q.companyId?.id) : q.companyId;
     const qCompName = typeof q.companyId === 'object' ? q.companyId?.name : '';
     
-    return qCompId === selectedCompId || 
-           (qCompName && selectedCompany.name && qCompName.toLowerCase() === selectedCompany.name.toLowerCase());
+    return !qCompId || 
+           qCompId === selectedCompId || 
+           (qCompName && selectedCompany.name && qCompName.toLowerCase() === selectedCompany.name.toLowerCase()) ||
+           (typeof q.companyId === 'string' && selectedCompany.name && q.companyId.toLowerCase() === selectedCompany.name.toLowerCase());
   });
 
   const handleExportCSV = () => {
@@ -315,6 +327,13 @@ const MyQuotations = () => {
                   </td>
                   <td className="p-4 text-right space-x-1">
                     <button 
+                      onClick={() => navigate(`/staff/edit-quotation/${q._id}`)}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="Edit Quotation"
+                    >
+                      <Edit2 size={18} />
+                    </button>
+                    <button 
                       onClick={() => handleDownload(q)}
                       className="p-2 text-primary hover:bg-blue-50 rounded-lg transition-colors"
                       title="Download PDF"
@@ -394,7 +413,7 @@ const MyQuotations = () => {
                       flexShrink: 0,
                       margin: '0 auto',
                       boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-                      fontFamily: 'Segoe UI, Arial, sans-serif'
+                      fontFamily: "'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif"
                     }}
                   >
                     <DynamicInvoiceHeader company={company} />
@@ -495,7 +514,7 @@ const MyQuotations = () => {
                             <tr key={index} className="h-10">
                               <td className="border-l border-r border-black p-2 text-center">{index + 1}</td>
                               <td className="border-l border-r border-black p-2">{item.name}</td>
-                              <td className="border-l border-r border-black p-2 text-center">{selectedQuotation.hsnCode || '99'}</td>
+                              <td className="border-l border-r border-black p-2 text-center">{selectedQuotation.hsnCode || '7321'}</td>
                               <td className="border-l border-r border-black p-2 text-center">{qty}</td>
                               <td className="border-l border-r border-black p-2 text-center whitespace-nowrap">₹ {Number(rate).toFixed(2)}</td>
                               <td className="border-l border-r border-black p-2 text-center whitespace-nowrap">₹ {taxable.toFixed(2)}</td>
@@ -534,23 +553,30 @@ const MyQuotations = () => {
                               <tr>
                                 <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Account Name</td>
                                 <td className="pr-2 py-0.5 align-top">:</td>
-                                <td className="py-0.5 align-top">THE SM GROUPS</td>
+                                <td className="py-0.5 align-top">{selectedQuotation.bankDetails?.accountName || company.bankDetails?.accountName || ''}</td>
                               </tr>
                               <tr>
                                 <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Bank Name</td>
                                 <td className="pr-2 py-0.5 align-top">:</td>
-                                <td className="py-0.5 align-top">CITY UNION BANK</td>
+                                <td className="py-0.5 align-top">{selectedQuotation.bankDetails?.bankName || company.bankDetails?.bankName || ''}</td>
                               </tr>
                               <tr>
                                 <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Account Number</td>
                                 <td className="pr-2 py-0.5 align-top">:</td>
-                                <td className="py-0.5 align-top">510909010317651</td>
+                                <td className="py-0.5 align-top">{selectedQuotation.bankDetails?.accountNumber || company.bankDetails?.accountNumber || ''}</td>
                               </tr>
                               <tr>
                                 <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">IFSC Code</td>
                                 <td className="pr-2 py-0.5 align-top">:</td>
-                                <td className="py-0.5 align-top">CIUB0000188</td>
+                                <td className="py-0.5 align-top">{selectedQuotation.bankDetails?.ifscCode || company.bankDetails?.ifscCode || ''}</td>
                               </tr>
+                              {(selectedQuotation.bankDetails?.branchName || company.bankDetails?.branchName) && (
+                                <tr>
+                                  <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Branch Name</td>
+                                  <td className="pr-2 py-0.5 align-top">:</td>
+                                  <td className="py-0.5 align-top">{selectedQuotation.bankDetails?.branchName || company.bankDetails?.branchName}</td>
+                                </tr>
+                              )}
                             </tbody>
                           </table>
                         </div>
@@ -587,6 +613,17 @@ const MyQuotations = () => {
                     <div className="flex justify-between items-end mt-8 pt-4">
                       <div className="font-bold border-t-2 border-black pt-2 w-48 text-center text-xs">Customer Signature</div>
                       <div className="font-bold border-t-2 border-black pt-2 w-48 text-center relative flex flex-col items-center text-xs">
+                        {company?.signature ? (
+                          <img 
+                            src={getSignatureUrl(company.signature)} 
+                            alt="" 
+                            className="h-12 object-contain absolute bottom-full mb-1" 
+                            crossOrigin="anonymous"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        ) : null}
                         Authorized Signature
                       </div>
                     </div>
@@ -630,7 +667,7 @@ const MyQuotations = () => {
             <div
               ref={pdfTemplateRef}
               className="w-[794px] min-h-[1123px] border border-black p-4 text-sm flex flex-col relative"
-              style={{ width: '794px', minHeight: '1123px', boxSizing: 'border-box', transform: 'none', margin: '0', fontFamily: 'Segoe UI, Arial, sans-serif', backgroundColor: '#ffffff', color: '#000000' }}
+              style={{ width: '794px', minHeight: '1123px', boxSizing: 'border-box', transform: 'none', margin: '0', fontFamily: "'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif", backgroundColor: '#ffffff', color: '#000000' }}
             >
               <DynamicInvoiceHeader company={company} />
 
@@ -727,7 +764,7 @@ const MyQuotations = () => {
                       <tr key={index} className="h-10">
                         <td className="border-l border-r border-black p-2 text-center">{index + 1}</td>
                         <td className="border-l border-r border-black p-2">{item.name}</td>
-                        <td className="border-l border-r border-black p-2 text-center">{invoiceForPdf.hsnCode || '99'}</td>
+                        <td className="border-l border-r border-black p-2 text-center">{invoiceForPdf.hsnCode || '7321'}</td>
                         <td className="border-l border-r border-black p-2 text-center">{qty}</td>
                         <td className="border-l border-r border-black p-2 text-center whitespace-nowrap">₹ {Number(rate).toFixed(2)}</td>
                         <td className="border-l border-r border-black p-2 text-center whitespace-nowrap">₹ {taxable.toFixed(2)}</td>
@@ -766,23 +803,30 @@ const MyQuotations = () => {
                         <tr>
                           <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Account Name</td>
                           <td className="pr-2 py-0.5 align-top">:</td>
-                          <td className="py-0.5 align-top">THE SM GROUPS</td>
+                          <td className="py-0.5 align-top">{invoiceForPdf.bankDetails?.accountName || company.bankDetails?.accountName || ''}</td>
                         </tr>
                         <tr>
                           <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Bank Name</td>
                           <td className="pr-2 py-0.5 align-top">:</td>
-                          <td className="py-0.5 align-top">CITY UNION BANK</td>
+                          <td className="py-0.5 align-top">{invoiceForPdf.bankDetails?.bankName || company.bankDetails?.bankName || ''}</td>
                         </tr>
                         <tr>
                           <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Account Number</td>
                           <td className="pr-2 py-0.5 align-top">:</td>
-                          <td className="py-0.5 align-top">510909010317651</td>
+                          <td className="py-0.5 align-top">{invoiceForPdf.bankDetails?.accountNumber || company.bankDetails?.accountNumber || ''}</td>
                         </tr>
                         <tr>
                           <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">IFSC Code</td>
                           <td className="pr-2 py-0.5 align-top">:</td>
-                          <td className="py-0.5 align-top">CIUB0000188</td>
+                          <td className="py-0.5 align-top">{invoiceForPdf.bankDetails?.ifscCode || company.bankDetails?.ifscCode || ''}</td>
                         </tr>
+                        {(invoiceForPdf.bankDetails?.branchName || company.bankDetails?.branchName) && (
+                          <tr>
+                            <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Branch Name</td>
+                            <td className="pr-2 py-0.5 align-top">:</td>
+                            <td className="py-0.5 align-top">{invoiceForPdf.bankDetails?.branchName || company.bankDetails?.branchName}</td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -819,6 +863,17 @@ const MyQuotations = () => {
               <div className="flex justify-between items-end mt-8 pt-4">
                 <div className="font-bold border-t-2 border-black pt-2 w-48 text-center text-xs">Customer Signature</div>
                 <div className="font-bold border-t-2 border-black pt-2 w-48 text-center relative flex flex-col items-center text-xs">
+                  {company?.signature ? (
+                    <img 
+                      src={getSignatureUrl(company.signature)} 
+                      alt="" 
+                      className="h-12 object-contain absolute bottom-full mb-1" 
+                      crossOrigin="anonymous"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  ) : null}
                   Authorized Signature
                 </div>
               </div>

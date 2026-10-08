@@ -5,7 +5,7 @@ export const companies = {
     address: '2nd Floor, Om Shiva Towers, 239 Advaitha Ashram Road, Fairlands, Salem, Tamil Nadu - 636004',
     gst: '33CGAPR5799F1Z1',
     phone: '+91 9488316728',
-    email: 'info@thesmgroups.com',
+    email: 'thesmgroups@gmail.com',
     logo: '/logo.png',
     bankDetails: {
       accountName: 'THE SM GROUPS',
@@ -15,7 +15,31 @@ export const companies = {
       branchName: 'FAIRLANDS',
     },
     themeColor: '#d60000',
-    signature: '/signature-sm.png'
+    defaultHsn: '7321',
+    defaultGstRate: 0,
+    defaultDiscount: 0,
+    signature: ''
+  },
+  tsmg: {
+    id: 'tsmg',
+    name: 'TSMG SERVICES PRIVATE LIMITED',
+    address: 'IInd Floor, OM Shiva Towers, 259-B, Advaitha Ashram Rd, Fairlands, Salem - 636004',
+    gst: '33CGAPR5799F1Z1',
+    phone: '+91 9488316728',
+    email: 'info@tsmgservices.com',
+    logo: '/logo-tsmg.jpeg',
+    bankDetails: {
+      accountName: 'TSMG SERVICES PRIVATE LIMITED',
+      bankName: 'HDFC BANK',
+      accountNumber: '50200088991234',
+      ifscCode: 'HDFC0000123',
+      branchName: 'FAIRLANDS',
+    },
+    themeColor: '#dc2626',
+    defaultHsn: '7321',
+    defaultGstRate: 0,
+    defaultDiscount: 0,
+    signature: ''
   },
   sritech: {
     id: 'sritech',
@@ -33,7 +57,7 @@ export const companies = {
       branchName: 'FAIRLANDS',
     },
     themeColor: '#1d4ed8',
-    signature: '/signature-sri.png'
+    signature: ''
   },
   sritechen: {
     id: 'sritechen',
@@ -51,7 +75,7 @@ export const companies = {
       branchName: 'FAIRLANDS',
     },
     themeColor: '#10b981',
-    signature: '/signature-sri-energy.png'
+    signature: ''
   },
   mbk: {
     id: 'mbk',
@@ -69,7 +93,7 @@ export const companies = {
       branchName: 'FAIRLANDS',
     },
     themeColor: '#8b5cf6',
-    signature: '/signature-mbk.png'
+    signature: ''
   },
   optime: {
     id: 'optime',
@@ -87,7 +111,7 @@ export const companies = {
       branchName: 'FAIRLANDS',
     },
     themeColor: '#f59e0b',
-    signature: '/signature-optime.png'
+    signature: ''
   },
   venthulir: {
     id: 'venthulir',
@@ -105,7 +129,7 @@ export const companies = {
       branchName: 'FAIRLANDS',
     },
     themeColor: '#14b8a6',
-    signature: '/signature-venthulir.png'
+    signature: ''
   },
   pavech: {
     id: 'pavech',
@@ -123,7 +147,7 @@ export const companies = {
       branchName: 'FAIRLANDS',
     },
     themeColor: '#8b5cf6',
-    signature: '/signature-pavech.png'
+    signature: ''
   },
   winkbench: {
     id: 'winkbench',
@@ -141,6 +165,6 @@ export const companies = {
       branchName: 'FAIRLANDS',
     },
     themeColor: '#ec4899',
-    signature: '/signature-winkbench.png'
+    signature: ''
   }
 };

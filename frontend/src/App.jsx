@@ -21,7 +21,6 @@ import ProductManagement from './pages/admin/ProductManagement';
 import ExpenseManagement from './pages/admin/ExpenseManagement';
 import PaymentManagement from './pages/admin/PaymentManagement';
 import CategoryManagement from './pages/admin/CategoryManagement';
-import ScannerVerification from './pages/admin/ScannerVerification';
 import PayslipManagement from './pages/admin/PayslipManagement';
 import PayslipHistory from './pages/staff/PayslipHistory';
 import AttendanceManagement from './pages/admin/AttendanceManagement';
@@ -34,7 +33,6 @@ import CreateInvoice from './pages/staff/CreateInvoice';
 import InvoiceTemplateEditor from './pages/staff/InvoiceTemplateEditor';
 import MyInvoices from './pages/staff/MyInvoices';
 import MyQuotations from './pages/staff/MyQuotations';
-import GenerateQR from './pages/staff/GenerateQR';
 import LeaveRequest from './pages/staff/LeaveRequest';
 import LeaveManagement from './pages/admin/LeaveManagement';
 import AnnouncementManagement from './pages/admin/AnnouncementManagement';
@@ -124,13 +122,16 @@ function App() {
         }>
           <Route index element={<AdminDashboard />} />
           <Route path="staff" element={<StaffManagement />} />
+          <Route path="create-invoice" element={<InvoiceTemplateEditor />} />
+          <Route path="edit-invoice/:id" element={<InvoiceTemplateEditor />} />
           <Route path="invoices" element={<AdminInvoices />} />
+          <Route path="create-quotation" element={<InvoiceTemplateEditor isQuotation={true} />} />
+          <Route path="edit-quotation/:id" element={<InvoiceTemplateEditor isQuotation={true} />} />
           <Route path="quotations" element={<QuotationManagement />} />
           <Route path="products" element={<ProductManagement />} />
           <Route path="expenses" element={<ExpenseManagement />} />
           <Route path="payments" element={<PaymentManagement />} />
           <Route path="categories" element={<CategoryManagement />} />
-          <Route path="scanners" element={<ScannerVerification />} />
           <Route path="notifications" element={<NotificationList />} />
           <Route path="leaves" element={<LeaveManagement />} />
           <Route path="announcements" element={<AnnouncementManagement />} />
@@ -148,10 +149,11 @@ function App() {
         }>
           <Route index element={<StaffDashboard />} />
           <Route path="create-invoice" element={<InvoiceTemplateEditor />} />
+          <Route path="edit-invoice/:id" element={<InvoiceTemplateEditor />} />
           <Route path="invoices" element={<MyInvoices />} />
           <Route path="create-quotation" element={<InvoiceTemplateEditor isQuotation={true} />} />
+          <Route path="edit-quotation/:id" element={<InvoiceTemplateEditor isQuotation={true} />} />
           <Route path="quotations" element={<MyQuotations />} />
-          <Route path="scanners" element={<GenerateQR />} />
           <Route path="expenses" element={<ExpenseManagement />} />
           <Route path="notifications" element={<NotificationList />} />
           <Route path="leaves" element={<LeaveRequest />} />
@@ -172,7 +174,6 @@ function App() {
           <Route path="products" element={<ProductManagement />} />
           <Route path="categories" element={<CategoryManagement />} />
           <Route path="quotations" element={<MyQuotations />} />
-          <Route path="scanners" element={<GenerateQR />} />
           <Route path="notifications" element={<NotificationList />} />
           <Route path="leaves" element={<LeaveRequest />} />
           <Route path="announcements" element={<Announcements />} />

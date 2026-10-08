@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import api from '../../services/api';
 import CompanyDropdown from '../../components/CompanyDropdown';
 import { companies as staticCompanies } from '../../data/companyConfig';
+import { useCompany } from '../../store/CompanyContext';
 import DynamicInvoiceHeader from '../../components/DynamicInvoiceHeader';
 import './InvoiceTemplateEditor.css';
 
@@ -40,13 +41,23 @@ const formatDate = (dateStr) => {
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
+// ── Image Source Helper ─────────────────────────────────────────
+const backendUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5002';
+const getSignatureUrl = (sig) => {
+  if (!sig) return '';
+  if (sig.startsWith('blob:') || sig.startsWith('data:')) return sig;
+  if (sig.startsWith('http://') || sig.startsWith('https://')) return sig;
+  if (sig.startsWith('/uploads')) return `${backendUrl}${sig}`;
+  return import.meta.env.BASE_URL + sig.replace(/^\//, '');
+};
+
 // ═══════════════════════════════════════════════════════════════
 //  MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════
 const InvoiceTemplateEditor = ({ isQuotation = false }) => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const isEditMode = false;
+  const isEditMode = !!id;
   const templateRef = useRef(null);
   
   // Modal Preview States
@@ -59,30 +70,36 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
   const [approvalPhoto, setApprovalPhoto] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
-  const [selectedCompanyId, setSelectedCompanyId] = useState('smgroups');
+  // Dynamic Companies from DB / Context
+  const { companies: contextCompanies, fetchCompanies } = useCompany();
+  const companiesList = contextCompanies && contextCompanies.length > 0 ? contextCompanies : Object.values(staticCompanies);
+
+  const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [signatureError, setSignatureError] = useState(false);
+
   useEffect(() => {
     setSignatureError(false);
   }, [selectedCompanyId]);
-  const selectedCompany = staticCompanies[selectedCompanyId];
-  const companiesList = Object.values(staticCompanies);
 
-  const [dbCompanies, setDbCompanies] = useState([]);
+  const selectedCompany = companiesList.find(c => 
+    (c._id && c._id === selectedCompanyId) || 
+    (c.id && c.id === selectedCompanyId) || 
+    c.name === selectedCompanyId ||
+    c.name?.toLowerCase().replace(/\s+/g, '') === String(selectedCompanyId)?.toLowerCase().replace(/\s+/g, '')
+  ) || companiesList[0];
 
   useEffect(() => {
-    const fetchCompanies = async () => {
-      try {
-        const res = await api.get('/companies');
-        setDbCompanies(res.data);
-      } catch (err) {
-        console.error("Failed to load companies from DB:", err);
-      }
-    };
-    fetchCompanies();
+    if (!selectedCompanyId && companiesList.length > 0) {
+      setSelectedCompanyId(companiesList[0]._id || companiesList[0].id || 'smgroups');
+    }
+  }, [companiesList, selectedCompanyId]);
+
+  useEffect(() => {
+    fetchCompanies?.();
   }, []);
 
   // ── State ─────────────────────────────────────────────────────
-  const [documentType, setDocumentType] = useState('invoice');
+  const [documentType, setDocumentType] = useState(isQuotation ? 'quotation' : 'invoice');
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
   const [challanNumber, setChallanNumber] = useState('');
@@ -103,6 +120,10 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
     branchName: selectedCompany?.bankDetails?.branchName || ''
   });
 
+  // Amount In Words customization
+  const [customAmountInWords, setCustomAmountInWords] = useState('');
+  const [isCustomWords, setIsCustomWords] = useState(false);
+
   // Sync state when selected company changes (if not in edit mode or loading defaults)
   useEffect(() => {
     if (!isEditMode && selectedCompany) {
@@ -114,6 +135,21 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
         ifscCode: selectedCompany.bankDetails?.ifscCode || '',
         branchName: selectedCompany.bankDetails?.branchName || ''
       });
+
+      const compHsn = selectedCompany.defaultHsn || '7321';
+      const compGst = selectedCompany.defaultGstRate !== undefined ? selectedCompany.defaultGstRate : 0;
+      const compDiscount = selectedCompany.defaultDiscount !== undefined ? selectedCompany.defaultDiscount : 0;
+
+      // Initialize / update items with company defaults if rows are empty or initial
+      setItems(prevItems => prevItems.map(item => ({
+        ...item,
+        hsnCode: (!item.productName && (!item.hsnCode || item.hsnCode === '7321')) ? compHsn : (item.hsnCode || compHsn),
+        gstPercent: (!item.productName && item.gstPercent === 0) ? compGst : (item.gstPercent !== undefined ? item.gstPercent : compGst)
+      })));
+
+      if (compDiscount > 0 && !discountInput) {
+        setDiscountInput(String(compDiscount));
+      }
     }
   }, [selectedCompany, isEditMode]);
 
@@ -123,7 +159,13 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
 
   // Products (up to 10 rows visible on template)
   const [items, setItems] = useState([
-    { productName: '', hsnCode: '99', qty: 1, rate: 0, gstPercent: 0 }
+    { 
+      productName: '', 
+      hsnCode: selectedCompany?.defaultHsn || '7321', 
+      qty: 1, 
+      rate: 0, 
+      gstPercent: selectedCompany?.defaultGstRate !== undefined ? selectedCompany.defaultGstRate : 0 
+    }
   ]);
 
   // UI
@@ -166,6 +208,22 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
     setDocumentType(isQuotation ? 'quotation' : 'invoice');
   }, [isQuotation]);
 
+  // ── Auto-fetch next sequential document number for new docs ───
+  useEffect(() => {
+    if (isEditMode) return;
+    const fetchNextNumber = async () => {
+      try {
+        const res = await api.get(`/invoices/next-number?type=${documentType}`);
+        if (res.data?.nextNumber) {
+          setInvoiceNumber(res.data.nextNumber);
+        }
+      } catch (err) {
+        console.error('Failed to fetch next document number:', err);
+      }
+    };
+    fetchNextNumber();
+  }, [isEditMode, documentType]);
+
   // ── Load existing invoice data in edit mode ───────────────────
   useEffect(() => {
     if (!isEditMode) return;
@@ -189,6 +247,10 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
         if (inv.bankDetails) setBankDetails(inv.bankDetails);
         if (inv.challanNumber) setChallanNumber(inv.challanNumber);
         if (inv.challanDate) setChallanDate(inv.challanDate);
+        if (inv.amountInWords) {
+          setCustomAmountInWords(inv.amountInWords);
+          setIsCustomWords(true);
+        }
         setQtyLabel(inv.qtyLabel || 'Qty');
         setApprovalPhoto(inv.approvalPhoto || '');
         if (inv.discount) {
@@ -201,19 +263,20 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
         if (inv.companyId) {
           const compName = typeof inv.companyId === 'object' ? inv.companyId.name : '';
           const compIdStr = typeof inv.companyId === 'object' ? inv.companyId._id : inv.companyId;
-          const foundKey = Object.keys(staticCompanies).find(
-            key => (compName && staticCompanies[key].name.toLowerCase() === compName.toLowerCase()) || 
-                   staticCompanies[key].id === compIdStr || 
-                   staticCompanies[key]._id === compIdStr
+          const foundComp = companiesList.find(
+            c => (compName && c.name?.toLowerCase() === compName.toLowerCase()) || 
+                 c._id === compIdStr || 
+                 c.id === compIdStr ||
+                 (compIdStr && c._id?.toString() === compIdStr.toString())
           );
-          if (foundKey) {
-            setSelectedCompanyId(foundKey);
+          if (foundComp) {
+            setSelectedCompanyId(foundComp._id || foundComp.id);
           }
         }
         if (inv.items?.length > 0) {
           setItems(inv.items.map(item => ({
             productName: item.name || '',
-            hsnCode: inv.hsnCode || '99',
+            hsnCode: inv.hsnCode || '7321',
             qty: item.qty || 1,
             rate: item.price || 0,
             gstPercent: inv.taxRate || 0
@@ -253,7 +316,8 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
     : discountValParsed;
 
   const grandTotal = Math.max(0, totalTaxableAmount + totalGSTAmount - discountAmount);
-  const amountInWords = numberToWords(grandTotal);
+  const autoAmountInWords = numberToWords(grandTotal);
+  const displayAmountInWords = isCustomWords ? customAmountInWords : autoAmountInWords;
 
   // ── Item Handlers ─────────────────────────────────────────────
   const handleAddItem = () => {
@@ -261,7 +325,16 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
       toast.error('Maximum 10 items allowed on template');
       return;
     }
-    setItems([...items, { productName: '', hsnCode: '99', qty: 1, rate: 0, gstPercent: 0 }]);
+    setItems([
+      ...items, 
+      { 
+        productName: '', 
+        hsnCode: selectedCompany?.defaultHsn || '7321', 
+        qty: 1, 
+        rate: 0, 
+        gstPercent: selectedCompany?.defaultGstRate !== undefined ? selectedCompany.defaultGstRate : 0 
+      }
+    ]);
   };
 
   const handleRemoveItem = (index) => {
@@ -319,23 +392,25 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
           price: Number(item.rate),
           qty: Number(item.qty)
         })),
-        hsnCode: items[0]?.hsnCode || '99',
+        hsnCode: items[0]?.hsnCode || '7321',
         taxRate: Number(items[0]?.gstPercent) || 0,
         tax: totalGSTAmount,
         taxableValue: totalTaxableAmount,
         discount: discountAmount,
-        companyId: dbCompanies.find(c => c.name === selectedCompany?.name)?._id || selectedCompany?._id,
+        companyId: selectedCompany?._id || selectedCompany?.id,
         companyPhone,
         bankDetails,
         challanNumber,
         challanDate,
         qtyLabel,
-        approvalPhoto
+        approvalPhoto,
+        amountInWords: displayAmountInWords
       };
 
       if (isEditMode) {
         await api.put(`/invoices/${id}`, payload);
         toast.success(`${documentType === 'quotation' ? 'Quotation' : 'Invoice'} updated!`);
+        navigate(-1);
       } else {
         const res = await api.post('/invoices', payload);
         toast.success(res.data.message || `${documentType === 'quotation' ? 'Quotation' : 'Invoice'} created!`);
@@ -588,7 +663,7 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
                       type="text"
                       value={item.hsnCode}
                       onChange={e => handleItemChange(index, 'hsnCode', e.target.value)}
-                      placeholder="99"
+                      placeholder="7321"
                     />
                   </div>
                 </div>
@@ -728,6 +803,41 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
             </div>
           </div>
 
+          {/* Amount In Words Section */}
+          <div className="form-section">
+            <div className="flex justify-between items-center mb-2">
+              <div className="form-section-title mb-0">Amount In Words</div>
+              {isCustomWords && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCustomWords(false);
+                    setCustomAmountInWords('');
+                  }}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-medium underline"
+                >
+                  Reset to Auto
+                </button>
+              )}
+            </div>
+            <div className="form-row full">
+              <div className="form-field">
+                <input
+                  type="text"
+                  value={isCustomWords ? customAmountInWords : displayAmountInWords}
+                  onChange={(e) => {
+                    setIsCustomWords(true);
+                    setCustomAmountInWords(e.target.value);
+                  }}
+                  placeholder="Auto-generated from Grand Total..."
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  {isCustomWords ? 'Custom words entered. Click "Reset to Auto" to restore automatic words conversion.' : 'Automatically generated from Grand Total. You can edit this field to customize the words.'}
+                </p>
+              </div>
+            </div>
+          </div>
+
 
           {/* Summary (read-only) */}
           <div className="form-section">
@@ -826,16 +936,17 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
                   alignItems: 'flex-start'
                 }}
               >
-                <div
-                  className="w-[794px] min-h-[1123px] bg-white border border-black p-4 text-sm flex flex-col relative"
-                  style={{
-                    transform: `scale(${modalScale})`,
-                    transformOrigin: 'top center',
-                    flexShrink: 0,
-                    margin: '0 auto',
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
-                  }}
-                >
+                  <div
+                    className="w-[794px] min-h-[1123px] bg-white border border-black p-4 text-sm flex flex-col relative"
+                    style={{
+                      transform: `scale(${modalScale})`,
+                      transformOrigin: 'top center',
+                      flexShrink: 0,
+                      margin: '0 auto',
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                      fontFamily: "'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif"
+                    }}
+                  >
                   <DynamicInvoiceHeader company={selectedCompany} companyPhone={companyPhone} />
 
                   <div 
@@ -962,7 +1073,7 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
                     <div className="border-r border-black p-4 flex flex-col justify-between">
                       <div>
                         <h3 className="font-bold text-gray-700">Amount In Words</h3>
-                        <p className="font-semibold">{grandTotal > 0 ? amountInWords : ''}</p>
+                        <p className="font-semibold">{grandTotal > 0 ? displayAmountInWords : ''}</p>
                       </div>
                       <div className="mt-6">
                         <h3 className="text-base font-bold text-gray-700 mb-2">Bank Details</h3>
@@ -1031,8 +1142,8 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
                     <div className="font-bold border-t-2 border-black pt-2 w-48 text-center relative flex flex-col items-center">
                       {selectedCompany?.signature && !signatureError ? (
                         <img 
-                          src={import.meta.env.BASE_URL + selectedCompany.signature.replace(/^\//, '')} 
-                          alt="Signature" 
+                          src={getSignatureUrl(selectedCompany.signature)} 
+                          alt="" 
                           className="h-16 object-contain absolute bottom-full mb-1" 
                           crossOrigin="anonymous"
                           onError={() => setSignatureError(true)}
@@ -1071,7 +1182,7 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
           id="invoice-template-render"
           ref={templateRef}
           className="w-[794px] min-h-[1123px] border border-black p-4 text-sm flex flex-col relative"
-          style={{ width: '794px', minHeight: '1123px', boxSizing: 'border-box', transform: 'none', margin: '0', backgroundColor: '#ffffff', color: '#000000' }}
+          style={{ width: '794px', minHeight: '1123px', boxSizing: 'border-box', transform: 'none', margin: '0', backgroundColor: '#ffffff', color: '#000000', fontFamily: "'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif" }}
         >
           {selectedCompany && (
             <>
@@ -1200,7 +1311,7 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
                 <div className="border-r border-black p-4 flex flex-col justify-between">
                   <div>
                     <h3 className="font-bold" style={{ color: '#374151' }}>Amount In Words</h3>
-                    <p className="font-semibold">{grandTotal > 0 ? amountInWords : ''}</p>
+                    <p className="font-semibold">{grandTotal > 0 ? displayAmountInWords : ''}</p>
                   </div>
                   <div className="mt-6">
                     <h3 className="text-base font-bold mb-2" style={{ color: '#374151' }}>Bank Details</h3>
@@ -1209,23 +1320,30 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
                         <tr>
                           <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Account Name</td>
                           <td className="pr-2 py-0.5 align-top">:</td>
-                          <td className="py-0.5 align-top">THE SM GROUPS</td>
+                          <td className="py-0.5 align-top">{bankDetails.accountName || selectedCompany?.bankDetails?.accountName || ''}</td>
                         </tr>
                         <tr>
                           <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Bank Name</td>
                           <td className="pr-2 py-0.5 align-top">:</td>
-                          <td className="py-0.5 align-top">CITY UNION BANK</td>
+                          <td className="py-0.5 align-top">{bankDetails.bankName || selectedCompany?.bankDetails?.bankName || ''}</td>
                         </tr>
                         <tr>
                           <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Account Number</td>
                           <td className="pr-2 py-0.5 align-top">:</td>
-                          <td className="py-0.5 align-top">510909010317651</td>
+                          <td className="py-0.5 align-top">{bankDetails.accountNumber || selectedCompany?.bankDetails?.accountNumber || ''}</td>
                         </tr>
                         <tr>
                           <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">IFSC Code</td>
                           <td className="pr-2 py-0.5 align-top">:</td>
-                          <td className="py-0.5 align-top">CIUB0000188</td>
+                          <td className="py-0.5 align-top">{bankDetails.ifscCode || selectedCompany?.bankDetails?.ifscCode || ''}</td>
                         </tr>
+                        {(bankDetails.branchName || selectedCompany?.bankDetails?.branchName) && (
+                          <tr>
+                            <td className="font-semibold pr-2 py-0.5 whitespace-nowrap align-top">Branch Name</td>
+                            <td className="pr-2 py-0.5 align-top">:</td>
+                            <td className="py-0.5 align-top">{bankDetails.branchName || selectedCompany?.bankDetails?.branchName}</td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -1264,8 +1382,8 @@ const InvoiceTemplateEditor = ({ isQuotation = false }) => {
                 <div className="font-bold border-t-2 border-black pt-2 w-48 text-center relative flex flex-col items-center">
                   {selectedCompany?.signature && !signatureError ? (
                     <img 
-                      src={import.meta.env.BASE_URL + selectedCompany.signature.replace(/^\//, '')} 
-                      alt="Signature" 
+                      src={getSignatureUrl(selectedCompany.signature)} 
+                      alt="" 
                       className="h-16 object-contain absolute bottom-full mb-1" 
                       crossOrigin="anonymous"
                       onError={() => setSignatureError(true)}

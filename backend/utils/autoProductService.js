@@ -1,19 +1,24 @@
 const Product = require("../models/Product");
 const Category = require("../models/Category");
 
+const escapeRegex = (string) => {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
 const generateBarcode = () => {
     return `PRD${Date.now()}${Math.floor(Math.random() * 1000)}`;
 };
 
 const findOrCreateCategory = async (categoryName) => {
-    if (!categoryName) return { category: null, isNew: false };
+    if (!categoryName || !categoryName.trim()) return { category: null, isNew: false };
 
-    // Case-insensitive exact match
-    let category = await Category.findOne({ name: { $regex: new RegExp(`^${categoryName}$`, "i") } });
+    const trimmed = categoryName.trim();
+    // Case-insensitive exact match with escaped regex
+    let category = await Category.findOne({ name: { $regex: new RegExp(`^${escapeRegex(trimmed)}$`, "i") } });
     
     if (!category) {
         category = await Category.create({
-            name: categoryName,
+            name: trimmed,
             description: "Auto created from billing"
         });
         return { category, isNew: true };
@@ -23,17 +28,18 @@ const findOrCreateCategory = async (categoryName) => {
 };
 
 const findOrCreateProduct = async (productName, categoryId, price, createdBy) => {
-    if (!productName) return { product: null, isNew: false };
+    if (!productName || !productName.trim()) return { product: null, isNew: false };
 
-    // Case-insensitive exact match
-    let product = await Product.findOne({ name: { $regex: new RegExp(`^${productName}$`, "i") } });
+    const trimmed = productName.trim();
+    // Case-insensitive exact match with escaped regex
+    let product = await Product.findOne({ name: { $regex: new RegExp(`^${escapeRegex(trimmed)}$`, "i") } });
 
     if (!product) {
         product = await Product.create({
-            name: productName,
+            name: trimmed,
             barcode: generateBarcode(),
             category: categoryId,
-            price: price || 0,
+            price: Number(price) || 0,
             stock: 0,
             createdBy: createdBy,
             isAutoCreated: true
@@ -49,3 +55,4 @@ module.exports = {
     findOrCreateCategory,
     findOrCreateProduct
 };
+

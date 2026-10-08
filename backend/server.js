@@ -52,6 +52,8 @@ const allowedOrigins = [
   'https://billing-system-wgas.onrender.com',
   'http://localhost:5173',
   'http://localhost:3000',
+  'http://187.77.184.25',
+  'https://187.77.184.25',
 ].filter(Boolean);
 
 app.use(cors({
@@ -59,10 +61,11 @@ app.use(cors({
     // allow requests with no origin (mobile apps, curl, Postman)
     if (!origin) return callback(null, true);
 
-    // Allow any localhost origin in development
+    // Allow any localhost origin in development or VPS IP
     const isLocal = origin.startsWith("http://localhost:") || origin === "http://localhost" || origin.startsWith("http://127.0.0.1:");
+    const isVpsIp = origin.includes("187.77.184.25");
 
-    if (isLocal || allowedOrigins.includes(origin)) {
+    if (isLocal || isVpsIp || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
     console.warn(`⚠️ CORS blocked origin: ${origin}`);
@@ -120,6 +123,11 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads"), {
     }
 }));
 
+// Uploads 404 handler to prevent falling through to index.html
+app.use("/uploads", (req, res) => {
+    res.status(404).json({ message: "Uploaded file not found", path: req.url });
+});
+
 // Database Connection
 const MONGODB_URI = process.env.MONGODB_URI;
 if (!MONGODB_URI) {
@@ -145,6 +153,19 @@ async function connectDB() {
   try {
     await mongoose.connect(MONGODB_URI, connectionOptions);
     console.log('✅ MongoDB Connected: Billingsoftware');
+
+    // Auto-seed default companies if empty
+    try {
+      const Company = require("./models/Company");
+      const defaultCompanies = require("./utils/defaultCompanies");
+      const count = await Company.countDocuments();
+      if (count === 0) {
+        console.log('🌱 Seeding default companies into database...');
+        await Company.insertMany(defaultCompanies);
+      }
+    } catch (seedErr) {
+      console.error('Seeding companies notice:', seedErr.message);
+    }
   } catch (err) {
     console.error('❌ MongoDB connection failed:', err.message);
     // Retry after 5 seconds
@@ -183,8 +204,14 @@ if (process.env.NODE_ENV === "production") {
     // Handle React routing, return all GET requests to React app
     app.use((req, res, next) => {
         if (req.method !== 'GET') return next();
-        if (req.url.startsWith('/api')) return next();
-        res.sendFile(path.join(__dirname, "../frontend/dist", "index.html"));
+        if (req.url.startsWith('/api') || req.url.startsWith('/uploads')) return next();
+        const indexPath = path.join(__dirname, "../frontend/dist", "index.html");
+        const fs = require('fs');
+        if (fs.existsSync(indexPath)) {
+            res.sendFile(indexPath);
+        } else {
+            res.status(404).json({ message: "Page not found", path: req.url });
+        }
     });
 } else {
     // Test Route
@@ -203,6 +230,16 @@ app.use((req, res) => {
     res.status(404).json({
         message: "Endpoint not found. Please check your URL and method (POST/GET).",
         path: req.url
+    });
+});
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error("🔥 Server Error:", err.message || err);
+    const statusCode = err.statusCode || err.status || (res.statusCode === 200 ? 500 : res.statusCode);
+    res.status(statusCode).json({
+        message: err.message || "An unexpected server error occurred",
+        success: false
     });
 });
 

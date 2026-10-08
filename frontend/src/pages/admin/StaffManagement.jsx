@@ -14,7 +14,7 @@ const StaffManagement = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentId, setCurrentId] = useState(null);
-  const [formData, setFormData] = useState({ name: '', email: '', phone: '', staffId: '', password: '', role: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '', staffId: '', password: '', role: '', bankAccount: '', ifscCode: '' });
   const [submitting, setSubmitting] = useState(false);
 
   const fetchStaff = async () => {
@@ -51,8 +51,6 @@ const StaffManagement = () => {
     };
   }, []);
 
-
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     // Frontend validation: role must be provided
@@ -73,8 +71,8 @@ const StaffManagement = () => {
       setShowAddForm(false);
       setIsEditing(false);
       setCurrentId(null);
-      // Reset form fields, role cleared
-      setFormData({ name: '', email: '', phone: '', staffId: '', password: '', role: '' });
+      // Reset form fields
+      setFormData({ name: '', email: '', phone: '', staffId: '', password: '', role: '', bankAccount: '', ifscCode: '' });
       fetchStaff();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Operation failed');
@@ -90,7 +88,9 @@ const StaffManagement = () => {
       phone: staff.phone,
       staffId: staff.staffId,
       password: '', // Don't show password
-      role: staff.role
+      role: staff.role,
+      bankAccount: staff.bankAccount || '',
+      ifscCode: staff.ifscCode || ''
     });
     setCurrentId(staff._id);
     setIsEditing(true);
@@ -130,7 +130,7 @@ const StaffManagement = () => {
         <button 
           onClick={() => {
             setIsEditing(false);
-            setFormData({ name: '', email: '', phone: '', staffId: '', password: '', role: '' });
+            setFormData({ name: '', email: '', phone: '', staffId: '', password: '', role: '', bankAccount: '', ifscCode: '' });
             setShowAddForm(true);
           }}
           className="bg-primary hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center shadow-sm transition-all self-start sm:self-auto"
@@ -169,6 +169,26 @@ const StaffManagement = () => {
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                   className="w-full border border-slate-300 p-2 rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Bank Account Number</label>
+                <input
+                  placeholder="e.g. 123456789012"
+                  value={formData.bankAccount}
+                  onChange={(e) => setFormData({ ...formData, bankAccount: e.target.value })}
+                  className="w-full border border-slate-300 p-2 rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">IFSC Code</label>
+                <input
+                  placeholder="e.g. SBIN0001234"
+                  value={formData.ifscCode}
+                  onChange={(e) => setFormData({ ...formData, ifscCode: e.target.value.toUpperCase() })}
+                  className="w-full border border-slate-300 p-2 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 uppercase"
                 />
               </div>
             </div>

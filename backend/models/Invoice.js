@@ -38,7 +38,7 @@ const invoiceSchema = new mongoose.Schema({
     }],
     subtotal: { type: Number, required: true },
     taxableValue: { type: Number, default: 0 },
-    hsnCode: { type: String, default: "99" },
+    hsnCode: { type: String, default: "7321" },
     taxRate: { type: Number, default: 0 },
     tax: { type: Number, default: 0 },
     discount: { type: Number, default: 0 },
@@ -77,6 +77,10 @@ const invoiceSchema = new mongoose.Schema({
         default: "Qty"
     },
     approvalPhoto: {
+        type: String,
+        default: ""
+    },
+    amountInWords: {
         type: String,
         default: ""
     },

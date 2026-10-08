@@ -258,7 +258,7 @@ const SubmitComplaint = () => {
 
             <button
               onClick={() => setIsDetailOpen(false)}
-              className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl text-sm transition-all"
+              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-xl text-sm transition-all"
             >
               Close
             </button>

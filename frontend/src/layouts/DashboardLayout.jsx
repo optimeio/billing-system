@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { 
-  LayoutDashboard, Users, FileText, QrCode, CreditCard, 
+  LayoutDashboard, Users, FileText, CreditCard, 
   Wallet, Package, Tags, Bell, Settings, LogOut, Menu, X, Calendar, Megaphone, AlertCircle, Building 
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
@@ -39,7 +39,6 @@ const DashboardLayout = () => {
         { name: 'Staff Management', path: '/admin/staff', icon: Users },
         { name: 'Invoices', path: '/admin/invoices', icon: FileText },
         { name: 'Quotations', path: '/admin/quotations', icon: FileText },
-        { name: 'Scanner Verification', path: '/admin/scanners', icon: QrCode },
         { name: 'Payments', path: '/admin/payments', icon: CreditCard },
         { name: 'Expenses', path: '/admin/expenses', icon: Wallet },
         { name: 'Products', path: '/admin/products', icon: Package },
@@ -57,7 +56,6 @@ const DashboardLayout = () => {
         { name: 'Products', path: '/inventory/products', icon: Package },
         { name: 'Categories', path: '/inventory/categories', icon: Tags },
         { name: 'Quotations', path: '/inventory/quotations', icon: FileText },
-        { name: 'Scanners', path: '/inventory/scanners', icon: QrCode },
         { name: 'Leave Request', path: '/inventory/leaves', icon: Calendar },
         { name: 'Announcements', path: '/inventory/announcements', icon: Megaphone },
         { name: 'My Payslips', path: '/inventory/payslips', icon: FileText },
@@ -73,7 +71,6 @@ const DashboardLayout = () => {
         { name: 'My Invoices', path: '/staff/invoices', icon: FileText },
         { name: 'Create Quotation', path: '/staff/create-quotation', icon: FileText },
         { name: 'My Quotations', path: '/staff/quotations', icon: FileText },
-        { name: 'Generate QR', path: '/staff/scanners', icon: QrCode },
         { name: 'My Expenses', path: '/staff/expenses', icon: Wallet },
         { name: 'Leave Request', path: '/staff/leaves', icon: Calendar },
         { name: 'Announcements', path: '/staff/announcements', icon: Megaphone },

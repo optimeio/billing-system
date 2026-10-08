@@ -11,7 +11,9 @@ const Profile = () => {
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || '',
-    phone: user?.phone || ''
+    phone: user?.phone || '',
+    bankAccount: user?.bankAccount || '',
+    ifscCode: user?.ifscCode || ''
   });
   const fileInputRef = useRef(null);
 
@@ -99,11 +101,23 @@ const Profile = () => {
                     <Shield size={18} className="text-primary" />
                     <span>ID: {user?.staffId || 'ADMIN'}</span>
                   </div>
+                  <div className="flex items-center space-x-3 text-slate-600">
+                    <span className="font-semibold text-xs uppercase tracking-wider text-slate-400">Bank:</span>
+                    <span>{user?.bankAccount ? `${user.bankAccount} (${user.ifscCode || 'No IFSC'})` : 'Not configured'}</span>
+                  </div>
                 </div>
 
                 <div className="pt-6 border-t border-slate-100">
                   <button 
-                    onClick={() => setIsEditing(true)}
+                    onClick={() => {
+                      setFormData({
+                        name: user?.name || '',
+                        phone: user?.phone || '',
+                        bankAccount: user?.bankAccount || '',
+                        ifscCode: user?.ifscCode || ''
+                      });
+                      setIsEditing(true);
+                    }}
                     className="bg-primary text-white px-6 py-2 rounded-lg font-medium shadow-lg shadow-primary/30 hover:bg-red-700 transition-all"
                   >
                     Edit Profile
@@ -131,6 +145,28 @@ const Profile = () => {
                     onChange={(e) => setFormData({...formData, phone: e.target.value})}
                     className="w-full p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
                   />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Bank Account Number</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 123456789012"
+                      value={formData.bankAccount}
+                      onChange={(e) => setFormData({...formData, bankAccount: e.target.value})}
+                      className="w-full p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">IFSC Code</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. SBIN0001234"
+                      value={formData.ifscCode}
+                      onChange={(e) => setFormData({...formData, ifscCode: e.target.value.toUpperCase()})}
+                      className="w-full p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 uppercase"
+                    />
+                  </div>
                 </div>
                 <div className="flex items-center space-x-4 pt-4 border-t border-slate-100">
                   <button 

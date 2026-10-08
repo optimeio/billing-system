@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Calendar, Users, CheckCircle, XCircle, Award, Eye, Edit2, Search } from "lucide-react";
+import { Calendar, Users, CheckCircle, XCircle, Award, Eye, Edit2, Search, ExternalLink, Copy } from "lucide-react";
 import api from "../../services/api";
 import toast from "react-hot-toast";
 import Modal from "../../components/common/Modal";
@@ -15,6 +15,25 @@ const AttendanceManagement = () => {
   });
   const [searchQuery, setSearchQuery] = useState("");
 
+  const ADMIN_EMAIL = "admin@company.com";
+  const ADMIN_PASSWORD = "Password@123";
+  const EMS_ADMIN_URL = `https://ems.thesmgroups.com/login?email=${encodeURIComponent(ADMIN_EMAIL)}&password=${encodeURIComponent(ADMIN_PASSWORD)}`;
+
+  const handleOpenEmsAdmin = () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(ADMIN_EMAIL);
+    }
+    toast.success("Admin email & password prepared. Opening EMS Admin Portal...", { duration: 3000 });
+    window.open(EMS_ADMIN_URL, "_blank");
+  };
+
+  const copyToClipboard = (text, label) => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      toast.success(`${label} copied to clipboard!`);
+    }
+  };
+
   // Override Modal
   const [isOverrideOpen, setIsOverrideOpen] = useState(false);
   const [targetLog, setTargetLog] = useState(null);
@@ -26,8 +45,8 @@ const AttendanceManagement = () => {
 
   // Photo Modal
   const [isPhotoOpen, setIsPhotoOpen] = useState(false);
-  const [photoUrl, setPhotoUrl] = useState("");
-  const [photoUser, setPhotoUser] = useState("");
+  const [photoData, setPhotoData] = useState(null);
+  const [photoStatus, setPhotoStatus] = useState("loading"); // 'loading' | 'success' | 'error'
 
   useEffect(() => {
     fetchDailyLogs();
@@ -86,12 +105,20 @@ const AttendanceManagement = () => {
     }
   };
 
-  const handleViewPhoto = (photoPath, userName) => {
-    // Check if path is full URL or relative path
+  const handleViewPhoto = (photoPath, user, time, type = "Check-In") => {
+    if (!photoPath) return;
     const backendUrl = import.meta.env.VITE_API_URL || "";
     const cleanUrl = photoPath.startsWith("http") ? photoPath : `${backendUrl.replace("/api", "")}${photoPath}`;
-    setPhotoUrl(cleanUrl);
-    setPhotoUser(userName);
+    setPhotoStatus("loading");
+    setPhotoData({
+      url: cleanUrl,
+      userName: user?.name || "Staff Member",
+      staffId: user?.staffId || "-",
+      role: user?.role || "Staff",
+      time: formatTime(time),
+      type,
+      date: selectedDate
+    });
     setIsPhotoOpen(true);
   };
 
@@ -122,8 +149,61 @@ const AttendanceManagement = () => {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8 pb-12">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Attendance Management</h1>
-        <p className="text-sm text-slate-500 mt-1">Monitor daily staff check-ins, verify visual uploads, and override statuses.</p>
+        <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Staff Attendance</h1>
+        <p className="text-sm text-slate-500 mt-1">Review historical attendance logs or manage live attendance on the EMS Portal.</p>
+      </div>
+
+      {/* ── EMS ADMIN PORTAL REDIRECT & AUTOFILL CARD ── */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white p-6 rounded-2xl shadow-lg border border-indigo-800/40 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-6">
+        <div className="space-y-3 max-w-2xl">
+          <div className="inline-flex items-center gap-1.5 bg-blue-500/20 text-blue-300 px-2.5 py-0.5 rounded-full text-xs font-semibold">
+            <span>Official EMS Attendance Portal</span>
+          </div>
+          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+            Live Staff Attendance is Managed on EMS Admin Portal
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+            Real-time biometric, QR, and daily check-ins are hosted on <a href="https://ems.thesmgroups.com/admin" target="_blank" rel="noopener noreferrer" className="underline font-mono text-white font-bold">https://ems.thesmgroups.com/admin</a>.
+          </p>
+
+          {/* Quick Credentials Info with Copy Buttons */}
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/15 px-3 py-1.5 rounded-lg text-xs">
+              <span className="text-slate-400 font-medium">Email:</span>
+              <span className="font-mono font-bold text-white">{ADMIN_EMAIL}</span>
+              <button
+                type="button"
+                onClick={() => copyToClipboard(ADMIN_EMAIL, "Email")}
+                className="hover:text-blue-300 transition-colors ml-1 p-0.5 cursor-pointer"
+                title="Copy Email"
+              >
+                <Copy size={13} />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/15 px-3 py-1.5 rounded-lg text-xs">
+              <span className="text-slate-400 font-medium">Password:</span>
+              <span className="font-mono font-bold text-white">{ADMIN_PASSWORD}</span>
+              <button
+                type="button"
+                onClick={() => copyToClipboard(ADMIN_PASSWORD, "Password")}
+                className="hover:text-blue-300 transition-colors ml-1 p-0.5 cursor-pointer"
+                title="Copy Password"
+              >
+                <Copy size={13} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleOpenEmsAdmin}
+          className="inline-flex items-center justify-center gap-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold px-6 py-4 rounded-xl shadow-lg shadow-blue-600/30 text-sm sm:text-base transition-all hover:scale-[1.02] shrink-0 text-center w-full xl:w-auto cursor-pointer"
+        >
+          <span>Open EMS Admin Portal</span>
+          <ExternalLink size={18} />
+        </button>
       </div>
 
       {/* Metrics Row */}
@@ -239,7 +319,7 @@ const AttendanceManagement = () => {
                         <span className="font-semibold text-slate-700">{formatTime(log.checkIn)}</span>
                         {log.photo ? (
                           <button
-                            onClick={() => handleViewPhoto(log.photo, `Check-In Selfie: ${log.user.name}`)}
+                            onClick={() => handleViewPhoto(log.photo, log.user, log.checkIn, "Check-In")}
                             className="group relative inline-block focus:outline-none shrink-0"
                             title="View Check-In selfie"
                           >
@@ -248,7 +328,8 @@ const AttendanceManagement = () => {
                               alt="Check In"
                               className="w-10 h-10 object-cover rounded-lg border border-slate-200 shadow-sm transition-transform group-hover:scale-105"
                               onError={(e) => {
-                                e.target.src = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&h=100&q=80";
+                                e.target.onerror = null;
+                                e.target.src = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><rect width="40" height="40" rx="8" fill="%23f1f5f9"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-weight="bold" font-size="14" fill="%2364748b">${encodeURIComponent(log.user.name.charAt(0))}</text></svg>`;
                               }}
                             />
                             <span className="absolute -bottom-1 -right-1 bg-primary text-white p-0.5 rounded-full shadow border border-white">
@@ -267,7 +348,7 @@ const AttendanceManagement = () => {
                         <span className="font-semibold text-slate-700">{formatTime(log.checkOut)}</span>
                         {log.photoOut1 ? (
                           <button
-                            onClick={() => handleViewPhoto(log.photoOut1, `Check-Out Selfie: ${log.user.name}`)}
+                            onClick={() => handleViewPhoto(log.photoOut1, log.user, log.checkOut, "Check-Out")}
                             className="group relative inline-block focus:outline-none shrink-0"
                             title="View Check-Out selfie"
                           >
@@ -276,7 +357,8 @@ const AttendanceManagement = () => {
                               alt="Check Out"
                               className="w-10 h-10 object-cover rounded-lg border border-slate-200 shadow-sm transition-transform group-hover:scale-105"
                               onError={(e) => {
-                                e.target.src = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&h=100&q=80";
+                                e.target.onerror = null;
+                                e.target.src = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><rect width="40" height="40" rx="8" fill="%23f1f5f9"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-weight="bold" font-size="14" fill="%2364748b">${encodeURIComponent(log.user.name.charAt(0))}</text></svg>`;
                               }}
                             />
                             <span className="absolute -bottom-1 -right-1 bg-primary text-white p-0.5 rounded-full shadow border border-white">
@@ -376,24 +458,82 @@ const AttendanceManagement = () => {
       )}
 
       {/* Selfie Photo Zoom Modal */}
-      <Modal isOpen={isPhotoOpen} onClose={() => setIsPhotoOpen(false)} title={`Check-In Image: ${photoUser}`}>
-        <div className="p-4 flex flex-col items-center justify-center gap-4">
-          <img
-            src={photoUrl}
-            alt="Check-In Selfie"
-            className="max-w-full max-h-[70dvh] object-contain rounded-2xl shadow-lg border border-slate-150"
-            onError={(e) => {
-              e.target.src = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&h=400&q=80";
-            }}
-          />
-          <button
-            onClick={() => setIsPhotoOpen(false)}
-            className="w-full max-w-xs bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 rounded-xl text-sm transition-all shadow-md shadow-slate-800/10"
-          >
-            Close Viewer
-          </button>
-        </div>
-      </Modal>
+      {photoData && (
+        <Modal 
+          isOpen={isPhotoOpen} 
+          onClose={() => setIsPhotoOpen(false)} 
+          title={`${photoData.type} Verification: ${photoData.userName}`}
+          maxWidth="max-w-md w-full"
+        >
+          <div className="p-5 space-y-4">
+            {/* Staff Info Card Header */}
+            <div className="flex items-center justify-between bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
+              <div className="space-y-0.5">
+                <p className="font-bold text-slate-800 text-sm">{photoData.userName}</p>
+                <p className="text-slate-500 font-medium">{photoData.staffId} • {photoData.role.toUpperCase()}</p>
+              </div>
+              <div className="text-right">
+                <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold inline-block ${
+                  photoData.type === 'Check-In' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
+                }`}>
+                  {photoData.type} at {photoData.time}
+                </span>
+                <p className="text-[10px] text-slate-400 mt-1">{photoData.date}</p>
+              </div>
+            </div>
+
+            {/* Photo Container */}
+            <div className="flex justify-center items-center bg-slate-100 rounded-2xl p-2 border border-slate-200 overflow-hidden min-h-[260px] relative">
+              {photoStatus === 'loading' && (
+                <div className="flex flex-col items-center justify-center p-8 text-slate-400">
+                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-xs font-medium mt-2">Loading image...</span>
+                </div>
+              )}
+
+              <img
+                src={photoData.url}
+                alt={`${photoData.type} Selfie`}
+                className={`max-h-[55vh] max-w-full object-contain rounded-xl shadow-sm ${photoStatus === 'success' ? 'block' : 'hidden'}`}
+                onLoad={() => setPhotoStatus("success")}
+                onError={() => setPhotoStatus("error")}
+              />
+
+              {photoStatus === 'error' && (
+                <div className="flex flex-col items-center justify-center p-8 text-slate-400 text-center gap-2">
+                  <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-2xl mb-1 shadow-inner">
+                    {photoData.userName.charAt(0)}
+                  </div>
+                  <p className="text-sm font-bold text-slate-700">Selfie Not Stored Locally</p>
+                  <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
+                    This check-in was logged in the database, but the image file was stored on a previous server instance or is missing from local disk.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2.5 pt-1">
+              {photoStatus === 'success' ? (
+                <a
+                  href={photoData.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl text-xs transition-all text-center flex items-center justify-center gap-1.5 border border-slate-200"
+                >
+                  <ExternalLink size={14} /> Open Full Size
+                </a>
+              ) : null}
+              <button
+                onClick={() => setIsPhotoOpen(false)}
+                className="flex-1 bg-primary hover:bg-primary-dark text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md shadow-primary/20"
+              >
+                Close Viewer
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </motion.div>
   );
 };

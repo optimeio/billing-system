@@ -57,6 +57,14 @@ const userSchema = new mongoose.Schema({
     basicSalary: {
         type: Number,
         default: 0
+    },
+    bankAccount: {
+        type: String,
+        default: ""
+    },
+    ifscCode: {
+        type: String,
+        default: ""
     }
 }, { timestamps: true });
 

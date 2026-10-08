@@ -6,7 +6,7 @@ const { getIO } = require("../utils/socketService");
 // @desc    Create new staff (Admin Only)
 // @route   POST /api/staff/create
 exports.createStaff = async (req, res) => {
-    const { name, email, phone, staffId, password, role, basicSalary } = req.body;
+    const { name, email, phone, staffId, password, role, basicSalary, bankAccount, ifscCode } = req.body;
     if (!role) {
       return res.status(400).json({ message: "Role is required" });
     }
@@ -28,7 +28,9 @@ exports.createStaff = async (req, res) => {
             password, // Will be hashed by pre-save hook
             role: role || "staff",
             isFirstLogin: (role === "inventory" || role === "inventory_manager" || role === "inventory manager") ? false : true,
-            basicSalary: basicSalary ? Number(basicSalary) : 0
+            basicSalary: basicSalary ? Number(basicSalary) : 0,
+            bankAccount: bankAccount || "",
+            ifscCode: ifscCode || ""
         });
 
         if (user) {
@@ -181,7 +183,7 @@ exports.getStaffById = async (req, res) => {
 // @desc    Update Staff (Admin Only)
 // @route   PUT /api/staff/:id
 exports.updateStaff = async (req, res) => {
-    const { name, email, phone, staffId, role, basicSalary } = req.body;
+    const { name, email, phone, staffId, role, basicSalary, bankAccount, ifscCode } = req.body;
     try {
         const user = await User.findById(req.params.id);
         if (!user) return res.status(404).json({ message: "Staff member not found" });
@@ -198,6 +200,12 @@ exports.updateStaff = async (req, res) => {
         user.role = role || user.role;
         if (basicSalary !== undefined) {
             user.basicSalary = Number(basicSalary);
+        }
+        if (bankAccount !== undefined) {
+            user.bankAccount = bankAccount;
+        }
+        if (ifscCode !== undefined) {
+            user.ifscCode = ifscCode;
         }
 
         const updatedUser = await user.save();

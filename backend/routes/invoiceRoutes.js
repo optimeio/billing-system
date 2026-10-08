@@ -4,6 +4,7 @@ const {
     createInvoice,
     getInvoices,
     getInvoiceById,
+    getNextNumber,
     cancelInvoice,
     markInvoiceAsPaid,
     downloadInvoice,
@@ -31,6 +32,7 @@ router.route("/")
     .post(createInvoice)
     .get(getInvoices);
 
+router.get("/next-number", getNextNumber);
 router.get("/:id", getInvoiceById);
 router.put("/:id", updateInvoice);
 router.patch("/:id/approval-photo", updateApprovalPhoto);

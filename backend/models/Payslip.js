@@ -18,6 +18,10 @@ const payslipSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    bonus: {
+        type: Number,
+        default: 0
+    },
     deductions: {
         type: Number,
         default: 0
@@ -34,10 +38,44 @@ const payslipSchema = new mongoose.Schema({
         type: Number, 
         required: true 
     },
+    department: {
+        type: String,
+        default: "Operations"
+    },
+    designation: {
+        type: String,
+        default: ""
+    },
+    bankAccount: {
+        type: String,
+        default: ""
+    },
+    ifscCode: {
+        type: String,
+        default: ""
+    },
+    paymentMode: {
+        type: String,
+        default: "Bank Transfer"
+    },
+    payDate: {
+        type: String,
+        default: ""
+    },
     status: {
         type: String,
-        enum: ["paid", "pending"],
-        default: "paid"
+        enum: ["draft", "published", "paid"],
+        default: "published"
+    },
+    emailSent: {
+        type: Boolean,
+        default: false
+    },
+    emailSentAt: {
+        type: Date
+    },
+    publishedAt: {
+        type: Date
     },
     generatedBy: {
         type: mongoose.Schema.Types.ObjectId,
