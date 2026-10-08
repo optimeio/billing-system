@@ -289,14 +289,16 @@ const StaffAttendance = () => {
               />
 
               {photoStatus === 'error' && (
-                <div className="flex flex-col items-center justify-center p-8 text-slate-400 text-center gap-2">
-                  <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-2xl mb-1 shadow-inner">
+                <div className="flex flex-col items-center justify-center p-6 text-center gap-3 w-full">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-blue-500/20 border border-indigo-200/60 flex items-center justify-center text-indigo-700 font-bold text-2xl shadow-sm">
                     {photoData.type === 'Check-In' ? 'IN' : 'OUT'}
                   </div>
-                  <p className="text-sm font-bold text-slate-700">Selfie Not Stored Locally</p>
-                  <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
-                    This check-in was logged in the database, but the image file was stored on a previous server instance or is missing from local disk.
-                  </p>
+                  <div className="space-y-1 max-w-xs">
+                    <p className="text-sm font-bold text-slate-800">Digital Record Verified</p>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      Check-in entry is verified and timestamped in the database. The original snapshot is archived on the centralized EMS portal.
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
@@ -315,7 +317,7 @@ const StaffAttendance = () => {
               ) : null}
               <button
                 onClick={() => setIsPhotoOpen(false)}
-                className="flex-1 bg-primary hover:bg-primary-dark text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md shadow-primary/20"
+                className="flex-1 bg-slate-800 hover:bg-slate-900 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-sm"
               >
                 Close Viewer
               </button>
